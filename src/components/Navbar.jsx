@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import { buildWaUrl } from '../config/contact'
 
 const SECTION_ITEMS = [
     { hash: '#alojamientos', label: 'Alojamientos' },
@@ -92,7 +93,7 @@ export default function Navbar() {
 
                     {/* WhatsApp CTA */}
                     <a
-                        href={`https://wa.me/${import.meta.env.VITE_WHATSAPP || '56950921745'}?text=Hola%2C%20quiero%20consultar%20disponibilidad`}
+                        href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
                         target="_blank" rel="noopener noreferrer"
                         className="ml-2 px-3 py-2 bg-green-500 hover:bg-green-600 text-white text-sm font-bold rounded-lg transition-colors flex items-center gap-1.5"
                     >
@@ -148,7 +149,7 @@ export default function Navbar() {
                                 </div>
                             )}
 
-                            <a href={`https://wa.me/${import.meta.env.VITE_WHATSAPP || '56912345678'}?text=Hola%2C%20quiero%20consultar%20disponibilidad`}
+                            <a href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
                                 target="_blank" rel="noopener noreferrer"
                                 className="mt-2 px-4 py-3 bg-green-500 text-white text-sm font-bold rounded-lg text-center">
                                 💬 Consultar por WhatsApp

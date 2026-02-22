@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { CONTACT, LOCATIONS } from '../../data/subsiteSections'
+import { DEFAULT_WA_MESSAGE } from '../../config/contact'
 
 export default function ContactSection({ variant = 'cabana' }) {
     const label = variant === 'cabana' ? 'cabaña' : 'departamento'
     const loc = LOCATIONS[variant] ?? LOCATIONS.cabana
-    const waUrl = `https://wa.me/${CONTACT.whatsapp}`
+    const waUrl = `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(DEFAULT_WA_MESSAGE)}`
 
     const [form, setForm] = useState({ name: '', email: '', phone: '', checkIn: '', checkOut: '', guests: '', message: '' })
     const [sent, setSent] = useState(false)

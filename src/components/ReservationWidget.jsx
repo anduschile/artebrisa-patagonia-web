@@ -3,8 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { getWebChannelId } from '../data/channels'
 import { findOrCreateGuest } from '../data/guests'
 import { getConflicts, createInquiryReservation } from '../data/reservations'
-
-const WHATSAPP = import.meta.env.VITE_WHATSAPP || '56912345678'
+import { WHATSAPP_NUMBER } from '../config/contact'
 
 // ─── helpers ────────────────────────────────────────────────
 function todayStr() {
@@ -49,8 +48,8 @@ function buildWhatsAppMsg({ unit, reservation, guest }) {
 function StepDot({ n, active, done }) {
     return (
         <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold border-2 transition-colors ${done ? 'bg-green-500 border-green-500 text-white' :
-                active ? 'bg-primary-500 border-primary-500 text-white' :
-                    'bg-white border-slate-300 text-slate-400'
+            active ? 'bg-primary-500 border-primary-500 text-white' :
+                'bg-white border-slate-300 text-slate-400'
             }`}>
             {done ? '✓' : n}
         </div>
@@ -90,7 +89,7 @@ function ConfirmationScreen({ reservation, unit, guest }) {
                 Te contactaremos para confirmar. Para agilizar, escríbenos por WhatsApp:
             </p>
             <a
-                href={`https://wa.me/${WHATSAPP}?text=${waMsg}`}
+                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors"

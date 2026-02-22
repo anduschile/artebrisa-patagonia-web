@@ -6,8 +6,7 @@ import { getUnitImage, unitImages } from '../data/unitImages'
 import { SERVICES_BY_TYPE, POLICIES, PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
 import ImageCarousel from '../components/ImageCarousel'
 import ReservationWidget from '../components/ReservationWidget'
-
-const WHATSAPP = import.meta.env.VITE_WHATSAPP || '56912345678'
+import { WHATSAPP_NUMBER } from '../config/contact'
 
 // ─── Derive gallery folder from mapping ─────────────────────
 function getGalleryBase(unit) {
@@ -352,7 +351,7 @@ export default function UnitDetailPage() {
                                 <p className="text-xs text-slate-500">Te respondemos por WhatsApp en minutos.</p>
                             </div>
                             <a
-                                href={`https://wa.me/${WHATSAPP}?text=${waMsg}`}
+                                href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold text-sm rounded-lg transition-colors flex-shrink-0"

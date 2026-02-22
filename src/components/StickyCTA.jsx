@@ -1,13 +1,11 @@
-const WHATSAPP = import.meta.env.VITE_WHATSAPP || '56912345678'
+import { buildWaUrl } from '../config/contact'
 
 export default function StickyCTA() {
-    const message = encodeURIComponent('Hola, quiero consultar disponibilidad en Arte Brisa Patagonia')
-
     return (
         <div className="fixed bottom-0 left-0 right-0 z-50 md:hidden pb-safe">
             <div className="px-4 py-3 bg-white/95 backdrop-blur-sm border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.1)]">
                 <a
-                    href={`https://wa.me/${WHATSAPP}?text=${message}`}
+                    href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center justify-center gap-2 w-full py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold text-base rounded-xl transition-colors shadow-lg"

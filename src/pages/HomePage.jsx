@@ -4,8 +4,7 @@ import { motion } from 'framer-motion'
 import HeroSection from '../components/HeroSection'
 import UnitCard from '../components/UnitCard'
 import { getFeaturedUnits } from '../data/units'
-
-const WHATSAPP = import.meta.env.VITE_WHATSAPP || '56912345678'
+import { buildWaUrl } from '../config/contact'
 
 function CategoryCard({ to, title, description, imageClass, color }) {
     return (
@@ -162,7 +161,7 @@ export default function HomePage() {
                         Consulta disponibilidad, precios y todo lo que necesitas saber antes de reservar. Te respondemos en minutos.
                     </p>
                     <a
-                        href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola, quiero consultar disponibilidad en Arte Brisa Patagonia')}`}
+                        href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-8 py-3.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors shadow-lg text-base"

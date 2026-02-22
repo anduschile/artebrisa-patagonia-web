@@ -11,8 +11,7 @@ import FaqSection from '../components/sections/FaqSection'
 import ContactSection from '../components/sections/ContactSection'
 import { getUnitsByType } from '../data/units'
 import { SERVICES_BY_TYPE } from '../data/unitDefaults'
-
-const WHATSAPP = '56950921745'
+import { buildWaUrl } from '../config/contact'
 
 const FILTER_SERVICES = SERVICES_BY_TYPE.departamento
     .filter(s => ['wifi', 'kitchen', 'heat', 'location', 'tv'].includes(s.icon))
@@ -167,7 +166,7 @@ export default function DepartamentosPage() {
                             Los departamentos se están preparando. Contáctanos directamente para consultar disponibilidad.
                         </p>
                         <a
-                            href={`https://wa.me/${WHATSAPP}?text=${encodeURIComponent('Hola, quiero consultar disponibilidad de departamentos en Arte Brisa Patagonia')}`}
+                            href={buildWaUrl('Hola, quiero consultar disponibilidad de departamentos en Arte Brisa Patagonia')}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
                         >
