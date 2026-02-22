@@ -6,6 +6,8 @@ import {
     getBlockConflicts,
 } from '../../data/admin/reservations'
 import { getAllUnits, getAllChannels } from '../../data/admin/units'
+import { runIcalSync, getExternalCalendars, setCalendarActive } from '../../data/admin/icalSync'
+import { supabase } from '../../lib/supabaseClient'
 
 const STATUS_COLORS = {
     inquiry: 'bg-yellow-900 text-yellow-300 border-yellow-700',
@@ -54,6 +56,21 @@ function StatusBadge({ status }) {
     )
 }
 
+const RESULT_COLORS = {
+    green: 'bg-green-900 text-green-300 border-green-700',
+    blue: 'bg-blue-900 text-blue-300 border-blue-700',
+    slate: 'bg-slate-800 text-slate-400 border-slate-700',
+    red: 'bg-red-900 text-red-300 border-red-700',
+}
+
+function ResultBadge({ label, value = 0, color = 'slate' }) {
+    return (
+        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border ${RESULT_COLORS[color] || RESULT_COLORS.slate}`}>
+            <span className="font-bold">{value}</span> {label}
+        </span>
+    )
+}
+
 export default function AdminReservationsPage() {
     const [reservations, setReservations] = useState([])
     const [units, setUnits] = useState([])
@@ -79,6 +96,13 @@ export default function AdminReservationsPage() {
     // Status change per row
     const [changingId, setChangingId] = useState(null)
 
+    // ── iCal Sync state ──
+    const [showIcal, setShowIcal] = useState(false)
+    const [icalCalendars, setIcalCalendars] = useState([])
+    const [icalSyncing, setIcalSyncing] = useState(false)
+    const [icalResult, setIcalResult] = useState(null)   // last sync result JSON
+    const [icalError, setIcalError] = useState(null)
+
     const load = useCallback(async () => {
         setLoading(true)
         setError(null)
@@ -100,6 +124,7 @@ export default function AdminReservationsPage() {
     useEffect(() => {
         getAllUnits().then(setUnits).catch(() => { })
         getAllChannels().then(setChannels).catch(() => { })
+        getExternalCalendars().then(setIcalCalendars).catch(() => { })
     }, [])
 
     useEffect(() => { load() }, [load])
@@ -145,6 +170,38 @@ export default function AdminReservationsPage() {
         }
     }
 
+    async function handleIcalSync() {
+        setIcalSyncing(true)
+        setIcalError(null)
+        setIcalResult(null)
+        try {
+            // Guard: require an active admin session so the auth header is valid
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) {
+                throw new Error('Debes iniciar sesión para ejecutar la sincronización.')
+            }
+            const result = await runIcalSync()
+            setIcalResult(result)
+            // Reload reservations so new blocked rows appear
+            await load()
+            // Refresh calendar last_synced_at
+            getExternalCalendars().then(setIcalCalendars).catch(() => { })
+        } catch (e) {
+            setIcalError(e.message)
+        } finally {
+            setIcalSyncing(false)
+        }
+    }
+
+    async function handleToggleCalendar(id, current) {
+        try {
+            await setCalendarActive(id, !current)
+            setIcalCalendars(prev => prev.map(c => c.id === id ? { ...c, is_active: !current } : c))
+        } catch (e) {
+            alert(`Error: ${e.message}`)
+        }
+    }
+
     function buildCopySummary(r) {
         const guest = r.core_guests
         const unit = r.core_units || unitsMap[String(r.unit_id)]
@@ -176,6 +233,113 @@ export default function AdminReservationsPage() {
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" /></svg>
                     Nuevo bloqueo
                 </button>
+            </div>
+
+            {/* ── iCal Sync panel ── */}
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl mb-5">
+                {/* Header row */}
+                <div className="flex items-center justify-between px-5 py-3 cursor-pointer select-none" onClick={() => setShowIcal(v => !v)}>
+                    <div className="flex items-center gap-3">
+                        <span className="text-base">🔄</span>
+                        <span className="text-sm font-bold text-white">iCal Sync</span>
+                        <span className="text-xs text-slate-500">
+                            {icalCalendars.filter(c => c.is_active).length} calendario{icalCalendars.filter(c => c.is_active).length !== 1 ? 's' : ''} activo{icalCalendars.filter(c => c.is_active).length !== 1 ? 's' : ''}
+                        </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={e => { e.stopPropagation(); handleIcalSync() }}
+                            disabled={icalSyncing}
+                            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors flex items-center gap-2"
+                        >
+                            {icalSyncing
+                                ? <><span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin inline-block" /> Sincronizando…</>
+                                : '⬇ Sync ahora'
+                            }
+                        </button>
+                        <svg
+                            className={`w-4 h-4 text-slate-500 transition-transform ${showIcal ? 'rotate-180' : ''}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </div>
+                </div>
+
+                {/* Expanded body */}
+                {showIcal && (
+                    <div className="border-t border-slate-800 px-5 py-4 space-y-4">
+
+                        {/* Error */}
+                        {icalError && (
+                            <p className="text-red-400 text-sm">⚠ {icalError}</p>
+                        )}
+
+                        {/* Sync result */}
+                        {icalResult && (
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Resultado — {fmtTs(icalResult.synced_at)}</p>
+                                {/* Global totals */}
+                                <div className="flex flex-wrap gap-2 mb-2">
+                                    <ResultBadge label="Insertadas" value={icalResult.totals?.inserted} color="green" />
+                                    <ResultBadge label="Actualizadas" value={icalResult.totals?.updated} color="blue" />
+                                    <ResultBadge label="Sin cambios" value={icalResult.totals?.skipped} color="slate" />
+                                    <ResultBadge label="Errores" value={icalResult.totals?.errors} color="red" />
+                                </div>
+                                {/* Per-calendar */}
+                                {icalResult.calendars?.length > 0 && (
+                                    <div className="space-y-1">
+                                        {icalResult.calendars.map(c => (
+                                            <div key={c.calendar_id} className="flex items-start gap-3 text-xs text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
+                                                <span className="text-slate-300 font-medium shrink-0">{c.display_name || c.name || 'Calendario'}</span>
+                                                <span className="text-green-400">+{c.inserted}</span>
+                                                <span className="text-blue-400">~{c.updated}</span>
+                                                <span className="text-slate-500">={c.skipped}</span>
+                                                {c.errors?.length > 0 && (
+                                                    <span className="text-red-400 ml-auto" title={c.errors.join('\n')}>⚠ {c.errors.length} error(es)</span>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Calendars list */}
+                        {icalCalendars.length === 0 ? (
+                            <p className="text-slate-500 text-sm">
+                                No hay calendarios configurados. Agregalos en <span className="text-slate-300">Supabase → Table Editor → core_external_calendars</span>.
+                            </p>
+                        ) : (
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Calendarios</p>
+                                {icalCalendars.map(cal => {
+                                    const unit = cal.core_units
+                                    return (
+                                        <div key={cal.id} className="flex items-center gap-3 bg-slate-800 rounded-lg px-3 py-2 text-xs">
+                                            <button
+                                                onClick={() => handleToggleCalendar(cal.id, cal.is_active)}
+                                                className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${cal.is_active ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                                                title={cal.is_active ? 'Desactivar' : 'Activar'}
+                                            >
+                                                <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${cal.is_active ? 'left-4' : 'left-0.5'}`} />
+                                            </button>
+                                            <div className="flex-1 min-w-0">
+                                                <p className="text-slate-200 font-medium truncate">{cal.display_name || cal.name || 'Sin nombre'}</p>
+                                                <p className="text-slate-500 truncate">
+                                                    {unit ? `${unit.name} (${unit.code})` : <span className="text-amber-400">Sin unidad asignada</span>}
+                                                </p>
+                                            </div>
+                                            <div className="text-slate-600 shrink-0">
+                                                {cal.last_synced_at ? fmtTs(cal.last_synced_at) : '—'}
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* ── Block form ── */}
