@@ -1,0 +1,161 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ───────────────────────────────────────────
+   Base
+─────────────────────────────────────────── */
+:root {
+  --primary: #0891b2;
+  --primary-dark: #0e7490;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ───────────────────────────────────────────
+   Hero (replicando clases del sitio original)
+─────────────────────────────────────────── */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  color: #fff;
+  overflow: hidden;
+}
+
+.hero-cabanas {
+  background-image: url('/images/common/hero_cabanasa_artebrisa.png');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.hero-departamentos {
+  background-image: url('/images/common/hero_departamentos_patagonia.png');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+/* Home hero */
+.hero--home {
+  min-height: 520px;
+  height: 60vh;
+  padding-top: 3.5rem;
+  padding-bottom: 3.5rem;
+}
+
+.hero--home::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.2) 0%,
+    rgba(0,0,0,0.45) 40%,
+    rgba(0,0,0,0.7) 100%
+  );
+  z-index: 1;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+}
+
+.hero--home .hero-content {
+  max-width: 560px;
+  width: 55%;
+}
+
+.hero--home .hero-title {
+  font-size: clamp(2.2rem, 3vw, 3.2rem);
+  line-height: 1.1;
+  margin-bottom: 0.8rem;
+  font-weight: 900;
+  color: #fff;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 16px rgba(0,0,0,0.7);
+}
+
+.hero--home .hero-subtitle {
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+  line-height: 1.4;
+  max-width: 32rem;
+  color: rgba(255,255,255,0.92);
+  font-weight: 500;
+}
+
+/* Listing hero */
+.hero--listing {
+  min-height: 280px;
+  height: 38vh;
+  padding-top: 5rem;
+  padding-bottom: 2.5rem;
+}
+
+.hero--listing::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    to right,
+    rgba(0,0,0,0.6) 0%,
+    rgba(0,0,0,0.4) 50%,
+    rgba(0,0,0,0.1) 100%
+  );
+  z-index: 1;
+}
+
+.hero--listing .hero-title {
+  font-size: clamp(1.8rem, 3vw, 2.8rem);
+  font-weight: 900;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  text-shadow: 0 2px 12px rgba(0,0,0,0.6);
+  margin-bottom: 0.5rem;
+}
+
+.hero--listing .hero-subtitle {
+  font-size: clamp(0.95rem, 1.2vw, 1.1rem);
+  color: rgba(255,255,255,0.88);
+  max-width: 28rem;
+}
+
+/* ───────────────────────────────────────────
+   Mobile responsive hero
+─────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .hero--home {
+    height: auto;
+    min-height: 340px;
+    padding-top: 5rem;
+    padding-bottom: 3rem;
+  }
+  .hero--home .hero-content {
+    width: 100%;
+    max-width: 100%;
+  }
+  .hero--listing {
+    height: auto;
+    min-height: 220px;
+    padding-top: 5rem;
+  }
+}

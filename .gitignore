@@ -1,0 +1,11 @@
+# Arte Brisa Patagonia — .gitignore
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+
+*.tif
+*.tiff
+
