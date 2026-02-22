@@ -22,8 +22,8 @@ function IconInstagram() {
 
 export default function Footer() {
     const { pathname } = useLocation()
+    const isHome = pathname === '/'
     const isDepto = pathname.startsWith('/departamentos')
-    const address = isDepto ? LOCATIONS.departamento.address : LOCATIONS.cabana.address
 
     return (
         <footer className="bg-slate-900 text-slate-300">
@@ -90,7 +90,20 @@ export default function Footer() {
                                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="flex-shrink-0 mt-0.5">
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
                                 </svg>
-                                <span>{address}</span>
+                                {isHome ? (
+                                    <div className="space-y-2">
+                                        <div>
+                                            <span className="font-bold text-white block mb-0.5">Cabañas:</span>
+                                            <span className="text-slate-400">{LOCATIONS.cabana.address}</span>
+                                        </div>
+                                        <div>
+                                            <span className="font-bold text-white block mb-0.5">Departamentos:</span>
+                                            <span className="text-slate-400">{LOCATIONS.departamento.address}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <span>{isDepto ? LOCATIONS.departamento.address : LOCATIONS.cabana.address}</span>
+                                )}
                             </li>
                         </ul>
                     </div>
