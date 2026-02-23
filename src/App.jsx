@@ -11,6 +11,7 @@ import AdminGuard from './components/admin/AdminGuard'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminReservationsPage from './pages/admin/AdminReservationsPage'
+import AdminRatesPage from './pages/admin/AdminRatesPage'
 
 export default function App() {
     return (
@@ -30,6 +31,7 @@ export default function App() {
                 <Route element={<AdminGuard />}>
                     <Route element={<AdminLayout />}>
                         <Route path="/admin/reservas" element={<AdminReservationsPage />} />
+                        <Route path="/admin/tarifas" element={<AdminRatesPage />} />
                     </Route>
                 </Route>
             </Routes>

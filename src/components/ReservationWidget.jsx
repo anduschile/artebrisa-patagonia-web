@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion'
 import { getWebChannelId } from '../data/channels'
 import { findOrCreateGuest } from '../data/guests'
 import { getConflicts, createInquiryReservation } from '../data/reservations'
+import { getDailyRatesForRange } from '../data/units'
+import { formatCLP } from '../data/unitDefaults'
 import { WHATSAPP_NUMBER } from '../config/contact'
 
 // ─── helpers ────────────────────────────────────────────────
@@ -33,6 +35,7 @@ function buildWhatsAppMsg({ unit, reservation, guest }) {
         `📅 *Check-out:* ${formatDate(reservation.check_out)}`,
         `🌙 *Noches:* ${nightCount(reservation.check_in, reservation.check_out)}`,
         `👤 *Huéspedes:* ${reservation.adults} adulto${reservation.adults !== 1 ? 's' : ''}${reservation.children ? `, ${reservation.children} niño${reservation.children !== 1 ? 's' : ''}` : ''}`,
+        ...(reservation.quoted_total > 0 ? [`💰 *Total estimado:* ${formatCLP(reservation.quoted_total)}`] : []),
         ``,
         `*Contacto:*`,
         `Nombre: ${guest.full_name}`,
@@ -82,7 +85,13 @@ function ConfirmationScreen({ reservation, unit, guest }) {
                 <div className="flex justify-between"><span className="text-slate-500">Check-in</span><span className="font-semibold">{formatDate(reservation.check_in)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Check-out</span><span className="font-semibold">{formatDate(reservation.check_out)}</span></div>
                 <div className="flex justify-between"><span className="text-slate-500">Noches</span><span className="font-semibold">{nightCount(reservation.check_in, reservation.check_out)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Huéspedes</span><span className="font-semibold">{reservation.adults}a {reservation.children > 0 ? `+ ${reservation.children}n` : ''}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Huéspedes</span><span className="font-semibold text-slate-800">{reservation.adults}a {reservation.children > 0 ? `+ ${reservation.children}n` : ''}</span></div>
+                {reservation.quoted_total > 0 && (
+                    <div className="flex justify-between pt-2 border-t border-slate-200 mt-1">
+                        <span className="text-slate-900 font-bold">Total estimado</span>
+                        <span className="font-black text-primary-700 text-lg">{formatCLP(reservation.quoted_total)}</span>
+                    </div>
+                )}
             </div>
 
             <p className="text-xs text-slate-500 mb-4">
@@ -115,9 +124,60 @@ export default function ReservationWidget({ unit }) {
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
     const [conflictMsg, setConflictMsg] = useState(null)
+    const [quote, setQuote] = useState({ total: 0, avg: 0, loading: false, nights: 0 })
     const [done, setDone] = useState(null) // { reservation, guest }
 
     const nights = nightCount(checkIn, checkOut)
+
+    // Price calculation
+    useEffect(() => {
+        if (nights > 0 && unit.id) {
+            calculatePrice()
+        } else {
+            setQuote({ total: 0, avg: 0, loading: false, nights: 0 })
+        }
+    }, [checkIn, checkOut, unit.id])
+
+    async function calculatePrice() {
+        if (!checkIn || !checkOut || nights <= 0) return
+
+        setQuote(q => ({ ...q, loading: true }))
+        try {
+            // Last night of stay is checkOut - 1
+            const lastNight = new Date(checkOut + 'T12:00:00')
+            if (isNaN(lastNight.getTime())) throw new Error('Invalid checkOut date')
+
+            lastNight.setDate(lastNight.getDate() - 1)
+            const lastNightStr = lastNight.toISOString().split('T')[0]
+
+            const overrides = await getDailyRatesForRange(unit.id, checkIn, lastNightStr)
+
+            let total = 0
+            let current = new Date(checkIn + 'T12:00:00')
+            const end = new Date(checkOut + 'T12:00:00')
+
+            if (isNaN(current.getTime()) || isNaN(end.getTime())) throw new Error('Invalid dates')
+
+            const basePrice = Number(unit.base_price || 0)
+
+            while (current < end) {
+                const dateStr = current.toISOString().split('T')[0]
+                const price = overrides[dateStr] ?? basePrice
+                total += Number(price || 0)
+                current.setDate(current.getDate() + 1)
+            }
+
+            setQuote({
+                total,
+                avg: total / nights,
+                loading: false,
+                nights
+            })
+        } catch (err) {
+            console.error('Error calculating price:', err)
+            setQuote(q => ({ ...q, loading: false }))
+        }
+    }
 
     // Step 1 validation
     function validateDates() {
@@ -151,6 +211,7 @@ export default function ReservationWidget({ unit }) {
 
     async function handleSubmit(e) {
         e.preventDefault()
+        if (!unit?.id) { setError('No se pudo identificar la unidad de reserva.'); return }
         if (!fullName.trim()) { setError('El nombre es obligatorio'); return }
         setError(null)
         setLoading(true)
@@ -178,6 +239,9 @@ export default function ReservationWidget({ unit }) {
                 adults,
                 children,
                 notes,
+                quoted_total: quote.total,
+                quoted_nights: quote.nights,
+                quoted_currency: 'CLP'
             })
 
             setDone({ reservation, guest: { full_name: fullName, email, phone } })
@@ -260,9 +324,27 @@ export default function ReservationWidget({ unit }) {
                     </div>
 
                     {nights > 0 && (
-                        <p className="text-xs text-primary-600 font-semibold text-center bg-primary-50 rounded-lg py-1.5">
-                            {nights} noche{nights !== 1 ? 's' : ''}
-                        </p>
+                        <div className="space-y-2">
+                            <p className="text-xs text-primary-600 font-semibold text-center bg-primary-50 rounded-lg py-1.5 line-clamp-1">
+                                {nights} noche{nights !== 1 ? 's' : ''}
+                            </p>
+
+                            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center">
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total estimado</span>
+                                {quote.loading ? (
+                                    <span className="text-xs text-slate-400 animate-pulse">Calculando...</span>
+                                ) : quote.total > 0 ? (
+                                    <div className="text-right">
+                                        <div className="text-lg font-black text-primary-700 leading-none">{formatCLP(quote.total)}</div>
+                                        <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                                            Promedio: {formatCLP(quote.avg)} / noche
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <span className="text-xs font-bold text-primary-600">Consultar</span>
+                                )}
+                            </div>
+                        </div>
                     )}
 
                     <div className="grid grid-cols-2 gap-3">
@@ -304,9 +386,17 @@ export default function ReservationWidget({ unit }) {
             {step === 2 && (
                 <form onSubmit={handleSubmit} className="px-6 pb-6 space-y-4">
                     {/* Summary */}
-                    <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 flex justify-between border border-slate-200">
-                        <span>{formatDate(checkIn)} → {formatDate(checkOut)}</span>
-                        <span className="font-semibold text-primary-600">{nights} noche{nights !== 1 ? 's' : ''} · {adults}a{children > 0 ? ` ${children}n` : ''}</span>
+                    <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 flex flex-col gap-1 border border-slate-200">
+                        <div className="flex justify-between">
+                            <span>{formatDate(checkIn)} → {formatDate(checkOut)}</span>
+                            <span className="font-semibold text-primary-600">{nights} noche{nights !== 1 ? 's' : ''} · {adults}a{children > 0 ? ` ${children}n` : ''}</span>
+                        </div>
+                        {quote.total > 0 && (
+                            <div className="flex justify-between pt-1 border-t border-slate-200 mt-1">
+                                <span className="font-bold text-slate-500 uppercase text-[10px]">Total estimado</span>
+                                <span className="font-black text-slate-900 text-sm">{formatCLP(quote.total)}</span>
+                            </div>
+                        )}
                     </div>
 
                     <div>

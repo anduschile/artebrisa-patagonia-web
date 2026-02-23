@@ -20,6 +20,9 @@ export async function getAdminReservations({ status = null, from = null, to = nu
             property_id,
             channel_id,
             guest_id,
+            quoted_total,
+            quoted_currency,
+            quoted_nights,
             core_units ( id, name, code, unit_type ),
             core_guests ( id, full_name, email, phone ),
             core_channels ( id, name )

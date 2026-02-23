@@ -21,6 +21,11 @@ function fmtTs(ts) {
     if (!ts) return '—'
     return new Date(ts).toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
+function formatCLP(value) {
+    if (value == null) return '—'
+    return `$${Number(value).toLocaleString('es-CL')}`
+}
+
 function nights(ci, co) {
     const n = (new Date(co) - new Date(ci)) / 86400000
     return n > 0 ? n : 0
@@ -156,6 +161,27 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
                             </div>
                         </div>
                     </section>
+
+                    {/* Quoted Price */}
+                    {r.quoted_total !== null && (
+                        <section>
+                            <p className="text-xs font-bold text-slate-500 uppercase tracking-wide mb-3">Monto estimado</p>
+                            <div className="bg-slate-800 rounded-xl p-4 border border-slate-700/50 shadow-inner">
+                                <div className="flex items-baseline justify-between mb-1">
+                                    <span className="text-xs text-slate-500 font-medium">Total estimado</span>
+                                    <span className="text-xl font-black text-emerald-400">
+                                        {formatCLP(r.quoted_total)}
+                                    </span>
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t border-slate-700/50 text-[11px]">
+                                    <span className="text-slate-500">Noches cotizadas: <span className="text-slate-300 font-bold">{r.quoted_nights || n}</span></span>
+                                    {(r.quoted_nights || n) > 0 && r.quoted_total > 0 && (
+                                        <span className="text-slate-500">Promedio: <span className="text-slate-300 font-bold">{formatCLP(r.quoted_total / (r.quoted_nights || n))}</span>/noche</span>
+                                    )}
+                                </div>
+                            </div>
+                        </section>
+                    )}
 
                     {/* Guest */}
                     <section>

@@ -55,6 +55,9 @@ export async function createInquiryReservation({
     adults = 1,
     children = 0,
     notes = '',
+    quoted_total = null,
+    quoted_currency = 'CLP',
+    quoted_nights = null,
 }) {
     const payload = {
         property_id: unit.property_id,
@@ -66,6 +69,9 @@ export async function createInquiryReservation({
         check_out,
         adults: adults || 1,
         children: children || 0,
+        quoted_total,
+        quoted_currency,
+        quoted_nights,
         ...(notes && notes.trim() ? { notes: notes.trim() } : {}),
     }
 

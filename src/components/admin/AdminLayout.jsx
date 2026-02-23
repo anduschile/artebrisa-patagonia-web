@@ -25,6 +25,12 @@ export default function AdminLayout() {
                     Reservas
                 </Link>
                 <Link
+                    to="/admin/tarifas"
+                    className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800"
+                >
+                    Tarifas
+                </Link>
+                <Link
                     to="/"
                     className="text-sm text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-1.5"
                 >

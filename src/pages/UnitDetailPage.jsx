@@ -167,46 +167,29 @@ function PoliciesBlock() {
     )
 }
 
-// ─── Precios por temporada ────────────────────────────────────
-function PricesBlock({ code }) {
-    const prices = PRICES_BY_CODE[code]
-    if (!prices) return null
-    const rows = [
-        { label: 'Temporada alta', key: 'alta', note: 'Dic–Feb, Semana Santa' },
-        { label: 'Temporada media', key: 'media', note: 'Oct–Nov, Mar–Abr' },
-        { label: 'Temporada baja', key: 'baja', note: 'May–Sep' },
-    ]
+// ─── Información de Precios ────────────────────────────────────
+function PricesBlock({ unit }) {
+    if (!unit.base_price) return null
     return (
-        <Section title="Precios por temporada">
-            <div className="overflow-hidden rounded-xl border border-slate-100">
-                <table className="w-full text-sm">
-                    <thead>
-                        <tr className="bg-slate-50 text-slate-500 text-xs uppercase tracking-wide">
-                            <th className="text-left px-4 py-2.5 font-semibold">Temporada</th>
-                            <th className="text-right px-4 py-2.5 font-semibold">Precio / noche</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {rows.map(({ label, key, note }, i) => (
-                            <tr key={key} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                                <td className="px-4 py-3">
-                                    <span className="font-medium text-slate-700">{label}</span>
-                                    <span className="text-slate-400 text-xs block">{note}</span>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                    <span className={`font-bold ${prices[key] ? 'text-primary-600' : 'text-slate-400'}`}>
-                                        {formatCLP(prices[key])}
-                                    </span>
-                                    {prices[key] && <span className="text-slate-400 text-xs ml-1">CLP</span>}
-                                </td>
-                            </tr>
-                        ))}
-                    </tbody>
-                </table>
+        <Section title="Información de Tarifa">
+            <div className="bg-primary-50 border border-primary-100 rounded-2xl p-6">
+                <div className="text-slate-500 text-xs uppercase font-black tracking-widest mb-1">Tarifa base</div>
+                <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-black text-primary-700">{formatCLP(unit.base_price)}</span>
+                    <span className="text-slate-500 font-bold">/ noche</span>
+                </div>
+                <p className="text-slate-500 text-sm mt-3 leading-relaxed">
+                    Esta es nuestra tarifa base referencial. El precio puede variar según la fecha seleccionada en fechas especiales o festivos.
+                </p>
+                <div className="mt-6 pt-6 border-t border-primary-100 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
+                    </div>
+                    <div className="text-xs text-primary-800 font-medium">
+                        Consulta disponibilidad y tarifas finales para tus fechas vía WhatsApp.
+                    </div>
+                </div>
             </div>
-            <p className="text-xs text-slate-400 mt-2">
-                * Precios referenciales. La tarifa final puede variar según disponibilidad.
-            </p>
         </Section>
     )
 }
@@ -230,7 +213,7 @@ export default function UnitDetailPage() {
 
     if (loading) return <Skeleton />
 
-    if (notFound) {
+    if (notFound || !unit) {
         return (
             <div className="min-h-[60vh] flex items-center justify-center px-4 pt-20">
                 <div className="text-center">
@@ -306,6 +289,11 @@ export default function UnitDetailPage() {
                                 <path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
                             </svg>
                             Hasta {capacity} personas
+                            {unit.base_price > 0 && (
+                                <span className="ml-2 text-primary-600 font-bold">
+                                    · Desde {formatCLP(unit.base_price)}
+                                </span>
+                            )}
                         </div>
                     )}
                 </motion.div>
@@ -339,7 +327,7 @@ export default function UnitDetailPage() {
                         <ServicesBlock unitType={unitType} />
 
                         {/* ── Precios ── */}
-                        <PricesBlock code={unit.code} />
+                        <PricesBlock unit={unit} />
 
                         {/* ── Políticas ── */}
                         <PoliciesBlock />
