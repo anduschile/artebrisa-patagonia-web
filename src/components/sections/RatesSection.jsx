@@ -23,7 +23,7 @@ export default function RatesSection({ variant = 'cabana' }) {
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
                     <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Nuestras Tarifas</h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">
-                        Precios por noche · Consulta por WhatsApp para ofertas especiales y estadías prolongadas
+                        Precios por noche (aprox.) · Consulta por WhatsApp para ofertas especiales y estadías prolongadas
                     </p>
                 </motion.div>
 
@@ -40,7 +40,7 @@ export default function RatesSection({ variant = 'cabana' }) {
                                 <tr className="bg-primary-600 text-white text-xs font-semibold uppercase tracking-wide">
                                     <th className="text-left px-5 py-4">Unidad</th>
                                     <th className="text-center px-4 py-4">Capacidad</th>
-                                    <th className="text-right px-5 py-4">Tarifa base / Noche</th>
+                                    <th className="text-right px-5 py-4 whitespace-nowrap">Tarifa base / noche (aprox.)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -51,7 +51,7 @@ export default function RatesSection({ variant = 'cabana' }) {
                                         <td className="px-5 py-4 font-bold text-slate-800">{u.name}</td>
                                         <td className="px-4 py-4 text-center text-slate-600">{u.capacity_total || u.capacidad_total} personas</td>
                                         <td className="px-5 py-4 text-right font-black text-primary-700 text-lg">
-                                            {formatCLP(u.base_price)}
+                                            {formatCLP(u.base_price)} <span className="text-[10px] text-slate-400 font-normal">(aprox.)</span>
                                         </td>
                                     </tr>
                                 ))}

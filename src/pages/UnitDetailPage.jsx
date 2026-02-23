@@ -291,7 +291,7 @@ export default function UnitDetailPage() {
                             Hasta {capacity} personas
                             {unit.base_price > 0 && (
                                 <span className="ml-2 text-primary-600 font-bold">
-                                    · Desde {formatCLP(unit.base_price)}
+                                    · Desde {formatCLP(unit.base_price)} (aprox.)
                                 </span>
                             )}
                         </div>

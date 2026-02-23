@@ -33,6 +33,8 @@ export default function AdminRatesPage() {
         fetchData()
     }, [year, month])
 
+    const [showInactive, setShowInactive] = useState(false)
+
     async function fetchData() {
         setLoading(true)
         try {
@@ -65,10 +67,13 @@ export default function AdminRatesPage() {
         }
     }
 
-    const filteredUnits = units.filter(u => {
-        if (typeFilter === 'all') return true
-        return u.unit_type === typeFilter
-    })
+    const filteredUnits = useMemo(() => {
+        return units.filter(u => {
+            const matchesType = typeFilter === 'all' || u.unit_type === typeFilter
+            const matchesActive = showInactive || u.is_active !== false
+            return matchesType && matchesActive
+        })
+    }, [units, typeFilter, showInactive])
 
     function handlePrevMonth() {
         setCurrentDate(new Date(year, month - 1, 1))
@@ -117,10 +122,28 @@ export default function AdminRatesPage() {
             </div>
 
             {/* Filters */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2">
-                <FilterButton active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>Todas</FilterButton>
-                <FilterButton active={typeFilter === 'cabana'} onClick={() => setTypeFilter('cabana')}>Cabañas</FilterButton>
-                <FilterButton active={typeFilter === 'departamento'} onClick={() => setTypeFilter('departamento')}>Departamentos</FilterButton>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 overflow-x-auto pb-2">
+                <div className="flex items-center gap-2">
+                    <FilterButton active={typeFilter === 'all'} onClick={() => setTypeFilter('all')}>Todas</FilterButton>
+                    <FilterButton active={typeFilter === 'cabana'} onClick={() => setTypeFilter('cabana')}>Cabañas</FilterButton>
+                    <FilterButton active={typeFilter === 'departamento'} onClick={() => setTypeFilter('departamento')}>Departamentos</FilterButton>
+                </div>
+
+                <div className="flex items-center gap-3 px-1">
+                    <label className="flex items-center gap-2 cursor-pointer group">
+                        <div className="relative">
+                            <input
+                                type="checkbox"
+                                className="sr-only"
+                                checked={showInactive}
+                                onChange={e => setShowInactive(e.target.checked)}
+                            />
+                            <div className={`block w-8 h-5 rounded-full transition-colors ${showInactive ? 'bg-primary-600' : 'bg-slate-700'}`}></div>
+                            <div className={`absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition-transform ${showInactive ? 'translate-x-3' : ''}`}></div>
+                        </div>
+                        <span className="text-xs font-bold text-slate-400 group-hover:text-slate-300 transition-colors">Ver inactivas</span>
+                    </label>
+                </div>
             </div>
 
             {/* Grid Container */}
@@ -147,9 +170,14 @@ export default function AdminRatesPage() {
                         </thead>
                         <tbody>
                             {filteredUnits.map(unit => (
-                                <tr key={unit.id} className="hover:bg-slate-800/30 transition-colors">
+                                <tr key={unit.id} className={`hover:bg-slate-800/30 transition-colors ${unit.is_active === false ? 'opacity-50 grayscale-[0.5]' : ''}`}>
                                     <td className="sticky left-0 z-10 bg-slate-900 py-3 px-4 border-b border-slate-800">
-                                        <div className="text-sm font-bold text-white truncate">{unit.name}</div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="text-sm font-bold text-white truncate">{unit.name}</div>
+                                            {unit.is_active === false && (
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-500 uppercase font-black border border-slate-700">Inactiva</span>
+                                            )}
+                                        </div>
                                         <div className="text-[10px] text-slate-500 font-mono">{unit.code}</div>
                                     </td>
                                     {daysArray.map(day => {
@@ -201,8 +229,8 @@ function FilterButton({ children, active, onClick }) {
         <button
             onClick={onClick}
             className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${active
-                    ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20'
-                    : 'bg-slate-900 text-slate-400 border border-slate-800 hover:border-slate-700'
+                ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20'
+                : 'bg-slate-900 text-slate-400 border border-slate-800 hover:border-slate-700'
                 }`}
         >
             {children}

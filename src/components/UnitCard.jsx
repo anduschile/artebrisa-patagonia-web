@@ -169,7 +169,7 @@ export default function UnitCard({ unit }) {
                 <div className="mb-3">
                     <span className="text-xs text-slate-400">Desde </span>
                     {priceNum
-                        ? <span className="text-primary-600 font-bold text-base">${priceNum.toLocaleString('es-CL')} <span className="text-xs font-normal text-slate-400">/ noche</span></span>
+                        ? <span className="text-primary-600 font-bold text-base">${priceNum.toLocaleString('es-CL')} <span className="text-xs text-slate-400 font-normal">(aprox.)</span> <span className="text-xs font-normal text-slate-400">/ noche</span></span>
                         : <span className="text-slate-400 font-semibold text-sm">— / noche</span>
                     }
                 </div>
