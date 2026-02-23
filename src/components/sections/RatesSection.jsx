@@ -14,10 +14,10 @@ const UNIT_LABELS = {
     'TINY-NIRRE': { name: 'Tiny Ñirre', cap: '2 personas' },
     'TINY-VIOLETA': { name: 'Tiny Violeta', cap: '2 personas' },
     // Departamentos
-    'DEP-1': { name: 'Departamento 1', cap: '4 personas' },
+    'DEP-1': { name: 'Departamento 1', cap: '5 personas' },
     'DEP-2': { name: 'Departamento 2', cap: '2 personas' },
     'DEP-3': { name: 'Departamento 3', cap: '3 personas' },
-    'DEP-4': { name: 'Departamento 4', cap: '4 personas' },
+    'DEP-4': { name: 'Departamento 4', cap: '5 personas' },
 }
 
 const CABANA_CODES = ['CAB-CIRUELILLO', 'CAB-LUPINO', 'CAB-CHILCO', 'CAB-FLOR-DE-NOTRO', 'TINY-CALAFATE', 'TINY-MARGARITA', 'TINY-NIRRE', 'TINY-VIOLETA']
