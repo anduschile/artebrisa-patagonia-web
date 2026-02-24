@@ -5,6 +5,7 @@ export async function getAllUnits() {
     const { data, error } = await supabase
         .from('core_units')
         .select('id, name, code, unit_type, property_id, is_active')
+        .eq('is_active', true)
         .order('unit_type')
         .order('name')
     if (error) throw new Error(`getAllUnits: ${error.message}`)
