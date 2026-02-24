@@ -111,6 +111,22 @@ Deno.serve(async (req: Request) => {
         })
     }
 
+    // ── ICAL_CRON_TOKEN Validation ─────────────────────────────────────────────
+    const token = req.headers.get('x-ical-cron-token')
+    const expected = Deno.env.get('ICAL_CRON_TOKEN')
+
+    if (!expected) {
+        console.warn('ICAL_CRON_TOKEN is not defined in the environment. Skipping validation.')
+    } else if (token !== expected) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            },
+        })
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
 
