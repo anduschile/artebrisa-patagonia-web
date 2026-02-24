@@ -297,34 +297,40 @@ async function processCalendar(
                 external_source: 'ical',
             }
 
-            const { data, error, status } = await supabase
+            const { data: existing, error: selectErr } = await supabase
                 .from('core_reservations')
-                .upsert(payload, {
-                    onConflict: 'unit_id,external_provider,external_uid',
-                    ignoreDuplicates: false,
-                })
                 .select('id')
-                .single()
+                .eq('unit_id', cal.unit_id)
+                .eq('external_provider', provider)
+                .eq('external_uid', ev.uid)
+                .maybeSingle()
 
-            if (error) {
-                if (error.code === '23505') {
-                    result.skipped++
+            if (selectErr) throw new Error(`Select error: ${selectErr.message}`)
+
+            if (existing?.id) {
+                const { error: updateErr } = await supabase
+                    .from('core_reservations')
+                    .update(payload)
+                    .eq('id', existing.id)
+                
+                if (updateErr) throw new Error(`Update error: ${updateErr.message}`)
+                result.updated++
+            } else {
+                const { error: insertErr } = await supabase
+                    .from('core_reservations')
+                    .insert(payload)
+                    .select('id')
+                    .single()
+                
+                if (insertErr) {
+                    if (insertErr.code === '23505') {
+                        result.skipped++
+                    } else {
+                        throw new Error(`Insert error: ${insertErr.message}`)
+                    }
                 } else {
-                    const msg = `UID ${ev.uid}: ${error.message}`
-                    result.errors.push(msg)
-                    await logSyncError(supabase, {
-                        calendar_id: cal.id,
-                        unit_id: cal.unit_id,
-                        ics_url: cal.ics_url,
-                        event_uid: ev.uid,
-                        event_summary: ev.summary,
-                        raw_event: JSON.stringify(ev),
-                        error_message: error.message,
-                    })
+                    result.inserted++
                 }
-            } else if (data) {
-                if (status === 201) result.inserted++
-                else result.updated++
             }
         } catch (e) {
             const msg = `UID ${ev.uid}: ${(e as Error).message}`
