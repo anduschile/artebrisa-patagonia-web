@@ -260,9 +260,9 @@ async function processCalendar(
     const propertyId = unit?.property_id ?? null
 
     // ── Channel & Provider Mapping ────────────────────────────────────────────
-    const source = (cal.source || 'ical').toLowerCase()
-    let provider = 'ical'
-    let channelId = null
+    const source = (cal.source || '').toLowerCase()
+    let provider = source || 'ical'
+    let channelId: string | null = null
 
     if (source.includes('airbnb')) {
         provider = 'airbnb'
@@ -270,15 +270,29 @@ async function processCalendar(
     } else if (source.includes('booking')) {
         provider = 'booking'
         channelId = '68df4842-1461-4cef-aaf3-97b51a400ec1'
-    } else if (cal.source) {
-        provider = cal.source.toLowerCase()
     }
 
-    // Use hardcoded SYSTEM guest if requested, fallback to systemGuestId
-    const guestId = 'c7782684-5e23-44b7-957a-4bfa5c41a7d2' || systemGuestId
+    // Force system guest
+    const guestId = 'c7782684-5e23-44b7-957a-4bfa5c41a7d2'
 
     // ── Upsert each VEVENT ────────────────────────────────────────────────────
     for (const ev of events) {
+        if (!channelId) {
+            const msg = `UID ${ev.uid}: Unknown provider '${cal.source}' - Missing channel_id`
+            result.errors.push(msg)
+            await logSyncError(supabase, {
+                calendar_id: cal.id,
+                unit_id: cal.unit_id,
+                ics_url: cal.ics_url,
+                event_uid: ev.uid,
+                event_summary: ev.summary,
+                raw_event: JSON.stringify(ev),
+                error_message: msg,
+            })
+            result.skipped++
+            continue
+        }
+
         try {
             const payload = {
                 property_id: propertyId,
@@ -312,7 +326,7 @@ async function processCalendar(
                     .from('core_reservations')
                     .update(payload)
                     .eq('id', existing.id)
-                
+
                 if (updateErr) throw new Error(`Update error: ${updateErr.message}`)
                 result.updated++
             } else {
@@ -321,7 +335,7 @@ async function processCalendar(
                     .insert(payload)
                     .select('id')
                     .single()
-                
+
                 if (insertErr) {
                     if (insertErr.code === '23505') {
                         result.skipped++
