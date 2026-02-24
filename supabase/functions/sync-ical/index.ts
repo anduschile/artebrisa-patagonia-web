@@ -26,6 +26,7 @@ interface Calendar {
     unit_id: string | null
     // Optional columns — may not exist in the table yet
     name?: string | null
+    provider?: string | null
     source?: string | null
 }
 
@@ -48,7 +49,8 @@ interface CalendarResult {
 /** Build a human-readable label for the calendar even when `name` is absent. */
 function calendarLabel(cal: Calendar): string {
     if (cal.name) return cal.name
-    const prefix = cal.source ? cal.source.charAt(0).toUpperCase() + cal.source.slice(1) : 'iCal'
+    const pref = cal.provider || cal.source || 'iCal'
+    const prefix = pref.charAt(0).toUpperCase() + pref.slice(1)
     return `${prefix} (${cal.unit_id?.slice(0, 8) ?? cal.id.slice(0, 8)}…)`
 }
 
@@ -128,10 +130,10 @@ Deno.serve(async (req: Request) => {
     let calendars: Calendar[] | null = null
     let calErr: { message: string } | null = null
 
-        // Try with optional columns (name, source)
+        // Try with optional columns (name, provider, source)
         ; ({ data: calendars, error: calErr } = await supabase
             .from('core_external_calendars')
-            .select('id, ics_url, unit_id, name, source')
+            .select('id, ics_url, unit_id, name, provider, source')
             .eq('is_active', true))
 
     if (calErr) {
@@ -259,26 +261,33 @@ async function processCalendar(
 
     const propertyId = unit?.property_id ?? null
 
-    // ── Channel & Provider Mapping ────────────────────────────────────────────
-    const source = (cal.source || '').toLowerCase()
-    let provider = source || 'ical'
-    let channelId: string | null = null
-
-    if (source.includes('airbnb')) {
-        provider = 'airbnb'
-        channelId = 'd7e30a58-20db-40eb-bfe5-d53ded1e493e'
-    } else if (source.includes('booking')) {
-        provider = 'booking'
-        channelId = '68df4842-1461-4cef-aaf3-97b51a400ec1'
-    }
+    // ── Upsert each VEVENT ────────────────────────────────────────────────────
 
     // Force system guest
     const guestId = 'c7782684-5e23-44b7-957a-4bfa5c41a7d2'
 
-    // ── Upsert each VEVENT ────────────────────────────────────────────────────
     for (const ev of events) {
-        if (!channelId) {
-            const msg = `UID ${ev.uid}: Unknown provider '${cal.source}' - Missing channel_id`
+        // Dynamically resolve provider for each event in case it needs UID fallback
+        let provider = (cal.provider || cal.source || '').toString().trim().toLowerCase()
+        if (!provider) {
+            const url = (cal.ics_url || '').toString().toLowerCase()
+            if (url.includes('airbnb')) provider = 'airbnb'
+            else if (url.includes('booking')) provider = 'booking'
+        }
+        if (!provider) {
+            const uid = (ev.uid || '').toString().toLowerCase()
+            if (uid.includes('@airbnb.com')) provider = 'airbnb'
+        }
+
+        let channelId: string | null = null
+        if (provider === 'airbnb') {
+            channelId = 'd7e30a58-20db-40eb-bfe5-d53ded1e493e'
+        } else if (provider === 'booking') {
+            channelId = '68df4842-1461-4cef-aaf3-97b51a400ec1'
+        }
+
+        if (!provider || !channelId) {
+            const msg = `UID ${ev.uid}: Unknown provider '${provider}' - Missing channel_id`
             result.errors.push(msg)
             await logSyncError(supabase, {
                 calendar_id: cal.id,
