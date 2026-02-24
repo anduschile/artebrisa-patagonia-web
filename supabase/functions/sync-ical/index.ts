@@ -201,7 +201,14 @@ async function processCalendar(
     }
 
     if (!cal.unit_id) {
-        result.errors.push('Calendar has no unit_id — skipping')
+        const msg = 'Calendar has no unit_id — skipping'
+        result.errors.push(msg)
+        await logSyncError(supabase, {
+            calendar_id: cal.id,
+            unit_id: null,
+            ics_url: cal.ics_url,
+            error_message: msg,
+        })
         return result
     }
 
@@ -214,7 +221,15 @@ async function processCalendar(
         if (!resp.ok) throw new Error(`HTTP ${resp.status}`)
         icsText = await resp.text()
     } catch (e) {
-        result.errors.push(`Failed to fetch ICS: ${(e as Error).message}`)
+        const msg = `Failed to fetch ICS: ${(e as Error).message}`
+        result.errors.push(msg)
+        await logSyncError(supabase, {
+            calendar_id: cal.id,
+            unit_id: cal.unit_id,
+            ics_url: cal.ics_url,
+            error_message: msg,
+            error_stack: (e as Error).stack,
+        })
         return result
     }
 
@@ -223,7 +238,15 @@ async function processCalendar(
     try {
         events = parseIcs(icsText)
     } catch (e) {
-        result.errors.push(`Failed to parse ICS: ${(e as Error).message}`)
+        const msg = `Failed to parse ICS: ${(e as Error).message}`
+        result.errors.push(msg)
+        await logSyncError(supabase, {
+            calendar_id: cal.id,
+            unit_id: cal.unit_id,
+            ics_url: cal.ics_url,
+            error_message: msg,
+            error_stack: (e as Error).stack,
+        })
         return result
     }
 
@@ -236,29 +259,48 @@ async function processCalendar(
 
     const propertyId = unit?.property_id ?? null
 
+    // ── Channel & Provider Mapping ────────────────────────────────────────────
+    const source = (cal.source || 'ical').toLowerCase()
+    let provider = 'ical'
+    let channelId = null
+
+    if (source.includes('airbnb')) {
+        provider = 'airbnb'
+        channelId = 'd7e30a58-20db-40eb-bfe5-d53ded1e493e'
+    } else if (source.includes('booking')) {
+        provider = 'booking'
+        channelId = '68df4842-1461-4cef-aaf3-97b51a400ec1'
+    } else if (cal.source) {
+        provider = cal.source.toLowerCase()
+    }
+
+    // Use hardcoded SYSTEM guest if requested, fallback to systemGuestId
+    const guestId = 'c7782684-5e23-44b7-957a-4bfa5c41a7d2' || systemGuestId
+
     // ── Upsert each VEVENT ────────────────────────────────────────────────────
     for (const ev of events) {
         try {
             const payload = {
                 property_id: propertyId,
                 unit_id: cal.unit_id,
-                guest_id: systemGuestId,
-                channel_id: null,
+                guest_id: guestId,
+                channel_id: channelId,
                 status: 'blocked',
                 check_in: ev.dtstart,
                 check_out: ev.dtend,
                 adults: 0,
                 children: 0,
-                notes: ev.summary ? `[iCal] ${ev.summary}` : '[iCal] Bloqueo externo',
-                external_source: 'ical',
+                notes: ev.summary ? `[${provider.toUpperCase()}] ${ev.summary}` : `[${provider.toUpperCase()}] Bloqueo externo`,
+                external_provider: provider,
                 external_uid: ev.uid,
                 external_calendar_id: cal.id,
+                external_source: 'ical',
             }
 
             const { data, error, status } = await supabase
                 .from('core_reservations')
                 .upsert(payload, {
-                    onConflict: 'external_source,external_uid,external_calendar_id',
+                    onConflict: 'unit_id,external_provider,external_uid',
                     ignoreDuplicates: false,
                 })
                 .select('id')
@@ -268,14 +310,35 @@ async function processCalendar(
                 if (error.code === '23505') {
                     result.skipped++
                 } else {
-                    result.errors.push(`UID ${ev.uid}: ${error.message}`)
+                    const msg = `UID ${ev.uid}: ${error.message}`
+                    result.errors.push(msg)
+                    await logSyncError(supabase, {
+                        calendar_id: cal.id,
+                        unit_id: cal.unit_id,
+                        ics_url: cal.ics_url,
+                        event_uid: ev.uid,
+                        event_summary: ev.summary,
+                        raw_event: JSON.stringify(ev),
+                        error_message: error.message,
+                    })
                 }
             } else if (data) {
                 if (status === 201) result.inserted++
                 else result.updated++
             }
         } catch (e) {
-            result.errors.push(`UID ${ev.uid}: ${(e as Error).message}`)
+            const msg = `UID ${ev.uid}: ${(e as Error).message}`
+            result.errors.push(msg)
+            await logSyncError(supabase, {
+                calendar_id: cal.id,
+                unit_id: cal.unit_id,
+                ics_url: cal.ics_url,
+                event_uid: ev.uid,
+                event_summary: ev.summary,
+                raw_event: JSON.stringify(ev),
+                error_message: (e as Error).message,
+                error_stack: (e as Error).stack,
+            })
         }
     }
 
@@ -283,6 +346,50 @@ async function processCalendar(
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+async function logSyncError(
+    supabase: ReturnType<typeof createClient>,
+    {
+        calendar_id,
+        unit_id,
+        ics_url,
+        event_uid = null,
+        event_summary = null,
+        raw_event = null,
+        error_message,
+        error_stack = null,
+    }: {
+        calendar_id: string
+        unit_id: string | null
+        ics_url: string
+        event_uid?: string | null
+        event_summary?: string | null
+        raw_event?: string | null
+        error_message: string
+        error_stack?: string | null
+    }
+) {
+    const payload = {
+        calendar_id,
+        unit_id,
+        provider: 'ical', // generalized
+        direction: 'import',
+        ics_url,
+        event_uid,
+        event_summary,
+        raw_event: raw_event && typeof raw_event === 'object' ? JSON.stringify(raw_event) : raw_event,
+        error_message,
+        error_stack,
+    }
+
+    console.error('[sync-ical error]', payload)
+
+    try {
+        await supabase.from('core_ical_sync_errors').insert(payload)
+    } catch (dbErr) {
+        console.error('Failed to register error in core_ical_sync_errors:', dbErr)
+    }
+}
+
 async function getOrCreateSystemGuest(
     supabase: ReturnType<typeof createClient>,
 ): Promise<string> {
