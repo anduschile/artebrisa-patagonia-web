@@ -49,9 +49,9 @@ function fmtTs(isoStr) {
     return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
-function timeAgo(date) {
+function timeAgo(date, now = Date.now()) {
     if (!date) return ''
-    const diff = (new Date() - date) / 60000
+    const diff = (now - date) / 60000
     if (diff < 1) return 'hace < 1 min'
     if (diff < 60) return `hace ${Math.floor(diff)} min`
     const h = Math.floor(diff / 60)
@@ -111,6 +111,8 @@ export default function AdminReservationsPage() {
     // Status change per row
     const [changingId, setChangingId] = useState(null)
 
+    const [now, setNow] = useState(Date.now())
+
     // ── Tab state ──
     const [tab, setTab] = useState('lista')   // 'lista' | 'calendario' | 'agenda'
 
@@ -129,6 +131,17 @@ export default function AdminReservationsPage() {
     const [icalSyncing, setIcalSyncing] = useState(false)
     const [icalResult, setIcalResult] = useState(null)   // last sync result JSON
     const [icalError, setIcalError] = useState(null)
+
+    const fetchIcalStatus = useCallback(async () => {
+        try {
+            const data = await getExternalCalendars()
+            setIcalCalendars(data)
+        } catch (e) {
+            console.error("Error fetching iCal status:", e)
+        } finally {
+            setNow(Date.now())
+        }
+    }, [])
 
     const load = useCallback(async () => {
         setLoading(true)
@@ -151,8 +164,11 @@ export default function AdminReservationsPage() {
     useEffect(() => {
         getAllUnits().then(setUnits).catch(() => { })
         getAllChannels().then(setChannels).catch(() => { })
-        getExternalCalendars().then(setIcalCalendars).catch(() => { })
-    }, [])
+
+        fetchIcalStatus()
+        const intervalId = setInterval(fetchIcalStatus, 60000)
+        return () => clearInterval(intervalId)
+    }, [fetchIcalStatus])
 
     useEffect(() => { load() }, [load])
 
@@ -212,7 +228,7 @@ export default function AdminReservationsPage() {
             // Reload reservations so new blocked rows appear
             await load()
             // Refresh calendar last_synced_at
-            getExternalCalendars().then(setIcalCalendars).catch(() => { })
+            await fetchIcalStatus()
         } catch (e) {
             setIcalError(e.message)
         } finally {
@@ -313,7 +329,7 @@ export default function AdminReservationsPage() {
                                         </span>
                                     </div>
                                     <div className="text-xs text-slate-400 mt-0.5">
-                                        Última sincronización: <span className="text-slate-300 font-medium">{maxSyncDate ? `${fmtTs(maxSyncDate.toISOString())} (${timeAgo(maxSyncDate)})` : 'Nunca sincronizado'}</span>
+                                        Última sincronización: <span className="text-slate-300 font-medium">{maxSyncDate ? `${fmtTs(maxSyncDate.toISOString())} (${timeAgo(maxSyncDate, now)})` : 'Nunca sincronizado'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -403,7 +419,7 @@ export default function AdminReservationsPage() {
                                                     </div>
                                                     <div className="text-slate-600 shrink-0 text-right">
                                                         <div>{cal.last_synced_at ? fmtTs(cal.last_synced_at) : 'Nunca'}</div>
-                                                        {cal.last_synced_at && <div className="text-[10px] text-slate-500 mt-0.5">{timeAgo(new Date(cal.last_synced_at))}</div>}
+                                                        {cal.last_synced_at && <div className="text-[10px] text-slate-500 mt-0.5">{timeAgo(new Date(cal.last_synced_at), now)}</div>}
                                                     </div>
                                                 </div>
                                             )
