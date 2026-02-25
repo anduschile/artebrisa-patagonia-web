@@ -3,23 +3,22 @@ import { supabase } from '../../lib/supabaseClient'
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL
 const ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY
 
-/** Build auth headers from the current admin session. */
-async function getAuthHeaders() {
-    const { data: { session } } = await supabase.auth.getSession()
-    const token = session?.access_token ?? ANON_KEY
-    return {
-        'Content-Type': 'application/json',
-        'apikey': ANON_KEY,
-        'Authorization': `Bearer ${token}`,
-    }
-}
-
 /**
  * Invoke the `sync-ical` Edge Function with explicit auth headers.
  * @returns {Promise<{ calendars: Array, totals: object, synced_at: string }>}
  */
 export async function runIcalSync() {
-    const headers = await getAuthHeaders()
+    const { data: { session } } = await supabase.auth.getSession()
+    const token = session?.access_token
+
+    if (!token) {
+        throw new Error('No session token')
+    }
+
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+    }
 
     const resp = await fetch(`${SUPABASE_URL}/functions/v1/sync-ical`, {
         method: 'POST',
@@ -27,14 +26,19 @@ export async function runIcalSync() {
         body: JSON.stringify({}),
     })
 
-    const json = await resp.json().catch(() => ({ message: resp.statusText }))
-
     if (!resp.ok) {
-        const msg = json?.message || json?.error || `HTTP ${resp.status}`
+        const text = await resp.text()
+        let msg = `HTTP ${resp.status}`
+        try {
+            const parsed = JSON.parse(text)
+            msg = parsed.error || parsed.message || msg
+        } catch (e) {
+            msg = text || msg
+        }
         throw new Error(msg)
     }
 
-    return json
+    return resp.json()
 }
 
 /**
