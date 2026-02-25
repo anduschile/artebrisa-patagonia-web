@@ -49,6 +49,16 @@ function fmtTs(isoStr) {
     return d.toLocaleString('es-CL', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
+function timeAgo(date) {
+    if (!date) return ''
+    const diff = (new Date() - date) / 60000
+    if (diff < 1) return 'hace < 1 min'
+    if (diff < 60) return `hace ${Math.floor(diff)} min`
+    const h = Math.floor(diff / 60)
+    if (h < 24) return `hace ${h}h`
+    return `hace ${Math.floor(h / 24)}d`
+}
+
 function copyText(text) {
     navigator.clipboard?.writeText(text).catch(() => { })
 }
@@ -245,6 +255,10 @@ export default function AdminReservationsPage() {
         { id: 'agenda', label: '🗓️ Agenda' },
     ]
 
+    const activeCalendars = icalCalendars.filter(c => c.is_active)
+    const validSyncs = activeCalendars.map(c => c.last_synced_at ? new Date(c.last_synced_at) : null).filter(Boolean)
+    const maxSyncDate = validSyncs.length > 0 ? new Date(Math.max(...validSyncs)) : null
+
     return (
         <div>
             {/* ── KPI Bar (always visible) ── */}
@@ -291,10 +305,17 @@ export default function AdminReservationsPage() {
                         <div className="flex items-center justify-between px-5 py-3 cursor-pointer select-none" onClick={() => setShowIcal(v => !v)}>
                             <div className="flex items-center gap-3">
                                 <span className="text-base">🔄</span>
-                                <span className="text-sm font-bold text-white">iCal Sync</span>
-                                <span className="text-xs text-slate-500">
-                                    {icalCalendars.filter(c => c.is_active).length} calendario{icalCalendars.filter(c => c.is_active).length !== 1 ? 's' : ''} activo{icalCalendars.filter(c => c.is_active).length !== 1 ? 's' : ''}
-                                </span>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-sm font-bold text-white">iCal Sync</span>
+                                        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+                                            {activeCalendars.length} activo{activeCalendars.length !== 1 ? 's' : ''}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-slate-400 mt-0.5">
+                                        Última sincronización: <span className="text-slate-300 font-medium">{maxSyncDate ? `${fmtTs(maxSyncDate.toISOString())} (${timeAgo(maxSyncDate)})` : 'Nunca sincronizado'}</span>
+                                    </div>
+                                </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <button
@@ -380,8 +401,9 @@ export default function AdminReservationsPage() {
                                                             {unit ? `${unit.name} (${unit.code})` : <span className="text-amber-400">Sin unidad asignada</span>}
                                                         </p>
                                                     </div>
-                                                    <div className="text-slate-600 shrink-0">
-                                                        {cal.last_synced_at ? fmtTs(cal.last_synced_at) : '—'}
+                                                    <div className="text-slate-600 shrink-0 text-right">
+                                                        <div>{cal.last_synced_at ? fmtTs(cal.last_synced_at) : 'Nunca'}</div>
+                                                        {cal.last_synced_at && <div className="text-[10px] text-slate-500 mt-0.5">{timeAgo(new Date(cal.last_synced_at))}</div>}
                                                     </div>
                                                 </div>
                                             )
