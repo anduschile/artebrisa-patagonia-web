@@ -112,19 +112,14 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── ICAL_CRON_TOKEN Validation ─────────────────────────────────────────────
-    const token = req.headers.get('x-ical-cron-token')
-    const expected = Deno.env.get('ICAL_CRON_TOKEN')
+    const cronToken = req.headers.get('x-ical-cron-token')
+    const expectedCronToken = Deno.env.get('ICAL_CRON_TOKEN')
 
-    if (!expected) {
-        console.warn('ICAL_CRON_TOKEN is not defined in the environment. Skipping validation.')
-    } else if (token !== expected) {
-        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-            status: 401,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-            },
-        })
+    // We will determine access based on either cron token or admin JWT.
+    let isAuthorized = false
+
+    if (expectedCronToken && cronToken === expectedCronToken) {
+        isAuthorized = true
     }
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
@@ -133,6 +128,40 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, serviceKey, {
         auth: { persistSession: false },
     })
+
+    // If not authorized by cron token, check Authorization header for Admin JWT
+    if (!isAuthorized) {
+        const authHeader = req.headers.get('authorization')
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            const jwt = authHeader.replace('Bearer ', '')
+
+            // Verify JWT
+            const { data: { user }, error: userError } = await supabase.auth.getUser(jwt)
+
+            if (user && !userError) {
+                // Check if user is admin or superadmin
+                const { data: appUser } = await supabase
+                    .from('core_app_users')
+                    .select('role')
+                    .eq('auth_user_id', user.id)
+                    .maybeSingle()
+
+                if (appUser && (appUser.role === 'admin' || appUser.role === 'superadmin')) {
+                    isAuthorized = true
+                }
+            }
+        }
+    }
+
+    if (!isAuthorized) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+            status: 401,
+            headers: {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+            },
+        })
+    }
 
     // ── Fetch active calendars ─────────────────────────────────────────────────
     // Select only the guaranteed-to-exist columns.
