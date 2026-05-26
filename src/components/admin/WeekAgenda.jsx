@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { getCalendarReservations } from '../../data/admin/reservations'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR = {
@@ -69,11 +70,27 @@ function groupByCheckIn(reservations, weekStartStr) {
 }
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function WeekAgenda({ reservations, onSelect }) {
+export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
     const todayStr = isoDate(new Date())
     const [weekStartStr, setWeekStartStr] = useState(() => mondayOfWeek(todayStr))
 
     const weekEnd = addDays(weekStartStr, 7)
+
+    // Independent data fetch scoped to the visible week.
+    const [reservations, setReservations] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+        let cancelled = false
+        setLoading(true)
+        setError(null)
+        getCalendarReservations({ from: weekStartStr, to: weekEnd })
+            .then(data => { if (!cancelled) setReservations(data) })
+            .catch(e => { if (!cancelled) setError(e.message) })
+            .finally(() => { if (!cancelled) setLoading(false) })
+        return () => { cancelled = true }
+    }, [weekStartStr, weekEnd, refreshKey])
 
     const weekRes = useMemo(() => resInWeek(reservations, weekStartStr), [reservations, weekStartStr])
     const grouped = useMemo(() => groupByCheckIn(weekRes, weekStartStr), [weekRes, weekStartStr])
@@ -111,6 +128,13 @@ export default function WeekAgenda({ reservations, onSelect }) {
                         Esta semana
                     </button>
                 )}
+                {loading && (
+                    <span className="text-xs text-slate-500 flex items-center gap-1.5 ml-2">
+                        <span className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                        Cargando…
+                    </span>
+                )}
+                {error && <span className="text-xs text-red-400 ml-2">⚠ {error}</span>}
                 <span className="ml-auto text-xs text-slate-500">{weekRes.length} reserva{weekRes.length !== 1 ? 's' : ''} esta semana</span>
             </div>
 

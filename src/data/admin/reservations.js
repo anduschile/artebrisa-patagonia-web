@@ -41,6 +41,42 @@ export async function getAdminReservations({ status = null, from = null, to = nu
 }
 
 /**
+ * Fetch reservations that intersect a date range, for calendar / agenda views.
+ * No row limit (range is always bounded). No unit filter (views apply it client-side).
+ * `from` and `to` are 'YYYY-MM-DD'; reservation overlaps when check_in < to AND check_out > from.
+ */
+export async function getCalendarReservations({ from, to } = {}) {
+    if (!from || !to) throw new Error('getCalendarReservations: from y to son requeridos')
+    const { data, error } = await supabase
+        .from('core_reservations')
+        .select(`
+            id,
+            created_at,
+            status,
+            check_in,
+            check_out,
+            adults,
+            children,
+            notes,
+            unit_id,
+            property_id,
+            channel_id,
+            guest_id,
+            quoted_total,
+            quoted_currency,
+            quoted_nights,
+            core_units ( id, name, code, unit_type ),
+            core_guests ( id, full_name, email, phone ),
+            core_channels ( id, name )
+        `)
+        .lt('check_in', to)
+        .gt('check_out', from)
+        .order('check_in', { ascending: true })
+    if (error) throw new Error(`getCalendarReservations: ${error.message}`)
+    return data || []
+}
+
+/**
  * Update the status of a single reservation.
  */
 export async function updateReservationStatus(id, status) {

@@ -1,4 +1,5 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { getCalendarReservations } from '../../data/admin/reservations'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR = {
@@ -60,19 +61,39 @@ const DAYS_ES = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom']
 const MONTHS_ES = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre']
 
 // ── Component ────────────────────────────────────────────────────────────────
-export default function MonthCalendar({ reservations, units, onSelect }) {
+export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
     const now = new Date()
     const [year, setYear] = useState(now.getFullYear())
     const [month, setMonth] = useState(now.getMonth())       // 0-indexed
     const [selUnit, setSelUnit] = useState('')               // '' = all
+
+    const gridDays = useMemo(() => buildCalendarGrid(year, month), [year, month])
+
+    // Independent data fetch scoped to the visible grid. The Lista's filters
+    // do NOT affect this view — it has its own unit selector below.
+    const [reservations, setReservations] = useState([])
+    const [loading, setLoading] = useState(false)
+    const [error, setError] = useState(null)
+
+    useEffect(() => {
+        const from = gridDays[0]
+        // grid spans 42 days; query is half-open so add 1 to include the last day's check_in
+        const to = addDays(gridDays[gridDays.length - 1], 1)
+        let cancelled = false
+        setLoading(true)
+        setError(null)
+        getCalendarReservations({ from, to })
+            .then(data => { if (!cancelled) setReservations(data) })
+            .catch(e => { if (!cancelled) setError(e.message) })
+            .finally(() => { if (!cancelled) setLoading(false) })
+        return () => { cancelled = true }
+    }, [gridDays, refreshKey])
 
     const visibleRes = useMemo(() => {
         const active = reservations.filter(r => ['inquiry', 'confirmed', 'blocked'].includes(r.status))
         if (!selUnit) return active
         return active.filter(r => String(r.unit_id) === String(selUnit))
     }, [reservations, selUnit])
-
-    const gridDays = useMemo(() => buildCalendarGrid(year, month), [year, month])
 
     function prevMonth() {
         if (month === 0) { setMonth(11); setYear(y => y - 1) }
@@ -113,6 +134,15 @@ export default function MonthCalendar({ reservations, units, onSelect }) {
                         <option key={u.id} value={String(u.id)}>{u.name || u.code}</option>
                     ))}
                 </select>
+
+                {/* Loading / error indicator */}
+                {loading && (
+                    <span className="text-xs text-slate-500 flex items-center gap-1.5">
+                        <span className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                        Cargando…
+                    </span>
+                )}
+                {error && <span className="text-xs text-red-400">⚠ {error}</span>}
 
                 {/* Legend */}
                 <div className="flex items-center gap-3 ml-auto">

@@ -123,6 +123,7 @@ export default function AdminReservationsPage() {
     const handleDrawerStatusUpdate = useCallback((id, newStatus) => {
         setSelectedReservation(prev => prev?.id === id ? { ...prev, status: newStatus } : prev)
         load()  // refresh list
+        bumpCalendarRefresh()  // and calendar/agenda
     }, [])  // eslint-disable-line
 
     // ── iCal Sync state ──
@@ -161,10 +162,10 @@ export default function AdminReservationsPage() {
         }
     }, [])
 
-    // NOTE: filterUnit is intentionally NOT part of the server query.
-    // It's applied client-side only to the Lista table (see listaReservations below),
-    // so that the Calendario view always receives the full unfiltered set and uses
-    // its own independent unit selector.
+    // Lista uses server-side filters (incl. unit_id) + the 100-row limit.
+    // Calendario y Agenda hacen su propio fetch acotado por rango de fechas (sin
+    // depender de estos filtros), evitando el bug donde el filtro de unidad de
+    // Lista contaminaba la vista de Calendario.
     const load = useCallback(async () => {
         setLoading(true)
         setError(null)
@@ -173,6 +174,7 @@ export default function AdminReservationsPage() {
                 status: filterStatus === 'all' ? null : filterStatus,
                 from: filterFrom || null,
                 to: filterTo || null,
+                unit_id: filterUnit || null,
             })
             setReservations(data)
         } catch (e) {
@@ -180,12 +182,11 @@ export default function AdminReservationsPage() {
         } finally {
             setLoading(false)
         }
-    }, [filterStatus, filterFrom, filterTo])
+    }, [filterStatus, filterUnit, filterFrom, filterTo])
 
-    // Client-side unit filter for the Lista view only.
-    const listaReservations = filterUnit
-        ? reservations.filter(r => String(r.unit_id) === String(filterUnit))
-        : reservations
+    // Bumped on any mutation so MonthCalendar / WeekAgenda refetch their own data.
+    const [calendarRefreshKey, setCalendarRefreshKey] = useState(0)
+    const bumpCalendarRefresh = useCallback(() => setCalendarRefreshKey(k => k + 1), [])
 
     useEffect(() => {
         getAllUnits().then(setUnits).catch(() => { })
@@ -203,6 +204,7 @@ export default function AdminReservationsPage() {
         try {
             await updateReservationStatus(id, newStatus)
             setReservations(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
+            bumpCalendarRefresh()
         } catch (e) {
             alert(`Error: ${e.message}`)
         } finally {
@@ -232,6 +234,7 @@ export default function AdminReservationsPage() {
             setBlockState({ unit_id: '', check_in: '', check_out: '', notes: '', channel_id: '' })
             setShowBlock(false)
             await load()
+            bumpCalendarRefresh()
         } catch (e) {
             setBlockError(e.message)
         } finally {
@@ -253,6 +256,7 @@ export default function AdminReservationsPage() {
             setIcalResult(result)
             // Reload reservations so new blocked rows appear
             await load()
+            bumpCalendarRefresh()
             // Refresh calendar last_synced_at
             await fetchIcalStatus()
         } catch (e) {
@@ -634,14 +638,14 @@ export default function AdminReservationsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {listaReservations.length === 0 && (
+                                        {reservations.length === 0 && (
                                             <tr>
                                                 <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
                                                     No hay reservas con esos filtros
                                                 </td>
                                             </tr>
                                         )}
-                                        {listaReservations.map(r => {
+                                        {reservations.map(r => {
                                             const guest = r.core_guests
                                             const unit = r.core_units || unitsMap[String(r.unit_id)]
                                             const channel = r.core_channels
@@ -715,7 +719,7 @@ export default function AdminReservationsPage() {
                                 </table>
                             </div>
                             <p className="text-xs text-slate-600 mt-3 text-right">
-                                {listaReservations.length} resultado(s) · máx. 100 por carga
+                                {reservations.length} resultado(s) · máx. 100 por carga
                             </p>
                         </>
                     )}
@@ -725,14 +729,14 @@ export default function AdminReservationsPage() {
             {/* ── Tab: Calendario ── */}
             {tab === 'calendario' && (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <MonthCalendar reservations={reservations} units={units} onSelect={setSelectedReservation} />
+                    <MonthCalendar units={units} onSelect={setSelectedReservation} refreshKey={calendarRefreshKey} />
                 </div>
             )}
 
             {/* ── Tab: Agenda ── */}
             {tab === 'agenda' && (
                 <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-                    <WeekAgenda reservations={reservations} onSelect={setSelectedReservation} />
+                    <WeekAgenda onSelect={setSelectedReservation} refreshKey={calendarRefreshKey} />
                 </div>
             )}
 
