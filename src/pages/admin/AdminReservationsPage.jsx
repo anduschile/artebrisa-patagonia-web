@@ -143,6 +143,10 @@ export default function AdminReservationsPage() {
         }
     }, [])
 
+    // NOTE: filterUnit is intentionally NOT part of the server query.
+    // It's applied client-side only to the Lista table (see listaReservations below),
+    // so that the Calendario view always receives the full unfiltered set and uses
+    // its own independent unit selector.
     const load = useCallback(async () => {
         setLoading(true)
         setError(null)
@@ -151,7 +155,6 @@ export default function AdminReservationsPage() {
                 status: filterStatus === 'all' ? null : filterStatus,
                 from: filterFrom || null,
                 to: filterTo || null,
-                unit_id: filterUnit || null,
             })
             setReservations(data)
         } catch (e) {
@@ -159,7 +162,12 @@ export default function AdminReservationsPage() {
         } finally {
             setLoading(false)
         }
-    }, [filterStatus, filterUnit, filterFrom, filterTo])
+    }, [filterStatus, filterFrom, filterTo])
+
+    // Client-side unit filter for the Lista view only.
+    const listaReservations = filterUnit
+        ? reservations.filter(r => String(r.unit_id) === String(filterUnit))
+        : reservations
 
     useEffect(() => {
         getAllUnits().then(setUnits).catch(() => { })
@@ -533,14 +541,14 @@ export default function AdminReservationsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {reservations.length === 0 && (
+                                        {listaReservations.length === 0 && (
                                             <tr>
                                                 <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
                                                     No hay reservas con esos filtros
                                                 </td>
                                             </tr>
                                         )}
-                                        {reservations.map(r => {
+                                        {listaReservations.map(r => {
                                             const guest = r.core_guests
                                             const unit = r.core_units || unitsMap[String(r.unit_id)]
                                             const channel = r.core_channels
@@ -614,7 +622,7 @@ export default function AdminReservationsPage() {
                                 </table>
                             </div>
                             <p className="text-xs text-slate-600 mt-3 text-right">
-                                {reservations.length} resultado(s) · máx. 100 por carga
+                                {listaReservations.length} resultado(s) · máx. 100 por carga
                             </p>
                         </>
                     )}
