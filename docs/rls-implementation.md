@@ -229,6 +229,11 @@ Curls anon:
 Edge Functions (`export-ical`, `sync-ical`) y GitHub Action: sin afectar (service_role bypassa RLS).
 Panel admin: funcionando con `is_admin()`. Sitio público: 12 unidades + disponibilidad OK.
 
+### Smoke test iCal end-to-end bajo RLS (2026-05-27 17:32)
+Sync manual disparado desde el panel: **0 insertadas / 33 actualizadas / 0 sin cambios / 0 errores**.
+Las 12 unidades respondieron normalmente. ✅ Confirma que `sync-ical` (service_role) sigue
+escribiendo en `core_reservations` con RLS habilitado.
+
 ---
 
 ## 8. PENDIENTE — Fase 2: R2 (endurecido real de core_reservations)
