@@ -1,4 +1,6 @@
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useState } from 'react'
+import toast from 'react-hot-toast'
+import { confirmToast } from '../../lib/confirmToast'
 import { updateReservationStatus } from '../../data/admin/reservations'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -84,13 +86,26 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
         return () => { document.body.style.overflow = '' }
     }, [open])
 
+    const [saving, setSaving] = useState(false)
+
     const handleStatusChange = useCallback(async (newStatus) => {
         if (!r) return
+        if (newStatus === 'cancelled') {
+            const ok = await confirmToast('¿Cancelar esta reserva? El huésped quedará sin la reserva activa.', {
+                confirmLabel: 'Cancelar reserva',
+                cancelLabel: 'Volver',
+            })
+            if (!ok) return
+        }
+        setSaving(true)
         try {
             await updateReservationStatus(r.id, newStatus)
             onStatusChange?.(r.id, newStatus)
+            toast.success('Estado actualizado')
         } catch (e) {
-            alert(`Error: ${e.message}`)
+            toast.error(`Error: ${e.message}`)
+        } finally {
+            setSaving(false)
         }
     }, [r, onStatusChange])
 
@@ -231,18 +246,45 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
 
                 {/* ── Footer actions ── */}
                 <div className="px-5 py-4 border-t border-slate-800 space-y-3 shrink-0 bg-slate-900">
-                    {/* Status change */}
+                    {/* Acciones de estado explícitas */}
+                    <div>
+                        <p className="text-xs text-slate-500 mb-2">Cambiar estado:</p>
+                        <div className="space-y-2">
+                            <button
+                                onClick={() => handleStatusChange('confirmed')}
+                                disabled={saving || r.status === 'confirmed'}
+                                className="w-full px-3 py-2 text-sm font-bold rounded-lg bg-green-600 hover:bg-green-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Confirmar reserva
+                            </button>
+                            <button
+                                onClick={() => handleStatusChange('cancelled')}
+                                disabled={saving || r.status === 'cancelled'}
+                                className="w-full px-3 py-2 text-sm font-bold rounded-lg bg-red-600 hover:bg-red-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Cancelar reserva
+                            </button>
+                            <button
+                                onClick={() => handleStatusChange('blocked')}
+                                disabled={saving || r.status === 'blocked'}
+                                className="w-full px-3 py-2 text-sm font-bold rounded-lg bg-slate-600 hover:bg-slate-500 text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                            >
+                                Marcar como bloqueada
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Estados menos comunes */}
                     <div className="flex items-center gap-2">
-                        <p className="text-xs text-slate-500 shrink-0">Cambiar estado:</p>
+                        <p className="text-xs text-slate-500 shrink-0">Otro estado:</p>
                         <select
-                            value={r.status}
-                            onChange={e => handleStatusChange(e.target.value)}
-                            className="flex-1 bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                            value=""
+                            disabled={saving}
+                            onChange={e => { if (e.target.value) handleStatusChange(e.target.value) }}
+                            className="flex-1 bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-500 disabled:opacity-50"
                         >
-                            <option value="inquiry">Consulta</option>
-                            <option value="confirmed">Confirmada</option>
-                            <option value="cancelled">Cancelada</option>
-                            <option value="blocked">Bloqueada</option>
+                            <option value="">— Seleccionar —</option>
+                            <option value="inquiry">Consulta pendiente</option>
                         </select>
                     </div>
 

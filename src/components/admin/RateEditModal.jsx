@@ -1,4 +1,6 @@
 import { useState } from 'react'
+import toast from 'react-hot-toast'
+import { confirmToast } from '../../lib/confirmToast'
 import { supabase } from '../../lib/supabaseClient'
 
 export default function RateEditModal({ unit, initialDate, currentMonth, currentYear, onClose, onSaved }) {
@@ -47,16 +49,18 @@ export default function RateEditModal({ unit, initialDate, currentMonth, current
             if (error) throw error
             onSaved()
             onClose()
+            toast.success('Tarifas guardadas')
         } catch (err) {
             console.error('Error saving rates:', err)
-            alert('Error al guardar las tarifas')
+            toast.error('Error al guardar las tarifas')
         } finally {
             setLoading(false)
         }
     }
 
     async function handleReset() {
-        if (!confirm('¿Estás seguro de revertir a la tarifa base? Se borrarán los precios personalizados para los días seleccionados.')) return
+        const ok = await confirmToast('¿Revertir a la tarifa base? Se borrarán los precios personalizados de los días seleccionados.')
+        if (!ok) return
 
         setLoading(true)
         try {
@@ -83,8 +87,10 @@ export default function RateEditModal({ unit, initialDate, currentMonth, current
             if (error) throw error
             onSaved()
             onClose()
+            toast.success('Tarifas restablecidas')
         } catch (err) {
             console.error('Error resetting rates:', err)
+            toast.error('Error al restablecer las tarifas')
         } finally {
             setLoading(false)
         }

@@ -1,4 +1,5 @@
 import { Link, Outlet, useNavigate } from 'react-router-dom'
+import { Toaster } from 'react-hot-toast'
 import { supabase } from '../../lib/supabaseClient'
 
 export default function AdminLayout() {
@@ -49,6 +50,16 @@ export default function AdminLayout() {
             <main className="px-4 sm:px-6 py-8 max-w-screen-2xl mx-auto">
                 <Outlet />
             </main>
+
+            {/* Notificaciones toast (tema oscuro, alineado con el panel) */}
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
+                    success: { iconTheme: { primary: '#22c55e', secondary: '#1e293b' } },
+                    error: { iconTheme: { primary: '#ef4444', secondary: '#1e293b' } },
+                }}
+            />
         </div>
     )
 }

@@ -4,8 +4,14 @@
 // GET /functions/v1/export-ical?unit=<unit_code>
 //
 // Public endpoint (deploy with --no-verify-jwt). Returns a VCALENDAR (.ics)
-// with all future confirmed + blocked reservations for the unit, so that
+// with future confirmed + blocked reservations for the unit, so that
 // Booking, Airbnb and other iCal-aware platforms can import availability.
+//
+// IMPORTANT: only reservations created in-house are exported (external_source
+// IS NULL). Reservations imported from OTAs via sync-ical (external_source =
+// 'ical') are excluded to avoid a feedback loop: Airbnb → Arte Brisa →
+// export-ical → Airbnb. In-house blocks (web, phone, walk-in, low-season)
+// still go out so OTAs stay correctly blocked.
 //
 // Environment variables required (auto-injected by Supabase):
 //   SUPABASE_URL
@@ -138,6 +144,7 @@ Deno.serve(async (req: Request) => {
         .eq('unit_id', unit.id)
         .in('status', ['confirmed', 'blocked'])
         .gte('check_out', today)
+        .is('external_source', null)   // solo reservas propias; excluye lo importado de OTAs (Airbnb/Booking)
         .order('check_in', { ascending: true })
 
     if (resErr) {

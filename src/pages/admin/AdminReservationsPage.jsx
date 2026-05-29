@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import toast from 'react-hot-toast'
 import {
     getAdminReservations,
     updateReservationStatus,
@@ -6,13 +7,16 @@ import {
     getBlockConflicts,
 } from '../../data/admin/reservations'
 import { getAllUnits, getAllChannels } from '../../data/admin/units'
-import { runIcalSync, getExternalCalendars, setCalendarActive } from '../../data/admin/icalSync'
+import { runIcalSync, getExternalCalendars, setCalendarActive, createExternalCalendar, deleteExternalCalendar } from '../../data/admin/icalSync'
+import { confirmToast } from '../../lib/confirmToast'
 import { supabase } from '../../lib/supabaseClient'
 import DashboardKPIs from '../../components/admin/DashboardKPIs'
 import MonthCalendar from '../../components/admin/MonthCalendar'
 import WeekAgenda from '../../components/admin/WeekAgenda'
 import ReservationDetailDrawer from '../../components/admin/ReservationDetailDrawer'
 
+
+const PAGE_SIZE = 100
 
 const STATUS_COLORS = {
     inquiry: 'bg-yellow-900 text-yellow-300 border-yellow-700',
@@ -63,6 +67,11 @@ function copyText(text) {
     navigator.clipboard?.writeText(text).catch(() => { })
 }
 
+/** Minúsculas + sin acentos, para búsqueda de huésped tolerante a tildes */
+function normalizeText(s) {
+    return (s || '').normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+
 function StatusBadge({ status }) {
     return (
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLORS[status] || 'bg-slate-800 text-slate-400 border-slate-700'}`}>
@@ -88,6 +97,8 @@ function ResultBadge({ label, value = 0, color = 'slate' }) {
 
 export default function AdminReservationsPage() {
     const [reservations, setReservations] = useState([])
+    const [totalCount, setTotalCount] = useState(0)
+    const [loadingMore, setLoadingMore] = useState(false)
     const [units, setUnits] = useState([])
     const [channels, setChannels] = useState([])
     const [loading, setLoading] = useState(true)
@@ -101,6 +112,7 @@ export default function AdminReservationsPage() {
     const [filterUnit, setFilterUnit] = useState('')
     const [filterFrom, setFilterFrom] = useState('')
     const [filterTo, setFilterTo] = useState('')
+    const [searchGuest, setSearchGuest] = useState('')
 
     // Block form
     const [showBlock, setShowBlock] = useState(false)
@@ -132,6 +144,12 @@ export default function AdminReservationsPage() {
     const [icalSyncing, setIcalSyncing] = useState(false)
     const [icalResult, setIcalResult] = useState(null)   // last sync result JSON
     const [icalError, setIcalError] = useState(null)
+
+    // ── Alta / baja de calendarios ──
+    const [showAddCal, setShowAddCal] = useState(false)
+    const [newCal, setNewCal] = useState({ unit_id: '', source: 'airbnb', ics_url: '', name: '' })
+    const [savingCal, setSavingCal] = useState(false)
+    const [deletingCalId, setDeletingCalId] = useState(null)
 
     // ── iCal Export state ──
     const [showExport, setShowExport] = useState(false)
@@ -170,13 +188,16 @@ export default function AdminReservationsPage() {
         setLoading(true)
         setError(null)
         try {
-            const data = await getAdminReservations({
+            const { rows, count } = await getAdminReservations({
                 status: filterStatus === 'all' ? null : filterStatus,
                 from: filterFrom || null,
                 to: filterTo || null,
                 unit_id: filterUnit || null,
+                offset: 0,
+                limit: PAGE_SIZE,
             })
-            setReservations(data)
+            setReservations(rows)
+            setTotalCount(count)
         } catch (e) {
             setError(e.message)
         } finally {
@@ -199,14 +220,34 @@ export default function AdminReservationsPage() {
 
     useEffect(() => { load() }, [load])
 
+    async function loadMore() {
+        setLoadingMore(true)
+        try {
+            const { rows } = await getAdminReservations({
+                status: filterStatus === 'all' ? null : filterStatus,
+                from: filterFrom || null,
+                to: filterTo || null,
+                unit_id: filterUnit || null,
+                offset: reservations.length,
+                limit: PAGE_SIZE,
+            })
+            setReservations(prev => [...prev, ...rows])
+        } catch (e) {
+            toast.error(`Error al cargar más: ${e.message}`)
+        } finally {
+            setLoadingMore(false)
+        }
+    }
+
     async function handleStatusChange(id, newStatus) {
         setChangingId(id)
         try {
             await updateReservationStatus(id, newStatus)
             setReservations(prev => prev.map(r => r.id === id ? { ...r, status: newStatus } : r))
             bumpCalendarRefresh()
+            toast.success('Estado actualizado')
         } catch (e) {
-            alert(`Error: ${e.message}`)
+            toast.error(`Error: ${e.message}`)
         } finally {
             setChangingId(null)
         }
@@ -270,8 +311,44 @@ export default function AdminReservationsPage() {
         try {
             await setCalendarActive(id, !current)
             setIcalCalendars(prev => prev.map(c => c.id === id ? { ...c, is_active: !current } : c))
+            toast.success(!current ? 'Calendario activado' : 'Calendario desactivado')
         } catch (e) {
-            alert(`Error: ${e.message}`)
+            toast.error(`Error: ${e.message}`)
+        }
+    }
+
+    async function handleAddCalendar(e) {
+        e.preventDefault()
+        if (!newCal.ics_url.trim()) { toast.error('La URL .ics es obligatoria'); return }
+        setSavingCal(true)
+        try {
+            await createExternalCalendar(newCal)
+            setNewCal({ unit_id: '', source: 'airbnb', ics_url: '', name: '' })
+            setShowAddCal(false)
+            await fetchIcalStatus()
+            toast.success('Calendario agregado')
+        } catch (err) {
+            toast.error(`Error: ${err.message}`)
+        } finally {
+            setSavingCal(false)
+        }
+    }
+
+    async function handleDeleteCalendar(id, label) {
+        const ok = await confirmToast(`¿Eliminar el calendario "${label}"? Las reservas ya importadas se mantienen; solo se deja de sincronizar desde esta URL.`, {
+            confirmLabel: 'Eliminar',
+            cancelLabel: 'Cancelar',
+        })
+        if (!ok) return
+        setDeletingCalId(id)
+        try {
+            await deleteExternalCalendar(id)
+            setIcalCalendars(prev => prev.filter(c => c.id !== id))
+            toast.success('Calendario eliminado')
+        } catch (err) {
+            toast.error(`Error: ${err.message}`)
+        } finally {
+            setDeletingCalId(null)
         }
     }
 
@@ -301,6 +378,11 @@ export default function AdminReservationsPage() {
         { id: 'agenda', label: '🗓️ Agenda' },
     ]
 
+    const hasMore = reservations.length < totalCount
+    const sq = normalizeText(searchGuest.trim())
+    const filteredReservations = sq
+        ? reservations.filter(r => normalizeText(r.core_guests?.full_name).includes(sq))
+        : reservations
     const activeCalendars = icalCalendars.filter(c => c.is_active)
     const validSyncs = activeCalendars.map(c => c.last_synced_at ? new Date(c.last_synced_at) : null).filter(Boolean)
     const maxSyncDate = validSyncs.length > 0 ? new Date(Math.max(...validSyncs)) : null
@@ -422,10 +504,54 @@ export default function AdminReservationsPage() {
                                     </div>
                                 )}
 
+                                {/* Agregar calendario */}
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Agregar calendario</p>
+                                        <button
+                                            onClick={() => setShowAddCal(v => !v)}
+                                            className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                                        >
+                                            {showAddCal ? 'Cancelar' : '+ Nueva URL iCal'}
+                                        </button>
+                                    </div>
+                                    {showAddCal && (
+                                        <form onSubmit={handleAddCalendar} className="mt-2 grid sm:grid-cols-2 gap-3 bg-slate-800 rounded-lg p-3">
+                                            <div>
+                                                <label className={labelCls}>Unidad</label>
+                                                <select value={newCal.unit_id} onChange={e => setNewCal(s => ({ ...s, unit_id: e.target.value }))} className={inputCls}>
+                                                    <option value="">— Sin unidad —</option>
+                                                    {units.map(u => <option key={u.id} value={u.id}>{u.name} ({u.code})</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className={labelCls}>Proveedor</label>
+                                                <select value={newCal.source} onChange={e => setNewCal(s => ({ ...s, source: e.target.value }))} className={inputCls}>
+                                                    <option value="airbnb">Airbnb</option>
+                                                    <option value="booking">Booking</option>
+                                                </select>
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className={labelCls}>URL .ics *</label>
+                                                <input type="url" value={newCal.ics_url} onChange={e => setNewCal(s => ({ ...s, ics_url: e.target.value }))} className={inputCls} placeholder="https://www.airbnb.com/calendar/ical/..." required />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <label className={labelCls}>Nombre (opcional)</label>
+                                                <input type="text" value={newCal.name} onChange={e => setNewCal(s => ({ ...s, name: e.target.value }))} className={inputCls} placeholder="Ej: Airbnb — Cabaña Lupino" />
+                                            </div>
+                                            <div className="sm:col-span-2">
+                                                <button type="submit" disabled={savingCal} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold rounded-lg transition-colors">
+                                                    {savingCal ? 'Guardando…' : 'Agregar calendario'}
+                                                </button>
+                                            </div>
+                                        </form>
+                                    )}
+                                </div>
+
                                 {/* Calendars list */}
                                 {icalCalendars.length === 0 ? (
                                     <p className="text-slate-500 text-sm">
-                                        No hay calendarios configurados. Agregalos en <span className="text-slate-300">Supabase → Table Editor → core_external_calendars</span>.
+                                        No hay calendarios configurados. Usá <span className="text-slate-300">+ Nueva URL iCal</span> para agregar el primero.
                                     </p>
                                 ) : (
                                     <div className="space-y-2">
@@ -451,6 +577,14 @@ export default function AdminReservationsPage() {
                                                         <div>{cal.last_synced_at ? fmtTs(cal.last_synced_at) : 'Nunca'}</div>
                                                         {cal.last_synced_at && <div className="text-[10px] text-slate-500 mt-0.5">{timeAgo(new Date(cal.last_synced_at), now)}</div>}
                                                     </div>
+                                                    <button
+                                                        onClick={() => handleDeleteCalendar(cal.id, cal.display_name || cal.name || 'Sin nombre')}
+                                                        disabled={deletingCalId === cal.id}
+                                                        title="Eliminar calendario"
+                                                        className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                                    >
+                                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
+                                                    </button>
                                                 </div>
                                             )
                                         })}
@@ -579,37 +713,66 @@ export default function AdminReservationsPage() {
                         </form>
                     )}
 
-                    {/* ── Filters ── */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-5 grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                    {/* ── Búsqueda + Filtros ── */}
+                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-5 space-y-4">
+                        {/* Búsqueda por nombre de huésped (filtra en tiempo real las filas cargadas) */}
                         <div>
-                            <label className={labelCls}>Estado</label>
-                            <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={inputCls}>
-                                <option value="all">Todos</option>
-                                <option value="inquiry">Consulta</option>
-                                <option value="confirmed">Confirmada</option>
-                                <option value="cancelled">Cancelada</option>
-                                <option value="blocked">Bloqueada</option>
-                            </select>
+                            <label className={labelCls}>Buscar huésped</label>
+                            <div className="relative">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
+                                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
+                                </span>
+                                <input
+                                    type="text"
+                                    value={searchGuest}
+                                    onChange={e => setSearchGuest(e.target.value)}
+                                    placeholder="Nombre del huésped…"
+                                    className={`${inputCls} pl-9`}
+                                />
+                                {searchGuest && (
+                                    <button
+                                        onClick={() => setSearchGuest('')}
+                                        title="Limpiar búsqueda"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors"
+                                    >
+                                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
+                                    </button>
+                                )}
+                            </div>
                         </div>
-                        <div>
-                            <label className={labelCls}>Unidad</label>
-                            <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)} className={inputCls}>
-                                <option value="">Todas</option>
-                                {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
-                            </select>
+
+                        {/* Filtros (server-side) */}
+                        <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                            <div>
+                                <label className={labelCls}>Estado</label>
+                                <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className={inputCls}>
+                                    <option value="all">Todos</option>
+                                    <option value="inquiry">Consulta</option>
+                                    <option value="confirmed">Confirmada</option>
+                                    <option value="cancelled">Cancelada</option>
+                                    <option value="blocked">Bloqueada</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Unidad</label>
+                                <select value={filterUnit} onChange={e => setFilterUnit(e.target.value)} className={inputCls}>
+                                    <option value="">Todas</option>
+                                    {units.map(u => <option key={u.id} value={u.id}>{u.name}</option>)}
+                                </select>
+                            </div>
+                            <div>
+                                <label className={labelCls}>Desde</label>
+                                <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} className={inputCls} />
+                            </div>
+                            <div>
+                                <label className={labelCls}>Hasta</label>
+                                <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} className={inputCls} />
+                            </div>
+                            <button onClick={() => { setFilterStatus('all'); setFilterUnit(''); setFilterFrom(''); setFilterTo(''); setSearchGuest('') }}
+                                className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm rounded-xl transition-colors">
+                                Limpiar
+                            </button>
                         </div>
-                        <div>
-                            <label className={labelCls}>Desde</label>
-                            <input type="date" value={filterFrom} onChange={e => setFilterFrom(e.target.value)} className={inputCls} />
-                        </div>
-                        <div>
-                            <label className={labelCls}>Hasta</label>
-                            <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} className={inputCls} />
-                        </div>
-                        <button onClick={() => { setFilterStatus('all'); setFilterUnit(''); setFilterFrom(''); setFilterTo('') }}
-                            className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm rounded-xl transition-colors">
-                            Limpiar
-                        </button>
                     </div>
 
                     {/* ── Table ── */}
@@ -638,14 +801,16 @@ export default function AdminReservationsPage() {
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-800">
-                                        {reservations.length === 0 && (
+                                        {filteredReservations.length === 0 && (
                                             <tr>
                                                 <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
-                                                    No hay reservas con esos filtros
+                                                    {searchGuest.trim()
+                                                        ? `Sin coincidencias para "${searchGuest.trim()}"`
+                                                        : 'No hay reservas con esos filtros'}
                                                 </td>
                                             </tr>
                                         )}
-                                        {reservations.map(r => {
+                                        {filteredReservations.map(r => {
                                             const guest = r.core_guests
                                             const unit = r.core_units || unitsMap[String(r.unit_id)]
                                             const channel = r.core_channels
@@ -718,9 +883,24 @@ export default function AdminReservationsPage() {
                                     </tbody>
                                 </table>
                             </div>
-                            <p className="text-xs text-slate-600 mt-3 text-right">
-                                {reservations.length} resultado(s) · máx. 100 por carga
-                            </p>
+                            <div className="flex items-center justify-between gap-3 mt-3">
+                                <p className="text-xs text-slate-600">
+                                    {searchGuest.trim()
+                                        ? `${filteredReservations.length} coincidencia(s) en ${reservations.length} cargada(s)`
+                                        : `Mostrando ${reservations.length} de ${totalCount} reserva(s)`}
+                                </p>
+                                {hasMore && (
+                                    <button
+                                        onClick={loadMore}
+                                        disabled={loadingMore}
+                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
+                                    >
+                                        {loadingMore
+                                            ? <><span className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin inline-block" /> Cargando…</>
+                                            : `Cargar más (${totalCount - reservations.length} restantes)`}
+                                    </button>
+                                )}
+                            </div>
                         </>
                     )}
                 </div>

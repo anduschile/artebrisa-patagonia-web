@@ -83,3 +83,35 @@ export async function setCalendarActive(id, isActive) {
         .eq('id', id)
     if (error) throw new Error(`setCalendarActive: ${error.message}`)
 }
+
+/**
+ * Crear un nuevo calendario iCal externo.
+ * `source` mapea a la columna `source` (provider: 'airbnb' | 'booking' | ...).
+ */
+export async function createExternalCalendar({ unit_id, source, ics_url, name }) {
+    const payload = {
+        unit_id: unit_id || null,
+        ics_url: ics_url?.trim(),
+        is_active: true,
+    }
+    if (name?.trim()) payload.name = name.trim()
+    if (source) payload.source = source
+
+    const { error } = await supabase
+        .from('core_external_calendars')
+        .insert(payload)
+    if (error) throw new Error(`createExternalCalendar: ${error.message}`)
+}
+
+/**
+ * Eliminar un calendario iCal externo por id.
+ * Las reservas ya importadas se mantienen (la FK external_calendar_id es
+ * ON DELETE SET NULL); solo se elimina el feed para no volver a sincronizar.
+ */
+export async function deleteExternalCalendar(id) {
+    const { error } = await supabase
+        .from('core_external_calendars')
+        .delete()
+        .eq('id', id)
+    if (error) throw new Error(`deleteExternalCalendar: ${error.message}`)
+}

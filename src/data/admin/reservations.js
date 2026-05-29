@@ -4,7 +4,7 @@ import { supabase } from '../../lib/supabaseClient'
  * Fetch all reservations for admin use, with nested guest + unit + channel.
  * Authenticated users only (RLS must allow it).
  */
-export async function getAdminReservations({ status = null, from = null, to = null, unit_id = null } = {}) {
+export async function getAdminReservations({ status = null, from = null, to = null, unit_id = null, offset = 0, limit = 100 } = {}) {
     let q = supabase
         .from('core_reservations')
         .select(`
@@ -26,18 +26,19 @@ export async function getAdminReservations({ status = null, from = null, to = nu
             core_units ( id, name, code, unit_type ),
             core_guests ( id, full_name, email, phone ),
             core_channels ( id, name )
-        `)
+        `, { count: 'exact' })
         .order('check_in', { ascending: false })
-        .limit(100)
+        .order('id', { ascending: false })          // tiebreaker → paginación estable
+        .range(offset, offset + limit - 1)
 
     if (status && status !== 'all') q = q.eq('status', status)
     if (unit_id) q = q.eq('unit_id', unit_id)
     if (from) q = q.gte('check_in', from)
     if (to) q = q.lte('check_in', to)
 
-    const { data, error } = await q
+    const { data, error, count } = await q
     if (error) throw new Error(`getAdminReservations: ${error.message}`)
-    return data || []
+    return { rows: data || [], count: count ?? 0 }
 }
 
 /**
