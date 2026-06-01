@@ -43,6 +43,15 @@ function getBlockColors(r) {
     return { backgroundColor: '#9FE1CB', color: '#085041' }
 }
 
+function normalizeReservation(r) {
+    return {
+        ...r,
+        guest: r.core_guests || r.guest || null,
+        channel: r.core_channels || r.channel || null,
+        unit: r.core_units || r.unit || null,
+    }
+}
+
 export default function GanttCalendar({ units, onSelectReservation, onNewReservation, refreshKey = 0 }) {
     const now = new Date()
     const [year, setYear] = useState(now.getFullYear())
@@ -227,7 +236,7 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                                                             zIndex: 5,
                                                             ...getBlockColors(r),
                                                         }}
-                                                        onClick={e => { e.stopPropagation(); onSelectReservation?.(r) }}
+                                                        onClick={e => { e.stopPropagation(); onSelectReservation?.(normalizeReservation(r)) }}
                                                         title={label}
                                                     >
                                                         <span style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
