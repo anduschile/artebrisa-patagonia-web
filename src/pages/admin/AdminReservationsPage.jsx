@@ -21,10 +21,10 @@ import NewReservationModal from '../../components/admin/NewReservationModal'
 const PAGE_SIZE = 100
 
 const STATUS_COLORS = {
-    inquiry: 'bg-yellow-900 text-yellow-300 border-yellow-700',
-    confirmed: 'bg-green-900 text-green-300 border-green-700',
-    cancelled: 'bg-red-900 text-red-300 border-red-700',
-    blocked: 'bg-slate-700 text-slate-300 border-slate-600',
+    inquiry: 'bg-amber-100 text-amber-800 border-amber-200',
+    confirmed: 'bg-green-100 text-green-800 border-green-200',
+    cancelled: 'bg-red-100 text-red-700 border-red-200',
+    blocked: 'bg-gray-100 text-gray-600 border-gray-200',
 }
 const STATUS_LABELS = {
     inquiry: 'Consulta',
@@ -76,17 +76,17 @@ function normalizeText(s) {
 
 function StatusBadge({ status }) {
     return (
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLORS[status] || 'bg-slate-800 text-slate-400 border-slate-700'}`}>
+        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-500 border-gray-200'}`}>
             {STATUS_LABELS[status] || status}
         </span>
     )
 }
 
 const RESULT_COLORS = {
-    green: 'bg-green-900 text-green-300 border-green-700',
-    blue: 'bg-blue-900 text-blue-300 border-blue-700',
-    slate: 'bg-slate-800 text-slate-400 border-slate-700',
-    red: 'bg-red-900 text-red-300 border-red-700',
+    green: 'bg-green-100 text-green-800 border-green-200',
+    blue: 'bg-blue-100 text-blue-800 border-blue-200',
+    slate: 'bg-gray-100 text-gray-600 border-gray-200',
+    red: 'bg-red-100 text-red-700 border-red-200',
 }
 
 function ResultBadge({ label, value = 0, color = 'slate' }) {
@@ -388,8 +388,8 @@ export default function AdminReservationsPage() {
         ].filter(Boolean).join('\n')
     }
 
-    const inputCls = "bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
-    const labelCls = "block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide"
+    const inputCls = "bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
+    const labelCls = "block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide"
 
     const TABS = [
         { id: 'gantt', label: '📊 Gantt' },
@@ -415,14 +415,14 @@ export default function AdminReservationsPage() {
             {/* ── Tab strip + action buttons in same row ── */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 {/* Tabs */}
-                <div className="flex bg-slate-800 rounded-xl p-1 gap-1">
+                <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-1">
                     {TABS.map(t => (
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
                             className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${tab === t.id
-                                ? 'bg-slate-600 text-white'
-                                : 'text-slate-400 hover:text-slate-200'
+                                ? 'bg-primary-600 text-white'
+                                : 'text-gray-600 hover:bg-gray-100'
                                 }`}
                         >
                             {t.label}
@@ -458,20 +458,20 @@ export default function AdminReservationsPage() {
             {tab === 'lista' && (
                 <div>
                     {/* ── iCal Sync panel ── */}
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl mb-5">
+                    <div className="bg-white border border-gray-200 rounded-2xl mb-5">
                         {/* Header row */}
                         <div className="flex items-center justify-between px-5 py-3 cursor-pointer select-none" onClick={() => setShowIcal(v => !v)}>
                             <div className="flex items-center gap-3">
                                 <span className="text-base">🔄</span>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-white">iCal Sync</span>
-                                        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+                                        <span className="text-sm font-bold text-gray-900">iCal Sync</span>
+                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                                             {activeCalendars.length} activo{activeCalendars.length !== 1 ? 's' : ''}
                                         </span>
                                     </div>
-                                    <div className="text-xs text-slate-400 mt-0.5">
-                                        Última sincronización: <span className="text-slate-300 font-medium">{maxSyncDate ? `${fmtTs(maxSyncDate.toISOString())} (${timeAgo(maxSyncDate, now)})` : 'Nunca sincronizado'}</span>
+                                    <div className="text-xs text-gray-500 mt-0.5">
+                                        Última sincronización: <span className="text-gray-700 font-medium">{maxSyncDate ? `${fmtTs(maxSyncDate.toISOString())} (${timeAgo(maxSyncDate, now)})` : 'Nunca sincronizado'}</span>
                                     </div>
                                 </div>
                             </div>
@@ -487,7 +487,7 @@ export default function AdminReservationsPage() {
                                     }
                                 </button>
                                 <svg
-                                    className={`w-4 h-4 text-slate-500 transition-transform ${showIcal ? 'rotate-180' : ''}`}
+                                    className={`w-4 h-4 text-gray-400 transition-transform ${showIcal ? 'rotate-180' : ''}`}
                                     fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                                 >
                                     <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -497,7 +497,7 @@ export default function AdminReservationsPage() {
 
                         {/* Expanded body */}
                         {showIcal && (
-                            <div className="border-t border-slate-800 px-5 py-4 space-y-4">
+                            <div className="border-t border-gray-200 px-5 py-4 space-y-4">
 
                                 {/* Error */}
                                 {icalError && (
@@ -507,7 +507,7 @@ export default function AdminReservationsPage() {
                                 {/* Sync result */}
                                 {icalResult && (
                                     <div className="space-y-2">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Resultado — {fmtTs(icalResult.synced_at)}</p>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Resultado — {fmtTs(icalResult.synced_at)}</p>
                                         {/* Global totals */}
                                         <div className="flex flex-wrap gap-2 mb-2">
                                             <ResultBadge label="Insertadas" value={icalResult.totals?.inserted} color="green" />
@@ -519,8 +519,8 @@ export default function AdminReservationsPage() {
                                         {icalResult.calendars?.length > 0 && (
                                             <div className="space-y-1">
                                                 {icalResult.calendars.map(c => (
-                                                    <div key={c.calendar_id} className="flex items-start gap-3 text-xs text-slate-400 bg-slate-800 rounded-lg px-3 py-2">
-                                                        <span className="text-slate-300 font-medium shrink-0">{c.display_name || c.name || 'Calendario'}</span>
+                                                    <div key={c.calendar_id} className="flex items-start gap-3 text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
+                                                        <span className="text-gray-700 font-medium shrink-0">{c.display_name || c.name || 'Calendario'}</span>
                                                         <span className="text-green-400">+{c.inserted}</span>
                                                         <span className="text-blue-400">~{c.updated}</span>
                                                         <span className="text-slate-500">={c.skipped}</span>
@@ -537,7 +537,7 @@ export default function AdminReservationsPage() {
                                 {/* Agregar calendario */}
                                 <div>
                                     <div className="flex items-center justify-between">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Agregar calendario</p>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Agregar calendario</p>
                                         <button
                                             onClick={() => setShowAddCal(v => !v)}
                                             className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
@@ -546,7 +546,7 @@ export default function AdminReservationsPage() {
                                         </button>
                                     </div>
                                     {showAddCal && (
-                                        <form onSubmit={handleAddCalendar} className="mt-2 grid sm:grid-cols-2 gap-3 bg-slate-800 rounded-lg p-3">
+                                        <form onSubmit={handleAddCalendar} className="mt-2 grid sm:grid-cols-2 gap-3 bg-gray-50 border border-gray-200 rounded-lg p-3">
                                             <div>
                                                 <label className={labelCls}>Unidad</label>
                                                 <select value={newCal.unit_id} onChange={e => setNewCal(s => ({ ...s, unit_id: e.target.value }))} className={inputCls}>
@@ -580,38 +580,38 @@ export default function AdminReservationsPage() {
 
                                 {/* Calendars list */}
                                 {icalCalendars.length === 0 ? (
-                                    <p className="text-slate-500 text-sm">
-                                        No hay calendarios configurados. Usá <span className="text-slate-300">+ Nueva URL iCal</span> para agregar el primero.
+                                    <p className="text-gray-500 text-sm">
+                                        No hay calendarios configurados. Usá <span className="text-gray-700">+ Nueva URL iCal</span> para agregar el primero.
                                     </p>
                                 ) : (
                                     <div className="space-y-2">
-                                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wide">Calendarios</p>
+                                        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Calendarios</p>
                                         {icalCalendars.map(cal => {
                                             const unit = cal.core_units
                                             return (
-                                                <div key={cal.id} className="flex items-center gap-3 bg-slate-800 rounded-lg px-3 py-2 text-xs">
+                                                <div key={cal.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2 text-xs">
                                                     <button
                                                         onClick={() => handleToggleCalendar(cal.id, cal.is_active)}
-                                                        className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${cal.is_active ? 'bg-emerald-500' : 'bg-slate-600'}`}
+                                                        className={`w-8 h-4 rounded-full transition-colors relative shrink-0 ${cal.is_active ? 'bg-emerald-500' : 'bg-gray-300'}`}
                                                         title={cal.is_active ? 'Desactivar' : 'Activar'}
                                                     >
                                                         <span className={`absolute top-0.5 w-3 h-3 bg-white rounded-full transition-all ${cal.is_active ? 'left-4' : 'left-0.5'}`} />
                                                     </button>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-slate-200 font-medium truncate">{cal.display_name || cal.name || 'Sin nombre'}</p>
-                                                        <p className="text-slate-500 truncate">
+                                                        <p className="text-gray-800 font-medium truncate">{cal.display_name || cal.name || 'Sin nombre'}</p>
+                                                        <p className="text-gray-500 truncate">
                                                             {unit ? `${unit.name} (${unit.code})` : <span className="text-amber-400">Sin unidad asignada</span>}
                                                         </p>
                                                     </div>
-                                                    <div className="text-slate-600 shrink-0 text-right">
+                                                    <div className="text-gray-400 shrink-0 text-right">
                                                         <div>{cal.last_synced_at ? fmtTs(cal.last_synced_at) : 'Nunca'}</div>
-                                                        {cal.last_synced_at && <div className="text-[10px] text-slate-500 mt-0.5">{timeAgo(new Date(cal.last_synced_at), now)}</div>}
+                                                        {cal.last_synced_at && <div className="text-[10px] text-gray-400 mt-0.5">{timeAgo(new Date(cal.last_synced_at), now)}</div>}
                                                     </div>
                                                     <button
                                                         onClick={() => handleDeleteCalendar(cal.id, cal.display_name || cal.name || 'Sin nombre')}
                                                         disabled={deletingCalId === cal.id}
                                                         title="Eliminar calendario"
-                                                        className="shrink-0 p-1.5 rounded-lg text-slate-500 hover:text-red-400 hover:bg-slate-700 transition-colors disabled:opacity-50"
+                                                        className="shrink-0 p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50"
                                                     >
                                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6" /><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" /></svg>
                                                     </button>
@@ -625,25 +625,25 @@ export default function AdminReservationsPage() {
                     </div>
 
                     {/* ── iCal Export panel ── */}
-                    <div className="bg-slate-900 border border-slate-700 rounded-2xl mb-5">
+                    <div className="bg-white border border-gray-200 rounded-2xl mb-5">
                         {/* Header row */}
                         <div className="flex items-center justify-between px-5 py-3 cursor-pointer select-none" onClick={() => setShowExport(v => !v)}>
                             <div className="flex items-center gap-3">
                                 <span className="text-base">📤</span>
                                 <div>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-sm font-bold text-white">Exportar calendarios</span>
-                                        <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">
+                                        <span className="text-sm font-bold text-gray-900">Exportar calendarios</span>
+                                        <span className="text-xs text-gray-500 bg-gray-100 px-2 py-0.5 rounded-full">
                                             {units.length} unidad{units.length !== 1 ? 'es' : ''}
                                         </span>
                                     </div>
-                                    <div className="text-xs text-slate-400 mt-0.5">
+                                    <div className="text-xs text-gray-500 mt-0.5">
                                         URLs públicas (.ics) para pegar en Booking y Airbnb
                                     </div>
                                 </div>
                             </div>
                             <svg
-                                className={`w-4 h-4 text-slate-500 transition-transform ${showExport ? 'rotate-180' : ''}`}
+                                className={`w-4 h-4 text-gray-400 transition-transform ${showExport ? 'rotate-180' : ''}`}
                                 fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
                             >
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
@@ -652,31 +652,31 @@ export default function AdminReservationsPage() {
 
                         {/* Expanded body */}
                         {showExport && (
-                            <div className="border-t border-slate-800 px-5 py-4 space-y-3">
-                                <p className="text-xs text-slate-400 leading-relaxed">
-                                    Copia la URL de cada unidad y pégala en <span className="text-slate-200 font-medium">Booking Extranet → Habitaciones → Sincronizar calendarios</span> y en <span className="text-slate-200 font-medium">Airbnb → Calendario → Disponibilidad → Sincronizar calendarios</span>. Cada URL corresponde a UNA unidad.
+                            <div className="border-t border-gray-200 px-5 py-4 space-y-3">
+                                <p className="text-xs text-gray-500 leading-relaxed">
+                                    Copia la URL de cada unidad y pégala en <span className="text-gray-800 font-medium">Booking Extranet → Habitaciones → Sincronizar calendarios</span> y en <span className="text-gray-800 font-medium">Airbnb → Calendario → Disponibilidad → Sincronizar calendarios</span>. Cada URL corresponde a UNA unidad.
                                 </p>
 
                                 {units.length === 0 ? (
-                                    <p className="text-slate-500 text-sm italic">No hay unidades activas para exportar.</p>
+                                    <p className="text-gray-400 text-sm italic">No hay unidades activas para exportar.</p>
                                 ) : (
                                     <div className="space-y-2">
                                         {units.map(unit => {
                                             const url = buildExportUrl(unit.code)
                                             const isCopied = copiedCode === unit.code
                                             return (
-                                                <div key={unit.id} className="flex items-center gap-3 bg-slate-800 rounded-lg px-3 py-2">
+                                                <div key={unit.id} className="flex items-center gap-3 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
                                                     <div className="min-w-0 flex-1">
-                                                        <p className="text-sm font-medium text-slate-200 truncate">
-                                                            {unit.name} <span className="text-slate-500 font-mono text-xs">({unit.code})</span>
+                                                        <p className="text-sm font-medium text-gray-800 truncate">
+                                                            {unit.name} <span className="text-gray-400 font-mono text-xs">({unit.code})</span>
                                                         </p>
-                                                        <p className="text-[11px] text-slate-500 font-mono truncate" title={url}>{url}</p>
+                                                        <p className="text-[11px] text-gray-400 font-mono truncate" title={url}>{url}</p>
                                                     </div>
                                                     <a
                                                         href={url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        className="shrink-0 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 transition-colors"
+                                                        className="shrink-0 px-2.5 py-1.5 text-xs font-semibold rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-600 transition-colors"
                                                         title="Abrir / descargar .ics"
                                                     >
                                                         ↗
@@ -685,7 +685,7 @@ export default function AdminReservationsPage() {
                                                         onClick={() => handleCopyExportUrl(unit.code)}
                                                         className={`shrink-0 px-3 py-1.5 text-xs font-bold rounded-lg transition-colors ${isCopied
                                                             ? 'bg-emerald-600 text-white'
-                                                            : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                                                            : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
                                                             }`}
                                                     >
                                                         {isCopied ? '✓ Copiado' : 'Copiar URL'}
@@ -701,8 +701,8 @@ export default function AdminReservationsPage() {
 
                     {/* ── Block form ── */}
                     {showBlock && (
-                        <form onSubmit={handleCreateBlock} className="bg-slate-900 border border-slate-700 rounded-2xl p-6 mb-6">
-                            <h2 className="text-base font-bold text-white mb-4">Crear bloqueo manual</h2>
+                        <form onSubmit={handleCreateBlock} className="bg-white border border-gray-200 rounded-2xl p-6 mb-6">
+                            <h2 className="text-base font-bold text-gray-900 mb-4">Crear bloqueo manual</h2>
                             <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                                 <div>
                                     <label className={labelCls}>Unidad *</label>
@@ -736,7 +736,7 @@ export default function AdminReservationsPage() {
                                 <button type="submit" disabled={blockSaving} className="px-5 py-2 bg-primary-600 hover:bg-primary-500 disabled:opacity-60 text-white text-sm font-bold rounded-xl transition-colors">
                                     {blockSaving ? 'Guardando…' : 'Crear bloqueo'}
                                 </button>
-                                <button type="button" onClick={() => setShowBlock(false)} className="px-5 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-semibold rounded-xl transition-colors">
+                                <button type="button" onClick={() => setShowBlock(false)} className="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-semibold rounded-xl transition-colors">
                                     Cancelar
                                 </button>
                             </div>
@@ -744,12 +744,12 @@ export default function AdminReservationsPage() {
                     )}
 
                     {/* ── Búsqueda + Filtros ── */}
-                    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 mb-5 space-y-4">
+                    <div className="bg-white border border-gray-200 rounded-2xl p-4 mb-5 space-y-4">
                         {/* Búsqueda por nombre de huésped (filtra en tiempo real las filas cargadas) */}
                         <div>
                             <label className={labelCls}>Buscar huésped</label>
                             <div className="relative">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
                                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8" /><path d="m21 21-4.3-4.3" /></svg>
                                 </span>
                                 <input
@@ -763,7 +763,7 @@ export default function AdminReservationsPage() {
                                     <button
                                         onClick={() => setSearchGuest('')}
                                         title="Limpiar búsqueda"
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-200 transition-colors"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                     >
                                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
                                     </button>
@@ -799,7 +799,7 @@ export default function AdminReservationsPage() {
                                 <input type="date" value={filterTo} onChange={e => setFilterTo(e.target.value)} className={inputCls} />
                             </div>
                             <button onClick={() => { setFilterStatus('all'); setFilterUnit(''); setFilterFrom(''); setFilterTo(''); setSearchGuest('') }}
-                                className="py-2 px-4 bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm rounded-xl transition-colors">
+                                className="py-2 px-4 bg-gray-100 hover:bg-gray-200 text-gray-500 text-sm rounded-xl transition-colors">
                                 Limpiar
                             </button>
                         </div>
@@ -814,10 +814,10 @@ export default function AdminReservationsPage() {
                     {error && <p className="text-red-400 text-sm text-center py-10">{error}</p>}
                     {!loading && !error && (
                         <>
-                            <div className="overflow-x-auto rounded-2xl border border-slate-800">
+                            <div className="overflow-x-auto rounded-2xl border border-gray-200">
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="bg-slate-800 text-xs font-semibold text-slate-400 uppercase tracking-wide">
+                                        <tr className="bg-gray-50 text-xs font-semibold text-gray-500 uppercase tracking-wide border-b border-gray-200">
                                             <th className="px-4 py-3 text-left">Creada</th>
                                             <th className="px-4 py-3 text-left">Estado</th>
                                             <th className="px-4 py-3 text-left">Unidad</th>
@@ -830,10 +830,10 @@ export default function AdminReservationsPage() {
                                             <th className="px-4 py-3 text-right">Acciones</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-slate-800">
+                                    <tbody className="divide-y divide-gray-100">
                                         {filteredReservations.length === 0 && (
                                             <tr>
-                                                <td colSpan={10} className="px-4 py-12 text-center text-slate-500">
+                                                <td colSpan={10} className="px-4 py-12 text-center text-gray-500">
                                                     {searchGuest.trim()
                                                         ? `Sin coincidencias para "${searchGuest.trim()}"`
                                                         : 'No hay reservas con esos filtros'}
@@ -848,10 +848,10 @@ export default function AdminReservationsPage() {
                                             return (
                                                 <tr
                                                     key={r.id}
-                                                    className="bg-slate-900 hover:bg-slate-800/60 transition-colors cursor-pointer"
+                                                    className="bg-white hover:bg-gray-50 transition-colors cursor-pointer"
                                                     onClick={() => setSelectedReservation(r)}
                                                 >
-                                                    <td className="px-4 py-3 text-slate-400 whitespace-nowrap">
+                                                    <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
                                                         {fmtTs(r.created_at)}
                                                     </td>
                                                     <td className="px-4 py-3">
@@ -860,26 +860,26 @@ export default function AdminReservationsPage() {
                                                     <td className="px-4 py-3 whitespace-nowrap">
                                                         {unit ? (
                                                             <>
-                                                                <span className="text-white font-medium">{unit.name}</span>
-                                                                <span className="block text-xs text-slate-500">{unit.code}</span>
+                                                                <span className="text-gray-900 font-medium">{unit.name}</span>
+                                                                <span className="block text-xs text-gray-400">{unit.code}</span>
                                                             </>
                                                         ) : (
-                                                            <span className="text-slate-500 text-xs font-mono">{r.unit_id}</span>
+                                                            <span className="text-gray-400 text-xs font-mono">{r.unit_id}</span>
                                                         )}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{fmtDate(r.check_in)}</td>
-                                                    <td className="px-4 py-3 text-slate-300 whitespace-nowrap">{fmtDate(r.check_out)}</td>
-                                                    <td className="px-4 py-3 text-center text-slate-300">{nights(r.check_in, r.check_out)}</td>
-                                                    <td className="px-4 py-3 text-slate-300">
-                                                        {guest?.full_name || <span className="text-slate-600">—</span>}
+                                                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{fmtDate(r.check_in)}</td>
+                                                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{fmtDate(r.check_out)}</td>
+                                                    <td className="px-4 py-3 text-center text-gray-700">{nights(r.check_in, r.check_out)}</td>
+                                                    <td className="px-4 py-3 text-gray-800">
+                                                        {guest?.full_name || <span className="text-gray-300">—</span>}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-400 text-xs">
+                                                    <td className="px-4 py-3 text-gray-500 text-xs">
                                                         {guest?.phone && <div>{guest.phone}</div>}
                                                         {guest?.email && <div className="break-all">{guest.email}</div>}
-                                                        {!guest?.phone && !guest?.email && <span className="text-slate-600">—</span>}
+                                                        {!guest?.phone && !guest?.email && <span className="text-gray-300">—</span>}
                                                     </td>
-                                                    <td className="px-4 py-3 text-slate-400 text-xs whitespace-nowrap">
-                                                        {channel?.name || <span className="text-slate-600">—</span>}
+                                                    <td className="px-4 py-3 text-gray-500 text-xs whitespace-nowrap">
+                                                        {channel?.name || <span className="text-gray-300">—</span>}
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <div className="flex items-center gap-2 justify-end flex-wrap">
@@ -888,7 +888,7 @@ export default function AdminReservationsPage() {
                                                                 disabled={isChanging}
                                                                 value={r.status}
                                                                 onChange={e => handleStatusChange(r.id, e.target.value)}
-                                                                className="bg-slate-700 border border-slate-600 text-slate-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
+                                                                className="bg-white border border-gray-300 text-gray-700 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:opacity-50"
                                                             >
                                                                 <option value="inquiry">Consulta</option>
                                                                 <option value="confirmed">Confirmar</option>
@@ -899,7 +899,7 @@ export default function AdminReservationsPage() {
                                                             <button
                                                                 onClick={() => copyText(buildCopySummary(r))}
                                                                 title="Copiar resumen"
-                                                                className="p-1.5 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 transition-colors"
+                                                                className="p-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-gray-500 transition-colors"
                                                             >
                                                                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                                                     <rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
@@ -914,7 +914,7 @@ export default function AdminReservationsPage() {
                                 </table>
                             </div>
                             <div className="flex items-center justify-between gap-3 mt-3">
-                                <p className="text-xs text-slate-600">
+                                <p className="text-xs text-gray-400">
                                     {searchGuest.trim()
                                         ? `${filteredReservations.length} coincidencia(s) en ${reservations.length} cargada(s)`
                                         : `Mostrando ${reservations.length} de ${totalCount} reserva(s)`}
@@ -923,10 +923,10 @@ export default function AdminReservationsPage() {
                                     <button
                                         onClick={loadMore}
                                         disabled={loadingMore}
-                                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 disabled:opacity-60 text-slate-200 text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
+                                        className="px-4 py-2 bg-gray-100 hover:bg-gray-200 disabled:opacity-60 text-gray-700 text-sm font-semibold rounded-xl transition-colors flex items-center gap-2"
                                     >
                                         {loadingMore
-                                            ? <><span className="w-3 h-3 border border-slate-300 border-t-transparent rounded-full animate-spin inline-block" /> Cargando…</>
+                                            ? <><span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin inline-block" /> Cargando…</>
                                             : `Cargar más (${totalCount - reservations.length} restantes)`}
                                     </button>
                                 )}
@@ -938,14 +938,14 @@ export default function AdminReservationsPage() {
 
             {/* ── Tab: Calendario ── */}
             {tab === 'calendario' && (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
                     <MonthCalendar units={units} onSelect={setSelectedReservation} refreshKey={calendarRefreshKey} />
                 </div>
             )}
 
             {/* ── Tab: Agenda ── */}
             {tab === 'agenda' && (
-                <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
+                <div className="bg-white border border-gray-200 rounded-2xl p-4">
                     <WeekAgenda onSelect={setSelectedReservation} refreshKey={calendarRefreshKey} />
                 </div>
             )}

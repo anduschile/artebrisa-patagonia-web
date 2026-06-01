@@ -3,15 +3,15 @@ import { getCalendarReservations } from '../../data/admin/reservations'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR = {
-    inquiry: 'bg-yellow-700 border-yellow-600 text-yellow-200',
-    confirmed: 'bg-green-800 border-green-700 text-green-200',
-    blocked: 'bg-slate-600 border-slate-500 text-slate-300',
-    cancelled: 'bg-red-900 border-red-800 text-red-300',
+    inquiry: 'bg-amber-100 border-amber-200 text-amber-800',
+    confirmed: 'bg-green-100 border-green-200 text-green-800',
+    blocked: 'bg-gray-100 border-gray-200 text-gray-600',
+    cancelled: 'bg-red-100 border-red-200 text-red-700',
 }
 const STATUS_DOT = {
-    inquiry: 'bg-yellow-400',
-    confirmed: 'bg-green-400',
-    blocked: 'bg-slate-400',
+    inquiry: 'bg-amber-500',
+    confirmed: 'bg-green-500',
+    blocked: 'bg-gray-400',
     cancelled: 'bg-red-400',
 }
 const STATUS_LABEL = {
@@ -69,15 +69,12 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
 
     const gridDays = useMemo(() => buildCalendarGrid(year, month), [year, month])
 
-    // Independent data fetch scoped to the visible grid. The Lista's filters
-    // do NOT affect this view — it has its own unit selector below.
     const [reservations, setReservations] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
 
     useEffect(() => {
         const from = gridDays[0]
-        // grid spans 42 days; query is half-open so add 1 to include the last day's check_in
         const to = addDays(gridDays[gridDays.length - 1], 1)
         let cancelled = false
         setLoading(true)
@@ -112,13 +109,13 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
             <div className="flex flex-wrap items-center gap-3">
                 {/* Month navigation */}
                 <div className="flex items-center gap-2">
-                    <button onClick={prevMonth} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white transition-colors">
+                    <button onClick={prevMonth} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                     </button>
-                    <span className="text-white font-bold text-base min-w-36 text-center">
+                    <span className="text-gray-900 font-bold text-base min-w-36 text-center">
                         {MONTHS_ES[month]} {year}
                     </span>
-                    <button onClick={nextMonth} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white transition-colors">
+                    <button onClick={nextMonth} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-colors">
                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                     </button>
                 </div>
@@ -127,7 +124,7 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
                 <select
                     value={selUnit}
                     onChange={e => setSelUnit(e.target.value)}
-                    className="bg-slate-700 text-slate-200 text-sm rounded-lg px-3 py-1.5 border border-slate-600 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="bg-white text-gray-900 text-sm rounded-lg px-3 py-1.5 border border-gray-300 focus:outline-none focus:ring-1 focus:ring-primary-500"
                 >
                     <option value="">Todas las unidades</option>
                     {units.map(u => (
@@ -137,17 +134,17 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
 
                 {/* Loading / error indicator */}
                 {loading && (
-                    <span className="text-xs text-slate-500 flex items-center gap-1.5">
-                        <span className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-400 flex items-center gap-1.5">
+                        <span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
                         Cargando…
                     </span>
                 )}
-                {error && <span className="text-xs text-red-400">⚠ {error}</span>}
+                {error && <span className="text-xs text-red-500">⚠ {error}</span>}
 
                 {/* Legend */}
                 <div className="flex items-center gap-3 ml-auto">
                     {Object.entries(STATUS_LABEL).map(([s, l]) => (
-                        <span key={s} className="flex items-center gap-1 text-xs text-slate-400">
+                        <span key={s} className="flex items-center gap-1 text-xs text-gray-500">
                             <span className={`w-2 h-2 rounded-full ${STATUS_DOT[s]}`} />{l}
                         </span>
                     ))}
@@ -160,12 +157,12 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
                     {/* Day headers */}
                     <div className="grid grid-cols-7 mb-1">
                         {DAYS_ES.map(d => (
-                            <div key={d} className="text-center text-xs font-semibold text-slate-500 uppercase py-1">{d}</div>
+                            <div key={d} className="text-center text-xs font-semibold text-gray-500 uppercase py-1">{d}</div>
                         ))}
                     </div>
 
                     {/* 6 rows of days */}
-                    <div className="grid grid-cols-7 gap-px bg-slate-700 rounded-xl overflow-hidden border border-slate-700">
+                    <div className="grid grid-cols-7 gap-px bg-gray-200 rounded-xl overflow-hidden border border-gray-200">
                         {gridDays.map(day => {
                             const isThisMonth = parseInt(day.slice(5, 7)) - 1 === month
                             const isToday = day === todayStr
@@ -174,10 +171,10 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
                             return (
                                 <div
                                     key={day}
-                                    className={`bg-slate-800 min-h-[80px] p-1 ${!isThisMonth ? 'opacity-40' : ''} ${isToday ? 'ring-1 ring-inset ring-emerald-500' : ''}`}
+                                    className={`bg-white min-h-[80px] p-1 ${!isThisMonth ? 'opacity-40' : ''} ${isToday ? 'ring-1 ring-inset ring-primary-500' : ''}`}
                                 >
                                     {/* Day number */}
-                                    <p className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-emerald-400' : 'text-slate-400'}`}>
+                                    <p className={`text-[11px] font-bold mb-0.5 ${isToday ? 'text-primary-600' : 'text-gray-500'}`}>
                                         {parseInt(day.slice(8))}
                                     </p>
                                     {/* Reservation chips — show up to 3 */}
@@ -189,14 +186,14 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
                                                 tabIndex={0}
                                                 onClick={() => onSelect?.(r)}
                                                 onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onSelect?.(r)}
-                                                className={`text-[10px] px-1 py-0.5 rounded truncate border cursor-pointer hover:brightness-125 transition-all ${STATUS_COLOR[r.status] || STATUS_COLOR.blocked}`}
+                                                className={`text-[10px] px-1 py-0.5 rounded truncate border cursor-pointer hover:brightness-95 transition-all ${STATUS_COLOR[r.status] || STATUS_COLOR.blocked}`}
                                                 title={`${guestName(r)} · ${r.check_in} → ${r.check_out} · ${STATUS_LABEL[r.status]}`}
                                             >
                                                 {selUnit ? guestName(r) : `${unitName(r)} ${guestName(r)}`}
                                             </div>
                                         ))}
                                         {dayRes.length > 3 && (
-                                            <p className="text-[10px] text-slate-500 pl-1">+{dayRes.length - 3} más</p>
+                                            <p className="text-[10px] text-gray-400 pl-1">+{dayRes.length - 3} más</p>
                                         )}
                                     </div>
                                 </div>

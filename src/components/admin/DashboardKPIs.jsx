@@ -24,14 +24,14 @@ function calcOccupancy(reservations, days, unitCount) {
     return Math.round((totalNights / (days * unitCount)) * 100)
 }
 
-const KPI_CARD_CLS = 'bg-slate-900 border border-slate-700 rounded-2xl px-4 py-3 flex flex-col gap-1'
+const KPI_CARD_CLS = 'bg-white border border-gray-200 rounded-2xl px-4 py-3 flex flex-col gap-1'
 
-function KpiCard({ label, value, sub, color = 'text-white' }) {
+function KpiCard({ label, value, sub, color = 'text-gray-900' }) {
     return (
         <div className={KPI_CARD_CLS}>
-            <p className="text-slate-500 text-xs font-medium uppercase tracking-wide">{label}</p>
+            <p className="text-gray-500 text-xs font-medium uppercase tracking-wide">{label}</p>
             <p className={`text-2xl font-bold ${color}`}>{value}</p>
-            {sub && <p className="text-slate-500 text-xs">{sub}</p>}
+            {sub && <p className="text-gray-400 text-xs">{sub}</p>}
         </div>
     )
 }
@@ -58,32 +58,32 @@ export default function DashboardKPIs({ reservations, units }) {
     return (
         <div className="mb-5">
             {/* Row 1: Occupancy */}
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Ocupación (próximos días)</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Ocupación (próximos días)</p>
             <div className="grid grid-cols-3 gap-3 mb-3">
-                <KpiCard label="7 días" value={`${stats.occ7}%`} color={stats.occ7 > 70 ? 'text-emerald-400' : 'text-white'} />
-                <KpiCard label="14 días" value={`${stats.occ14}%`} color={stats.occ14 > 70 ? 'text-emerald-400' : 'text-white'} />
-                <KpiCard label="30 días" value={`${stats.occ30}%`} color={stats.occ30 > 70 ? 'text-emerald-400' : 'text-white'} />
+                <KpiCard label="7 días" value={`${stats.occ7}%`} color={stats.occ7 > 70 ? 'text-emerald-600' : 'text-gray-900'} />
+                <KpiCard label="14 días" value={`${stats.occ14}%`} color={stats.occ14 > 70 ? 'text-emerald-600' : 'text-gray-900'} />
+                <KpiCard label="30 días" value={`${stats.occ30}%`} color={stats.occ30 > 70 ? 'text-emerald-600' : 'text-gray-900'} />
             </div>
 
             {/* Row 2: Operations */}
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Operaciones</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Operaciones</p>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <KpiCard
                     label="Consultas pendientes"
                     value={stats.inquiries}
-                    color={stats.inquiries > 0 ? 'text-yellow-400' : 'text-white'}
+                    color={stats.inquiries > 0 ? 'text-amber-600' : 'text-gray-900'}
                 />
                 <KpiCard
                     label="Check-in hoy / mañana"
                     value={`${stats.checkInToday} / ${stats.checkInTmrw}`}
                     sub="llegadas"
-                    color="text-blue-400"
+                    color="text-blue-600"
                 />
                 <KpiCard
                     label="Check-out hoy / mañana"
                     value={`${stats.checkOutToday} / ${stats.checkOutTmrw}`}
                     sub="salidas"
-                    color="text-orange-400"
+                    color="text-orange-500"
                 />
                 <KpiCard
                     label="Unidades totales"

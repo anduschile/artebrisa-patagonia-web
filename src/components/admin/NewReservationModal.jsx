@@ -88,24 +88,24 @@ export default function NewReservationModal({ isOpen, onClose, initialData, onSu
 
     if (!isOpen) return null
 
-    const inputCls = "bg-slate-800 border border-slate-700 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
-    const labelCls = "block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide"
+    const inputCls = "bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 w-full"
+    const labelCls = "block text-xs font-semibold text-gray-700 mb-1 uppercase tracking-wide"
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" onClick={onClose} />
+            <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-md shadow-2xl pointer-events-auto">
-                    <div className="flex items-start justify-between px-6 py-4 border-b border-slate-800">
+                <div className="bg-white border border-gray-200 rounded-2xl w-full max-w-md shadow-xl pointer-events-auto">
+                    <div className="flex items-start justify-between px-6 py-4 border-b border-gray-200">
                         <div>
-                            <h2 className="text-base font-bold text-white">Nueva reserva</h2>
-                            <p className="text-xs text-slate-400 mt-0.5">
-                                {initialData?.unitName} <span className="text-slate-600 font-mono">({initialData?.unitCode})</span>
+                            <h2 className="text-base font-bold text-gray-900">Nueva reserva</h2>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                                {initialData?.unitName} <span className="text-gray-400 font-mono">({initialData?.unitCode})</span>
                             </p>
                         </div>
                         <button
                             onClick={onClose}
-                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 transition-colors"
+                            className="w-8 h-8 flex items-center justify-center rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-500 transition-colors"
                         >
                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -127,8 +127,8 @@ export default function NewReservationModal({ isOpen, onClose, initialData, onSu
                                         onClick={() => setType(opt.value)}
                                         className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-colors ${
                                             type === opt.value
-                                                ? opt.value === 'direct' ? 'bg-primary-600 text-white' : 'bg-slate-600 text-white'
-                                                : 'bg-slate-800 text-slate-400 hover:text-slate-200'
+                                                ? opt.value === 'direct' ? 'bg-primary-600 text-white' : 'bg-gray-500 text-white'
+                                                : 'bg-gray-100 text-gray-600 hover:text-gray-800'
                                         }`}
                                     >
                                         {opt.label}
@@ -196,7 +196,7 @@ export default function NewReservationModal({ isOpen, onClose, initialData, onSu
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="px-5 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold rounded-xl text-sm transition-colors"
+                                className="px-5 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl text-sm transition-colors"
                             >
                                 Cancelar
                             </button>

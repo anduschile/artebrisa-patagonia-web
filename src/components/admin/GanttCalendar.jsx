@@ -122,18 +122,18 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
             <div className="flex items-center gap-2 mb-3">
                 <button
                     onClick={prevMonth}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-lg transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-lg transition-colors"
                 >‹</button>
-                <span className="text-white font-bold text-base min-w-[140px] text-center">
+                <span className="text-gray-900 font-bold text-base min-w-[140px] text-center">
                     {MONTHS_ES[month]} {year}
                 </span>
                 <button
                     onClick={nextMonth}
-                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-lg transition-colors"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-lg transition-colors"
                 >›</button>
                 <button
                     onClick={goToday}
-                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-blue-400 transition-colors"
+                    className="px-3 py-1.5 text-xs font-bold rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-primary-600 transition-colors"
                 >
                     Hoy
                 </button>
@@ -142,17 +142,17 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                 )}
             </div>
 
-            {error && <p className="text-red-400 text-sm mb-3">{error}</p>}
+            {error && <p className="text-red-500 text-sm mb-3">{error}</p>}
 
             {/* Gantt scrollable */}
-            <div className="overflow-x-auto rounded-xl border border-slate-700">
+            <div className="overflow-x-auto rounded-xl border border-gray-200">
                 <div style={{ minWidth: LEFT_W + totalDays * COL_W }}>
 
                     {/* Day header row */}
-                    <div className="flex bg-slate-800 border-b border-slate-700">
+                    <div className="flex bg-gray-50 border-b border-gray-200">
                         <div
                             style={{ width: LEFT_W, minWidth: LEFT_W }}
-                            className="px-3 py-2 text-xs font-semibold text-slate-400 uppercase tracking-wide border-r border-slate-700 sticky left-0 bg-slate-800 z-10"
+                            className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase tracking-wide border-r border-gray-200 sticky left-0 bg-gray-50 z-10"
                         >
                             Unidad
                         </div>
@@ -160,7 +160,7 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                             <div
                                 key={day}
                                 style={{ width: COL_W, minWidth: COL_W }}
-                                className={`flex items-center justify-center text-xs font-semibold py-2 border-r border-slate-700/50 ${day === todayDay ? 'text-blue-300 bg-blue-900/40' : 'text-slate-400'}`}
+                                className={`flex items-center justify-center text-xs font-semibold py-2 border-r border-gray-200/70 ${day === todayDay ? 'text-primary-600 bg-primary-50' : 'text-gray-400'}`}
                             >
                                 {day}
                             </div>
@@ -171,10 +171,10 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                     {!loading && groups.map(group => (
                         <div key={group.label}>
                             {/* Group separator */}
-                            <div className="flex bg-slate-800/60 border-b border-slate-700/40">
+                            <div className="flex bg-gray-50 border-b border-gray-200">
                                 <div
                                     style={{ width: LEFT_W, minWidth: LEFT_W }}
-                                    className="px-3 py-1 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-r border-slate-700 sticky left-0 bg-slate-800/60 z-10"
+                                    className="px-3 py-1 text-[10px] font-bold text-gray-400 uppercase tracking-widest border-r border-gray-200 sticky left-0 bg-gray-50 z-10"
                                 >
                                     {group.label}
                                 </div>
@@ -185,14 +185,14 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                             {group.units.map(unit => {
                                 const unitResv = resByUnit[String(unit.id)] || []
                                 return (
-                                    <div key={unit.id} className="flex border-b border-slate-800">
+                                    <div key={unit.id} className="flex border-b border-gray-200">
                                         {/* Left: unit name */}
                                         <div
                                             style={{ width: LEFT_W, minWidth: LEFT_W, height: ROW_H }}
-                                            className="flex flex-col justify-center px-3 border-r border-slate-700 sticky left-0 bg-slate-900 z-10"
+                                            className="flex flex-col justify-center px-3 border-r border-gray-200 sticky left-0 bg-white z-10"
                                         >
-                                            <div className="text-xs font-semibold text-slate-200 truncate">{unit.name}</div>
-                                            <div className="text-[10px] text-slate-500 font-mono truncate">{unit.code}</div>
+                                            <div className="text-xs font-semibold text-gray-900 truncate">{unit.name}</div>
+                                            <div className="text-[10px] text-gray-400 font-mono truncate">{unit.code}</div>
                                         </div>
 
                                         {/* Day cells + reservation blocks */}
@@ -201,7 +201,7 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                                                 <div
                                                     key={day}
                                                     style={{ width: COL_W, minWidth: COL_W, height: ROW_H }}
-                                                    className={`border-r border-slate-800/50 cursor-pointer hover:bg-slate-700/20 transition-colors ${day === todayDay ? 'bg-blue-900/10' : ''}`}
+                                                    className={`border-r border-gray-100 cursor-pointer hover:bg-primary-50/30 transition-colors ${day === todayDay ? 'bg-primary-50/40' : ''}`}
                                                     onClick={() => onNewReservation?.({
                                                         unitId: unit.id,
                                                         unitCode: unit.code,

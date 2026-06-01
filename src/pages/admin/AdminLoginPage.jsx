@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { supabase } from '../../lib/supabaseClient'
 
 export default function AdminLoginPage() {
@@ -35,14 +35,14 @@ export default function AdminLoginPage() {
 
     if (checking) {
         return (
-            <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
                 <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 flex items-center justify-center px-4">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
             <div className="w-full max-w-sm">
                 {/* Logo */}
                 <div className="text-center mb-8">
@@ -51,39 +51,39 @@ export default function AdminLoginPage() {
                             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
                         </svg>
                     </div>
-                    <h1 className="text-xl font-black text-white">ArteBrisa <span className="text-slate-400 font-normal">Admin</span></h1>
-                    <p className="text-slate-500 text-sm mt-1">Panel de administración</p>
+                    <h1 className="text-xl font-black text-gray-900">ArteBrisa <span className="text-gray-400 font-normal">Admin</span></h1>
+                    <p className="text-gray-500 text-sm mt-1">Panel de administración</p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="bg-slate-900 rounded-2xl p-7 border border-slate-800 space-y-4">
+                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-7 border border-gray-200 shadow-sm space-y-4">
                     <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Email</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">Email</label>
                         <input
                             type="email"
                             required
                             autoComplete="email"
                             value={email}
                             onChange={e => setEmail(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-slate-600"
+                            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-gray-400"
                             placeholder="admin@ejemplo.com"
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-semibold text-slate-400 mb-1.5 uppercase tracking-wide">Contraseña</label>
+                        <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">Contraseña</label>
                         <input
                             type="password"
                             required
                             autoComplete="current-password"
                             value={password}
                             onChange={e => setPassword(e.target.value)}
-                            className="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-slate-600"
+                            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent placeholder:text-gray-400"
                             placeholder="••••••••"
                         />
                     </div>
 
                     {error && (
-                        <div className="bg-red-950 border border-red-800 text-red-300 text-sm rounded-lg px-4 py-3">
+                        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
                             {error}
                         </div>
                     )}
@@ -97,7 +97,7 @@ export default function AdminLoginPage() {
                     </button>
                 </form>
 
-                <p className="text-center text-xs text-slate-600 mt-6">
+                <p className="text-center text-xs text-gray-400 mt-6">
                     Arte Brisa Patagonia © 2026
                 </p>
             </div>

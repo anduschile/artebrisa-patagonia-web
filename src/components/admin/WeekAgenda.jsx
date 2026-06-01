@@ -3,10 +3,10 @@ import { getCalendarReservations } from '../../data/admin/reservations'
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 const STATUS_COLOR = {
-    inquiry: 'bg-yellow-900 text-yellow-300 border-yellow-700',
-    confirmed: 'bg-green-900 text-green-300 border-green-700',
-    blocked: 'bg-slate-700 text-slate-300 border-slate-600',
-    cancelled: 'bg-red-900 text-red-300 border-red-700',
+    inquiry: 'bg-amber-100 text-amber-800 border-amber-200',
+    confirmed: 'bg-green-100 text-green-800 border-green-200',
+    blocked: 'bg-gray-100 text-gray-600 border-gray-200',
+    cancelled: 'bg-red-100 text-red-700 border-red-200',
 }
 const STATUS_LABEL = {
     inquiry: 'Consulta', confirmed: 'Confirmada', blocked: 'Bloqueada', cancelled: 'Cancelada',
@@ -76,7 +76,6 @@ export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
 
     const weekEnd = addDays(weekStartStr, 7)
 
-    // Independent data fetch scoped to the visible week.
     const [reservations, setReservations] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
@@ -114,33 +113,33 @@ export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
         <div className="space-y-3">
             {/* Controls */}
             <div className="flex items-center gap-3">
-                <button onClick={prevWeek} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white transition-colors">
+                <button onClick={prevWeek} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-colors">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <span className="text-white font-bold text-base min-w-44 text-center">
+                <span className="text-gray-900 font-bold text-base min-w-44 text-center">
                     Semana del {fmtWeekRange()}
                 </span>
-                <button onClick={nextWeek} className="w-7 h-7 rounded-lg bg-slate-700 hover:bg-slate-600 flex items-center justify-center text-white transition-colors">
+                <button onClick={nextWeek} className="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-700 transition-colors">
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
                 </button>
                 {weekStartStr !== mondayOfWeek(todayStr) && (
-                    <button onClick={goToday} className="text-xs text-emerald-400 hover:text-emerald-300 underline ml-1 transition-colors">
+                    <button onClick={goToday} className="text-xs text-primary-600 hover:text-primary-500 underline ml-1 transition-colors">
                         Esta semana
                     </button>
                 )}
                 {loading && (
-                    <span className="text-xs text-slate-500 flex items-center gap-1.5 ml-2">
-                        <span className="w-3 h-3 border border-slate-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-gray-400 flex items-center gap-1.5 ml-2">
+                        <span className="w-3 h-3 border border-gray-400 border-t-transparent rounded-full animate-spin" />
                         Cargando…
                     </span>
                 )}
-                {error && <span className="text-xs text-red-400 ml-2">⚠ {error}</span>}
-                <span className="ml-auto text-xs text-slate-500">{weekRes.length} reserva{weekRes.length !== 1 ? 's' : ''} esta semana</span>
+                {error && <span className="text-xs text-red-500 ml-2">⚠ {error}</span>}
+                <span className="ml-auto text-xs text-gray-500">{weekRes.length} reserva{weekRes.length !== 1 ? 's' : ''} esta semana</span>
             </div>
 
             {/* 7-day list */}
             {!hasAny ? (
-                <p className="text-slate-500 text-sm py-6 text-center">Sin reservas activas esta semana.</p>
+                <p className="text-gray-500 text-sm py-6 text-center">Sin reservas activas esta semana.</p>
             ) : (
                 <div className="space-y-2">
                     {grouped.map(({ day, items }) => {
@@ -150,25 +149,25 @@ export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
                         const dayName = DAYS_ES[dayDate.getDay() === 0 ? 6 : dayDate.getDay() - 1]
 
                         return (
-                            <div key={day} className={`rounded-xl overflow-hidden border ${isToday ? 'border-emerald-600' : 'border-slate-700'}`}>
+                            <div key={day} className={`rounded-xl overflow-hidden border ${isToday ? 'border-primary-400' : 'border-gray-200'}`}>
                                 {/* Day header */}
-                                <div className={`px-4 py-2 flex items-center gap-3 ${isToday ? 'bg-emerald-900/50' : 'bg-slate-800'}`}>
-                                    <div className={`w-8 h-8 rounded-lg flex flex-col items-center justify-center text-center shrink-0 ${isToday ? 'bg-emerald-600' : 'bg-slate-700'}`}>
-                                        <span className="text-[10px] text-white/70 leading-none">{dayName.slice(0, 3)}</span>
-                                        <span className="text-sm font-bold text-white leading-tight">{dayDate.getDate()}</span>
+                                <div className={`px-4 py-2 flex items-center gap-3 ${isToday ? 'bg-primary-50' : 'bg-gray-50'}`}>
+                                    <div className={`w-8 h-8 rounded-lg flex flex-col items-center justify-center text-center shrink-0 ${isToday ? 'bg-primary-600' : 'bg-gray-200'}`}>
+                                        <span className={`text-[10px] leading-none ${isToday ? 'text-white/70' : 'text-gray-500'}`}>{dayName.slice(0, 3)}</span>
+                                        <span className={`text-sm font-bold leading-tight ${isToday ? 'text-white' : 'text-gray-700'}`}>{dayDate.getDate()}</span>
                                     </div>
-                                    <span className={`text-sm font-semibold ${isToday ? 'text-emerald-300' : isPast ? 'text-slate-500' : 'text-slate-200'}`}>
+                                    <span className={`text-sm font-semibold ${isToday ? 'text-primary-700' : isPast ? 'text-gray-400' : 'text-gray-700'}`}>
                                         {dayName} {fmtDate(day)}
-                                        {isToday && <span className="ml-2 text-xs bg-emerald-600 text-white px-1.5 py-0.5 rounded-full">Hoy</span>}
+                                        {isToday && <span className="ml-2 text-xs bg-primary-600 text-white px-1.5 py-0.5 rounded-full">Hoy</span>}
                                     </span>
                                     {items.length > 0 && (
-                                        <span className="ml-auto text-xs text-slate-500">{items.length} arribo{items.length !== 1 ? 's' : ''}</span>
+                                        <span className="ml-auto text-xs text-gray-400">{items.length} arribo{items.length !== 1 ? 's' : ''}</span>
                                     )}
                                 </div>
 
                                 {/* Reservations for this day */}
                                 {items.length > 0 && (
-                                    <div className="divide-y divide-slate-700/50">
+                                    <div className="divide-y divide-gray-100">
                                         {items.map(r => (
                                             <div
                                                 key={r.id}
@@ -176,37 +175,37 @@ export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
                                                 tabIndex={0}
                                                 onClick={() => onSelect?.(r)}
                                                 onKeyDown={e => (e.key === 'Enter' || e.key === ' ') && onSelect?.(r)}
-                                                className="px-4 py-3 flex items-start gap-3 hover:bg-slate-700/50 transition-colors cursor-pointer"
+                                                className="px-4 py-3 flex items-start gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
                                             >
                                                 {/* Status dot */}
-                                                <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${r.status === 'confirmed' ? 'bg-green-400' :
-                                                    r.status === 'inquiry' ? 'bg-yellow-400' :
-                                                        r.status === 'blocked' ? 'bg-slate-400' : 'bg-red-400'
+                                                <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${r.status === 'confirmed' ? 'bg-green-500' :
+                                                    r.status === 'inquiry' ? 'bg-amber-500' :
+                                                        r.status === 'blocked' ? 'bg-gray-400' : 'bg-red-400'
                                                     }`} />
 
                                                 {/* Main info */}
                                                 <div className="flex-1 min-w-0">
                                                     <div className="flex items-center gap-2 flex-wrap">
-                                                        <p className="text-sm font-medium text-slate-100 truncate">{guestName(r)}</p>
+                                                        <p className="text-sm font-medium text-gray-800 truncate">{guestName(r)}</p>
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full border ${STATUS_COLOR[r.status]}`}>
                                                             {STATUS_LABEL[r.status]}
                                                         </span>
                                                     </div>
-                                                    <p className="text-xs text-slate-500 mt-0.5">
+                                                    <p className="text-xs text-gray-500 mt-0.5">
                                                         {unitName(r)} · {fmtDate(r.check_in)} → {fmtDate(r.check_out)} · {nights(r)} noche{nights(r) !== 1 ? 's' : ''}
                                                     </p>
                                                     {r.notes && (
-                                                        <p className="text-xs text-slate-600 mt-0.5 truncate" title={r.notes}>{r.notes}</p>
+                                                        <p className="text-xs text-gray-400 mt-0.5 truncate" title={r.notes}>{r.notes}</p>
                                                     )}
                                                 </div>
 
                                                 {/* Arrival / departure indicators */}
                                                 <div className="flex gap-1 shrink-0 mt-0.5">
                                                     {r.check_in === day && (
-                                                        <span className="text-[10px] bg-blue-900 text-blue-300 border border-blue-700 rounded px-1.5 py-0.5">↓ IN</span>
+                                                        <span className="text-[10px] bg-blue-100 text-blue-700 border border-blue-200 rounded px-1.5 py-0.5">↓ IN</span>
                                                     )}
                                                     {r.check_out === day && (
-                                                        <span className="text-[10px] bg-orange-900 text-orange-300 border border-orange-700 rounded px-1.5 py-0.5">↑ OUT</span>
+                                                        <span className="text-[10px] bg-orange-100 text-orange-700 border border-orange-200 rounded px-1.5 py-0.5">↑ OUT</span>
                                                     )}
                                                 </div>
                                             </div>
@@ -216,7 +215,7 @@ export default function WeekAgenda({ onSelect, refreshKey = 0 }) {
 
                                 {/* Empty day — only show for today/future */}
                                 {items.length === 0 && !isPast && (
-                                    <div className="px-4 py-2 text-xs text-slate-600 italic">Sin llegadas</div>
+                                    <div className="px-4 py-2 text-xs text-gray-400 italic">Sin llegadas</div>
                                 )}
                             </div>
                         )

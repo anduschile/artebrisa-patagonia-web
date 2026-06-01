@@ -98,25 +98,25 @@ export default function AdminRatesPage() {
     }
 
     if (loading && units.length === 0) {
-        return <div className="p-8 text-center text-slate-400">Cargando unidades y tarifas...</div>
+        return <div className="p-8 text-center text-gray-500">Cargando unidades y tarifas...</div>
     }
 
     return (
         <div className="space-y-6">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-black text-white">Tarifas Diarias</h1>
-                    <p className="text-slate-400 text-sm">Gestiona precios por noche y unidad</p>
+                    <h1 className="text-2xl font-black text-gray-900">Tarifas Diarias</h1>
+                    <p className="text-gray-500 text-sm">Gestiona precios por noche y unidad</p>
                 </div>
 
                 <div className="flex items-center gap-2">
-                    <button onClick={handleToday} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 rounded-lg text-xs font-bold transition-colors">HOY</button>
-                    <div className="flex items-center bg-slate-900 rounded-lg border border-slate-800 p-1">
-                        <button onClick={handlePrevMonth} className="p-1 px-2 hover:bg-slate-800 rounded transition-colors">&lt;</button>
-                        <span className="px-4 text-sm font-bold min-w-[140px] text-center">
+                    <button onClick={handleToday} className="px-3 py-1.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 rounded-lg text-xs font-bold transition-colors">HOY</button>
+                    <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1">
+                        <button onClick={handlePrevMonth} className="p-1 px-2 hover:bg-gray-100 text-gray-700 rounded transition-colors">&lt;</button>
+                        <span className="px-4 text-sm font-bold text-gray-900 min-w-[140px] text-center">
                             {MONTHS_ES[month]} {year}
                         </span>
-                        <button onClick={handleNextMonth} className="p-1 px-2 hover:bg-slate-800 rounded transition-colors">&gt;</button>
+                        <button onClick={handleNextMonth} className="p-1 px-2 hover:bg-gray-100 text-gray-700 rounded transition-colors">&gt;</button>
                     </div>
                 </div>
             </div>
@@ -138,21 +138,21 @@ export default function AdminRatesPage() {
                                 checked={showInactive}
                                 onChange={e => setShowInactive(e.target.checked)}
                             />
-                            <div className={`block w-8 h-5 rounded-full transition-colors ${showInactive ? 'bg-primary-600' : 'bg-slate-700'}`}></div>
+                            <div className={`block w-8 h-5 rounded-full transition-colors ${showInactive ? 'bg-primary-600' : 'bg-gray-200'}`}></div>
                             <div className={`absolute left-1 top-1 bg-white w-3 h-3 rounded-full transition-transform ${showInactive ? 'translate-x-3' : ''}`}></div>
                         </div>
-                        <span className="text-xs font-bold text-slate-400 group-hover:text-slate-300 transition-colors">Ver inactivas</span>
+                        <span className="text-xs font-bold text-gray-500 group-hover:text-gray-700 transition-colors">Ver inactivas</span>
                     </label>
                 </div>
             </div>
 
             {/* Grid Container */}
-            <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
                         <thead>
-                            <tr className="bg-slate-800/50">
-                                <th className="sticky left-0 z-20 bg-slate-800 py-3 px-4 text-left text-xs font-bold text-slate-400 uppercase tracking-wider border-b border-slate-700 min-w-[200px]">
+                            <tr className="bg-gray-50">
+                                <th className="sticky left-0 z-20 bg-gray-50 py-3 px-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 min-w-[200px]">
                                     Unidad
                                 </th>
                                 {daysArray.map(day => {
@@ -160,9 +160,9 @@ export default function AdminRatesPage() {
                                     const dayName = DAYS_ES[date.getDay()]
                                     const isWeekend = date.getDay() === 0 || date.getDay() === 6
                                     return (
-                                        <th key={day} className={`py-2 px-1 text-center border-b border-slate-700 min-w-[60px] ${isWeekend ? 'bg-slate-800/30' : ''}`}>
-                                            <div className="text-[10px] text-slate-500 uppercase">{dayName}</div>
-                                            <div className={`text-sm font-black ${isWeekend ? 'text-primary-400' : 'text-slate-300'}`}>{day}</div>
+                                        <th key={day} className={`py-2 px-1 text-center border-b border-gray-200 min-w-[60px] ${isWeekend ? 'bg-gray-100/50' : ''}`}>
+                                            <div className="text-[10px] text-gray-400 uppercase">{dayName}</div>
+                                            <div className={`text-sm font-black ${isWeekend ? 'text-primary-600' : 'text-gray-700'}`}>{day}</div>
                                         </th>
                                     )
                                 })}
@@ -170,15 +170,15 @@ export default function AdminRatesPage() {
                         </thead>
                         <tbody>
                             {filteredUnits.map(unit => (
-                                <tr key={unit.id} className={`hover:bg-slate-800/30 transition-colors ${unit.is_active === false ? 'opacity-50 grayscale-[0.5]' : ''}`}>
-                                    <td className="sticky left-0 z-10 bg-slate-900 py-3 px-4 border-b border-slate-800">
+                                <tr key={unit.id} className={`hover:bg-gray-50 transition-colors ${unit.is_active === false ? 'opacity-50 grayscale-[0.5]' : ''}`}>
+                                    <td className="sticky left-0 z-10 bg-white py-3 px-4 border-b border-gray-200">
                                         <div className="flex items-center gap-2">
-                                            <div className="text-sm font-bold text-white truncate">{unit.name}</div>
+                                            <div className="text-sm font-bold text-gray-900 truncate">{unit.name}</div>
                                             {unit.is_active === false && (
-                                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-500 uppercase font-black border border-slate-700">Inactiva</span>
+                                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-500 uppercase font-black border border-gray-200">Inactiva</span>
                                             )}
                                         </div>
-                                        <div className="text-[10px] text-slate-500 font-mono">{unit.code}</div>
+                                        <div className="text-[10px] text-gray-400 font-mono">{unit.code}</div>
                                     </td>
                                     {daysArray.map(day => {
                                         const { price, isOverride } = getEffectivePrice(unit.id, day)
@@ -186,9 +186,9 @@ export default function AdminRatesPage() {
                                             <td
                                                 key={day}
                                                 onClick={() => setSelectedCell({ unit, date: new Date(year, month, day) })}
-                                                className={`py-3 px-1 text-center border-b border-r border-slate-800 cursor-pointer transition-all hover:bg-primary-500/10 ${isOverride ? 'bg-primary-950/20' : ''}`}
+                                                className={`py-3 px-1 text-center border-b border-r border-gray-200 cursor-pointer transition-all hover:bg-primary-50 ${isOverride ? 'bg-primary-50' : ''}`}
                                             >
-                                                <div className={`text-[11px] font-bold ${isOverride ? 'text-primary-400 underline decoration-primary-500/50 underline-offset-4' : 'text-slate-400'}`}>
+                                                <div className={`text-[11px] font-bold ${isOverride ? 'text-primary-700 underline decoration-primary-400/50 underline-offset-4' : 'text-gray-500'}`}>
                                                     ${(price / 1000).toFixed(0)}k
                                                 </div>
                                             </td>
@@ -201,12 +201,12 @@ export default function AdminRatesPage() {
                 </div>
             </div>
 
-            <div className="flex items-center gap-6 text-xs text-slate-500 px-2 mt-4">
+            <div className="flex items-center gap-6 text-xs text-gray-500 px-2 mt-4">
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-slate-800" /> Tarifa base
+                    <div className="w-3 h-3 rounded bg-gray-100 border border-gray-200" /> Tarifa base
                 </div>
                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded bg-primary-900/40 border border-primary-800" /> Tarifa personalizada
+                    <div className="w-3 h-3 rounded bg-primary-50 border border-primary-200" /> Tarifa personalizada
                 </div>
             </div>
 
@@ -229,8 +229,8 @@ function FilterButton({ children, active, onClick }) {
         <button
             onClick={onClick}
             className={`px-4 py-2 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${active
-                ? 'bg-primary-600 text-white shadow-lg shadow-primary-900/20'
-                : 'bg-slate-900 text-slate-400 border border-slate-800 hover:border-slate-700'
+                ? 'bg-primary-600 text-white shadow-lg shadow-primary-500/20'
+                : 'bg-white text-gray-600 border border-gray-200 hover:border-gray-300'
                 }`}
         >
             {children}

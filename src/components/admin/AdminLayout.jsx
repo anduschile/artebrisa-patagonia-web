@@ -11,36 +11,36 @@ export default function AdminLayout() {
     }
 
     return (
-        <div className="min-h-screen bg-slate-950 text-slate-100">
+        <div className="min-h-screen bg-gray-50 text-gray-900">
             {/* Top nav */}
-            <nav className="bg-slate-900 border-b border-slate-800 px-4 sm:px-6 py-3 flex items-center gap-4">
-                <span className="font-black text-white text-sm">
-                    Arte<span className="text-primary-400">Brisa</span>
-                    <span className="text-slate-500 font-normal ml-2">Admin</span>
+            <nav className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3 flex items-center gap-4">
+                <span className="font-black text-gray-900 text-sm">
+                    Arte<span className="text-primary-600">Brisa</span>
+                    <span className="text-gray-400 font-normal ml-2">Admin</span>
                 </span>
                 <div className="flex-1" />
                 <Link
                     to="/admin/reservas"
-                    className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800"
+                    className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
                 >
                     Reservas
                 </Link>
                 <Link
                     to="/admin/tarifas"
-                    className="text-sm font-semibold text-slate-300 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800"
+                    className="text-sm font-semibold text-gray-600 hover:text-gray-900 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100"
                 >
                     Tarifas
                 </Link>
                 <Link
                     to="/"
-                    className="text-sm text-slate-400 hover:text-white transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800 flex items-center gap-1.5"
+                    className="text-sm text-gray-500 hover:text-gray-900 transition-colors px-3 py-1.5 rounded-lg hover:bg-gray-100 flex items-center gap-1.5"
                 >
                     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="15 18 9 12 15 6" /></svg>
                     Sitio público
                 </Link>
                 <button
                     onClick={handleLogout}
-                    className="text-sm text-red-400 hover:text-red-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800"
+                    className="text-sm text-red-500 hover:text-red-600 transition-colors px-3 py-1.5 rounded-lg hover:bg-red-50"
                 >
                     Cerrar sesión
                 </button>
@@ -51,13 +51,12 @@ export default function AdminLayout() {
                 <Outlet />
             </main>
 
-            {/* Notificaciones toast (tema oscuro, alineado con el panel) */}
             <Toaster
                 position="top-right"
                 toastOptions={{
-                    style: { background: '#1e293b', color: '#f1f5f9', border: '1px solid #334155' },
-                    success: { iconTheme: { primary: '#22c55e', secondary: '#1e293b' } },
-                    error: { iconTheme: { primary: '#ef4444', secondary: '#1e293b' } },
+                    style: { background: '#ffffff', color: '#111827', border: '1px solid #e5e7eb' },
+                    success: { iconTheme: { primary: '#22c55e', secondary: '#ffffff' } },
+                    error: { iconTheme: { primary: '#ef4444', secondary: '#ffffff' } },
                 }}
             />
         </div>
