@@ -14,6 +14,8 @@ import DashboardKPIs from '../../components/admin/DashboardKPIs'
 import MonthCalendar from '../../components/admin/MonthCalendar'
 import WeekAgenda from '../../components/admin/WeekAgenda'
 import ReservationDetailDrawer from '../../components/admin/ReservationDetailDrawer'
+import GanttCalendar from '../../components/admin/GanttCalendar'
+import NewReservationModal from '../../components/admin/NewReservationModal'
 
 
 const PAGE_SIZE = 100
@@ -126,10 +128,27 @@ export default function AdminReservationsPage() {
     const [now, setNow] = useState(Date.now())
 
     // ── Tab state ──
-    const [tab, setTab] = useState('lista')   // 'lista' | 'calendario' | 'agenda'
+    const [tab, setTab] = useState('gantt')   // 'gantt' | 'lista' | 'calendario' | 'agenda'
 
     // ── Reservation detail drawer ──
     const [selectedReservation, setSelectedReservation] = useState(null)
+
+    // ── New reservation modal (from Gantt cell click) ──
+    const [newResModal, setNewResModal] = useState({ open: false, data: null })
+
+    function handleGanttNewReservation({ unitId, unitCode, date }) {
+        const unit = units.find(u => String(u.id) === String(unitId))
+        setNewResModal({
+            open: true,
+            data: {
+                unitId,
+                unitCode,
+                unitName: unit?.name || unitCode,
+                propertyId: unit?.property_id || null,
+                date,
+            },
+        })
+    }
 
     // Optimistic status update from inside the drawer
     const handleDrawerStatusUpdate = useCallback((id, newStatus) => {
@@ -373,6 +392,7 @@ export default function AdminReservationsPage() {
     const labelCls = "block text-xs font-semibold text-slate-400 mb-1 uppercase tracking-wide"
 
     const TABS = [
+        { id: 'gantt', label: '📊 Gantt' },
         { id: 'lista', label: '📋 Lista' },
         { id: 'calendario', label: '📅 Calendario' },
         { id: 'agenda', label: '🗓️ Agenda' },
@@ -423,6 +443,16 @@ export default function AdminReservationsPage() {
                     </div>
                 )}
             </div>{/* end tab strip header */}
+
+            {/* ── Tab: Gantt ── */}
+            {tab === 'gantt' && (
+                <GanttCalendar
+                    units={units}
+                    onSelectReservation={setSelectedReservation}
+                    onNewReservation={handleGanttNewReservation}
+                    refreshKey={calendarRefreshKey}
+                />
+            )}
 
             {/* ── Tab: Lista ── */}
             {tab === 'lista' && (
@@ -919,6 +949,15 @@ export default function AdminReservationsPage() {
                     <WeekAgenda onSelect={setSelectedReservation} refreshKey={calendarRefreshKey} />
                 </div>
             )}
+
+            {/* ── New Reservation Modal (from Gantt) ── */}
+            <NewReservationModal
+                isOpen={newResModal.open}
+                onClose={() => setNewResModal({ open: false, data: null })}
+                initialData={newResModal.data}
+                channels={channels}
+                onSuccess={() => { load(); bumpCalendarRefresh() }}
+            />
 
             {/* ── Reservation Detail Drawer (fixed overlay) ── */}
             <ReservationDetailDrawer

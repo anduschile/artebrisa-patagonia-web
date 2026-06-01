@@ -123,6 +123,32 @@ export async function createBlock({ unit_id, property_id, check_in, check_out, n
 }
 
 /**
+ * Fetch all reservations that overlap a given month, for the Gantt view.
+ * month is 0-indexed (0 = January). No row limit.
+ */
+export async function getReservationsForGantt(year, month) {
+    const pad = n => String(n).padStart(2, '0')
+    const firstDay = `${year}-${pad(month + 1)}-01`
+    const [nextY, nextM] = month === 11 ? [year + 1, 1] : [year, month + 2]
+    const nextMonthFirst = `${nextY}-${pad(nextM)}-01`
+
+    const { data, error } = await supabase
+        .from('core_reservations')
+        .select(`
+            id, unit_id, status, check_in, check_out, notes,
+            core_units ( id, name, code ),
+            core_guests ( id, full_name ),
+            core_channels ( id, name )
+        `)
+        .lt('check_in', nextMonthFirst)
+        .gt('check_out', firstDay)
+        .order('check_in', { ascending: true })
+
+    if (error) throw new Error(`getReservationsForGantt: ${error.message}`)
+    return data || []
+}
+
+/**
  * Check for confirmed conflicts before blocking.
  */
 export async function getBlockConflicts({ unit_id, check_in, check_out }) {
