@@ -156,15 +156,28 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                         >
                             Unidad
                         </div>
-                        {days.map(day => (
-                            <div
-                                key={day}
-                                style={{ width: COL_W, minWidth: COL_W }}
-                                className={`flex items-center justify-center text-xs font-semibold py-2 border-r border-gray-200/70 ${day === todayDay ? 'text-primary-600 bg-primary-50' : 'text-gray-400'}`}
-                            >
-                                {day}
-                            </div>
-                        ))}
+                        {days.map(day => {
+                            const dow = new Date(year, month, day).getDay()
+                            const isWeekend = dow === 0 || dow === 6
+                            return (
+                                <div
+                                    key={day}
+                                    style={{ width: COL_W, minWidth: COL_W }}
+                                    className={`flex flex-col items-center justify-center py-1.5 border-r border-gray-200/70 ${
+                                        day === todayDay
+                                            ? 'text-primary-600 bg-primary-50'
+                                            : isWeekend
+                                            ? 'text-gray-600 bg-gray-100'
+                                            : 'text-gray-400'
+                                    }`}
+                                >
+                                    <span className="text-[9px] uppercase font-semibold opacity-70 leading-none mb-0.5">
+                                        {['D','L','M','X','J','V','S'][dow]}
+                                    </span>
+                                    <span className="text-xs font-bold leading-none">{day}</span>
+                                </div>
+                            )
+                        })}
                     </div>
 
                     {/* Unit groups */}
@@ -197,18 +210,24 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
 
                                         {/* Day cells + reservation blocks */}
                                         <div className="relative flex" style={{ height: ROW_H }}>
-                                            {days.map(day => (
+                                            {days.map(day => {
+                                                const dow = new Date(year, month, day).getDay()
+                                                const isWeekend = dow === 0 || dow === 6
+                                                return (
                                                 <div
                                                     key={day}
                                                     style={{ width: COL_W, minWidth: COL_W, height: ROW_H }}
-                                                    className={`border-r border-gray-100 cursor-pointer hover:bg-primary-50/30 transition-colors ${day === todayDay ? 'bg-primary-50/40' : ''}`}
+                                                    className={`border-r border-gray-100 cursor-pointer hover:bg-primary-50/30 transition-colors ${
+                                                        day === todayDay ? 'bg-primary-50/40' : isWeekend ? 'bg-gray-50/60' : ''
+                                                    }`}
                                                     onClick={() => onNewReservation?.({
                                                         unitId: unit.id,
                                                         unitCode: unit.code,
                                                         date: `${year}-${pad2(month + 1)}-${pad2(day)}`,
                                                     })}
                                                 />
-                                            ))}
+                                                )
+                                            })}
 
                                             {unitResv.map(r => {
                                                 const startDay = Math.max(1, dayNumInMonth(r.check_in, year, month))

@@ -147,12 +147,12 @@ export default function AdminRatesPage() {
             </div>
 
             {/* Grid Container */}
-            <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+            <div className="bg-white border border-gray-200 rounded-2xl overflow-clip">
                 <div className="overflow-x-auto">
                     <table className="w-full border-collapse">
-                        <thead>
-                            <tr className="bg-gray-50">
-                                <th className="sticky left-0 z-20 bg-gray-50 py-3 px-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 min-w-[200px]">
+                        <thead className="sticky top-0 z-30">
+                            <tr className="bg-gray-50 shadow-[0_1px_0_0_#e5e7eb]">
+                                <th className="sticky left-0 z-40 bg-gray-50 py-3 px-4 text-left text-xs font-bold text-gray-500 uppercase tracking-wider border-b border-gray-200 min-w-[200px]">
                                     Unidad
                                 </th>
                                 {daysArray.map(day => {
@@ -160,7 +160,7 @@ export default function AdminRatesPage() {
                                     const dayName = DAYS_ES[date.getDay()]
                                     const isWeekend = date.getDay() === 0 || date.getDay() === 6
                                     return (
-                                        <th key={day} className={`py-2 px-1 text-center border-b border-gray-200 min-w-[60px] ${isWeekend ? 'bg-gray-100/50' : ''}`}>
+                                        <th key={day} className={`py-2 px-1 text-center border-b border-gray-200 min-w-[60px] ${isWeekend ? 'bg-gray-100' : ''}`}>
                                             <div className="text-[10px] text-gray-400 uppercase">{dayName}</div>
                                             <div className={`text-sm font-black ${isWeekend ? 'text-primary-600' : 'text-gray-700'}`}>{day}</div>
                                         </th>

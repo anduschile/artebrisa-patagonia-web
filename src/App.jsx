@@ -10,6 +10,7 @@ import UnitDetailPage from './pages/UnitDetailPage'
 import AdminGuard from './components/admin/AdminGuard'
 import AdminLayout from './components/admin/AdminLayout'
 import AdminLoginPage from './pages/admin/AdminLoginPage'
+import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminReservationsPage from './pages/admin/AdminReservationsPage'
 import AdminRatesPage from './pages/admin/AdminRatesPage'
 
@@ -30,6 +31,7 @@ export default function App() {
                 <Route path="/admin" element={<AdminLoginPage />} />
                 <Route element={<AdminGuard />}>
                     <Route element={<AdminLayout />}>
+                        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         <Route path="/admin/reservas" element={<AdminReservationsPage />} />
                         <Route path="/admin/tarifas" element={<AdminRatesPage />} />
                     </Route>

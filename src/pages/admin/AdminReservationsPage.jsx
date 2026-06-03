@@ -392,10 +392,10 @@ export default function AdminReservationsPage() {
     const labelCls = "block text-xs font-semibold text-gray-500 mb-1 uppercase tracking-wide"
 
     const TABS = [
-        { id: 'gantt', label: '📊 Gantt' },
-        { id: 'lista', label: '📋 Lista' },
-        { id: 'calendario', label: '📅 Calendario' },
-        { id: 'agenda', label: '🗓️ Agenda' },
+        { id: 'gantt', label: 'Gantt' },
+        { id: 'lista', label: 'Lista' },
+        { id: 'calendario', label: 'Calendario' },
+        { id: 'agenda', label: 'Agenda' },
     ]
 
     const hasMore = reservations.length < totalCount
@@ -409,20 +409,26 @@ export default function AdminReservationsPage() {
 
     return (
         <div>
+            {/* ── Page header ── */}
+            <div className="mb-6">
+                <h1 className="text-2xl font-black text-gray-900">Reservas</h1>
+                <p className="text-gray-500 text-sm mt-0.5">Gestión de reservas, bloqueos y calendarios</p>
+            </div>
+
             {/* ── KPI Bar (always visible) ── */}
             <DashboardKPIs reservations={reservations} units={units} />
 
             {/* ── Tab strip + action buttons in same row ── */}
             <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 {/* Tabs */}
-                <div className="flex bg-white border border-gray-200 rounded-xl p-1 gap-1">
+                <div className="flex bg-white border border-gray-200 rounded-xl overflow-hidden">
                     {TABS.map(t => (
                         <button
                             key={t.id}
                             onClick={() => setTab(t.id)}
-                            className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition-colors ${tab === t.id
-                                ? 'bg-primary-600 text-white'
-                                : 'text-gray-600 hover:bg-gray-100'
+                            className={`px-5 py-2.5 text-sm font-semibold transition-colors border-b-2 ${tab === t.id
+                                ? 'text-primary-700 border-primary-600 bg-primary-50/60'
+                                : 'text-gray-500 border-transparent hover:text-gray-700 hover:bg-gray-50'
                                 }`}
                         >
                             {t.label}
