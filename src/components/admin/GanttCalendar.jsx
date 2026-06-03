@@ -59,6 +59,7 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
     const [reservations, setReservations] = useState([])
     const [loading, setLoading] = useState(false)
     const [error, setError] = useState(null)
+    const [showCancelled, setShowCancelled] = useState(false)
 
     const totalDays = daysInMonth(year, month)
     const days = useMemo(() => Array.from({ length: totalDays }, (_, i) => i + 1), [totalDays])
@@ -93,14 +94,17 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
     }, [year, month, refreshKey])
 
     const resByUnit = useMemo(() => {
+        const filtered = showCancelled
+            ? reservations
+            : reservations.filter(r => r.status !== 'cancelled')
         const map = {}
-        for (const r of reservations) {
+        for (const r of filtered) {
             const key = String(r.unit_id)
             if (!map[key]) map[key] = []
             map[key].push(r)
         }
         return map
-    }, [reservations])
+    }, [reservations, showCancelled])
 
     function prevMonth() {
         setYear(y => month === 0 ? y - 1 : y)
@@ -119,7 +123,7 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
     return (
         <div>
             {/* Toolbar */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
                 <button
                     onClick={prevMonth}
                     className="w-8 h-8 flex items-center justify-center rounded-lg bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-lg transition-colors"
@@ -140,6 +144,18 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                 {loading && (
                     <span className="w-4 h-4 border-2 border-primary-500 border-t-transparent rounded-full animate-spin inline-block" />
                 )}
+                <label className="ml-auto flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs text-gray-500 font-medium">Mostrar canceladas</span>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showCancelled}
+                        onClick={() => setShowCancelled(v => !v)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showCancelled ? 'bg-primary-600' : 'bg-gray-200'}`}
+                    >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${showCancelled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                </label>
             </div>
 
             {error && <p className="text-red-500 text-sm mb-3">{error}</p>}

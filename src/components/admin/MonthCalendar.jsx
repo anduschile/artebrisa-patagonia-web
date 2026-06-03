@@ -66,6 +66,7 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
     const [year, setYear] = useState(now.getFullYear())
     const [month, setMonth] = useState(now.getMonth())       // 0-indexed
     const [selUnit, setSelUnit] = useState('')               // '' = all
+    const [showCancelled, setShowCancelled] = useState(false)
 
     const gridDays = useMemo(() => buildCalendarGrid(year, month), [year, month])
 
@@ -87,10 +88,13 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
     }, [gridDays, refreshKey])
 
     const visibleRes = useMemo(() => {
-        const active = reservations.filter(r => ['inquiry', 'confirmed', 'blocked'].includes(r.status))
+        const statuses = showCancelled
+            ? ['inquiry', 'confirmed', 'blocked', 'cancelled']
+            : ['inquiry', 'confirmed', 'blocked']
+        const active = reservations.filter(r => statuses.includes(r.status))
         if (!selUnit) return active
         return active.filter(r => String(r.unit_id) === String(selUnit))
-    }, [reservations, selUnit])
+    }, [reservations, selUnit, showCancelled])
 
     function prevMonth() {
         if (month === 0) { setMonth(11); setYear(y => y - 1) }
@@ -141,9 +145,25 @@ export default function MonthCalendar({ units, onSelect, refreshKey = 0 }) {
                 )}
                 {error && <span className="text-xs text-red-500">⚠ {error}</span>}
 
+                {/* Toggle canceladas */}
+                <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <span className="text-xs text-gray-500 font-medium">Mostrar canceladas</span>
+                    <button
+                        type="button"
+                        role="switch"
+                        aria-checked={showCancelled}
+                        onClick={() => setShowCancelled(v => !v)}
+                        className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${showCancelled ? 'bg-primary-600' : 'bg-gray-200'}`}
+                    >
+                        <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${showCancelled ? 'translate-x-4' : 'translate-x-0.5'}`} />
+                    </button>
+                </label>
+
                 {/* Legend */}
                 <div className="flex items-center gap-3 ml-auto">
-                    {Object.entries(STATUS_LABEL).map(([s, l]) => (
+                    {Object.entries(STATUS_LABEL)
+                        .filter(([s]) => showCancelled || s !== 'cancelled')
+                        .map(([s, l]) => (
                         <span key={s} className="flex items-center gap-1 text-xs text-gray-500">
                             <span className={`w-2 h-2 rounded-full ${STATUS_DOT[s]}`} />{l}
                         </span>
