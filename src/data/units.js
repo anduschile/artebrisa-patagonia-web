@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabaseClient'
 export async function getUnitsByType(type) {
     const { data, error } = await supabase
         .from('core_units')
-        .select('id,name,code,unit_type,capacity_total,description,is_active,property_id,base_price')
+        .select('id, name, code, unit_type, capacity_total, description, base_price, is_active')
         .eq('is_active', true)
         .eq('unit_type', type)
         .order('name', { ascending: true })
@@ -29,17 +29,7 @@ export async function getUnitsByType(type) {
 export async function getFeaturedUnits(limit = 4) {
     const { data, error } = await supabase
         .from('core_units')
-        .select(`
-      id,
-      name,
-      code,
-      unit_type,
-      capacidad_total,
-      imagen_url,
-      price_from,
-      base_price,
-      is_active
-    `)
+        .select('id, name, code, unit_type, capacity_total, base_price, is_active')
         .eq('is_active', true)
         .order('name', { ascending: true })
         .limit(limit)
@@ -119,4 +109,47 @@ export async function getDailyRatesForRange(unitId, startDate, endDate) {
         ratesMap[r.date] = r.price
     })
     return ratesMap
+}
+
+/**
+ * Devuelve las unidades disponibles para un rango de fechas y cantidad de personas.
+ * No modifica getConflicts — usa queries independientes en paralelo.
+ *
+ * @param {{ check_in: string, check_out: string, guests: number }} params  (fechas YYYY-MM-DD)
+ * @returns {Promise<Array>} unidades disponibles, ordenadas por capacidad más ajustada primero
+ */
+export async function getAvailableUnits({ check_in, check_out, guests }) {
+    const ACTIVE_STATUSES = ['inquiry', 'confirmed', 'blocked']
+
+    const [unitsRes, conflictsRes] = await Promise.all([
+        supabase
+            .from('core_units')
+            .select('id, name, code, unit_type, capacity_total, bed_config, description, base_price, is_active')
+            .eq('is_active', true),
+        supabase
+            .from('core_reservations')
+            .select('unit_id, check_out')
+            .in('status', ACTIVE_STATUSES)
+            .lt('check_in', check_out),
+    ])
+
+    if (unitsRes.error) throw new Error(`getAvailableUnits: ${unitsRes.error.message}`)
+    if (conflictsRes.error) throw new Error(`getAvailableUnits: ${conflictsRes.error.message}`)
+
+    const conflictingIds = new Set(
+        (conflictsRes.data || [])
+            .filter(r => r.check_out > check_in)
+            .map(r => r.unit_id)
+    )
+
+    return (unitsRes.data || [])
+        .filter(unit => {
+            const cap = unit.capacity_total ?? 0
+            return !conflictingIds.has(unit.id) && cap >= guests
+        })
+        .sort((a, b) => {
+            const capA = a.capacity_total ?? 0
+            const capB = b.capacity_total ?? 0
+            return (capA - guests) - (capB - guests)
+        })
 }

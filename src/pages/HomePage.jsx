@@ -5,6 +5,7 @@ import HeroSection from '../components/HeroSection'
 import UnitCard from '../components/UnitCard'
 import { getFeaturedUnits } from '../data/units'
 import { buildWaUrl } from '../config/contact'
+import SearchWidget from '../components/SearchWidget'
 
 function CategoryCard({ to, title, description, imageClass, color }) {
     return (
@@ -90,6 +91,9 @@ export default function HomePage() {
 
             {/* Trust bar */}
             <TrustBar />
+
+            {/* Buscador de disponibilidad */}
+            <SearchWidget />
 
             {/* Category section */}
             <section className="py-14 px-4 sm:px-6 max-w-6xl mx-auto">
