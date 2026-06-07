@@ -11,7 +11,50 @@ jobs:
     steps:
       - name: Call Supabase Edge Function sync-ical
         run: |
-          curl -sS -X POST "${{ secrets.SUPABASE_SYNC_ICAL_URL }}" \
+          HTTP_CODE=$(curl -sS -o response.txt -w "%{http_code}" -X POST "${{ secrets.SUPABASE_SYNC_ICAL_URL }}" \
             -H "Content-Type: application/json" \
             -H "x-ical-cron-token: ${{ secrets.ICAL_CRON_TOKEN }}" \
-            --data "{}"
+            --data "{}")
+
+          BODY=$(cat response.txt)
+
+          if [[ "$HTTP_CODE" =~ ^2[0-9][0-9]$ ]]; then
+            echo "sync-ical OK (HTTP $HTTP_CODE)"
+            echo "$BODY"
+            exit 0
+          fi
+
+          echo "sync-ical FALLÓ (HTTP $HTTP_CODE)"
+          echo "$BODY"
+
+          # Escapa un string para insertarlo como valor JSON (comillas, backslashes, saltos de línea).
+          json_escape() {
+            local s="$1"
+            local bs='\'
+            local dq='"'
+            local esc_bs="$bs$bs"
+            local esc_dq="$bs$dq"
+            s="${s//$bs/$esc_bs}"
+            s="${s//$dq/$esc_dq}"
+            s="${s//$'\r'/}"
+            s="${s//$'\n'/${bs}n}"
+            printf '%s' "$s"
+          }
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          EMAIL_BODY=$(printf 'Falló la sincronización de iCal de Arte Brisa.\n\nFecha/hora (UTC): %s\nCódigo HTTP recibido: %s\n\nRespuesta del servidor:\n%s\n' \
+            "$TIMESTAMP" "$HTTP_CODE" "$BODY")
+
+          PAYLOAD=$(printf '{"from":"%s","to":["%s"],"subject":"%s","text":"%s"}' \
+            "$(json_escape 'Arte Brisa Patagonia <reservas@artebrisapatagonia.com>')" \
+            "$(json_escape "${{ vars.ALERT_EMAIL_TO }}")" \
+            "$(json_escape 'ALERTA: sync iCal de Arte Brisa falló')" \
+            "$(json_escape "$EMAIL_BODY")")
+
+          curl -sS -X POST "https://api.resend.com/emails" \
+            -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD"
+
+          exit 1
