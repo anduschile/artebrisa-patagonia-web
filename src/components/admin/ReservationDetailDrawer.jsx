@@ -30,9 +30,9 @@ function copyText(text) {
 }
 
 function buildSummary(r) {
-    const guest = r.guest || r.core_guests
-    const unit = r.unit || r.core_units
-    const channel = r.channel || r.core_channels
+    const guest = r.core_guests || r.guest
+    const unit = r.core_units || r.unit
+    const channel = r.core_channels || r.channel
     return [
         `Unidad: ${unit?.name || '—'}${unit?.code ? ` (${unit.code})` : ''}`,
         `Estado: ${STATUS_LABEL[r.status] || r.status}`,
@@ -83,9 +83,9 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
 
     if (!open || !r) return null
 
-    const guest = r.guest || r.core_guests
-    const unit = r.unit || r.core_units
-    const channel = r.channel || r.core_channels
+    const guest = r.core_guests || r.guest
+    const unit = r.core_units || r.unit
+    const channel = r.core_channels || r.channel
     const n = nights(r.check_in, r.check_out)
     const statusCls = STATUS_COLORS[r.status] || STATUS_COLORS.blocked
 
@@ -146,7 +146,7 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
                             </div>
                         ) : (
                             <p className="text-sm text-gray-400 italic">
-                                {r.external_source ? `Bloqueo externo vía ${r.external_source}` : 'Sin huésped registrado'}
+                                {r.notes ? r.notes.split('\n')[0] : 'Sin nombre'}
                             </p>
                         )}
                     </section>
