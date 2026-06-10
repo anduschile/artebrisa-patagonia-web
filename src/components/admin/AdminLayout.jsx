@@ -1,8 +1,10 @@
+import { useState, useEffect } from 'react'
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from '../../lib/supabaseClient'
+import { getUnreadCount } from '../../data/admin/chat'
 
-function NavItem({ to, icon, label }) {
+function NavItem({ to, icon, label, badge }) {
     return (
         <NavLink
             to={to}
@@ -15,13 +17,31 @@ function NavItem({ to, icon, label }) {
             }
         >
             {icon}
-            {label}
+            <span className="flex-1">{label}</span>
+            {badge > 0 && (
+                <span className="bg-amber-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full min-w-[18px] text-center leading-none">
+                    {badge}
+                </span>
+            )}
         </NavLink>
     )
 }
 
 export default function AdminLayout() {
     const navigate = useNavigate()
+    const [humanCount, setHumanCount] = useState(0)
+
+    useEffect(() => {
+        async function fetchCount() {
+            setHumanCount(await getUnreadCount())
+        }
+        fetchCount()
+        const channel = supabase
+            .channel('admin-chat-badge')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'core_chat_conversations' }, fetchCount)
+            .subscribe()
+        return () => supabase.removeChannel(channel)
+    }, [])
 
     async function handleLogout() {
         await supabase.auth.signOut()
@@ -68,6 +88,16 @@ export default function AdminLayout() {
                         icon={
                             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <line x1="12" y1="1" x2="12" y2="23" /><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
+                            </svg>
+                        }
+                    />
+                    <NavItem
+                        to="/admin/chat"
+                        label="Chat"
+                        badge={humanCount}
+                        icon={
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                             </svg>
                         }
                     />

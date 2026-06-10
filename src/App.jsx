@@ -13,6 +13,7 @@ import AdminLoginPage from './pages/admin/AdminLoginPage'
 import AdminDashboardPage from './pages/admin/AdminDashboardPage'
 import AdminReservationsPage from './pages/admin/AdminReservationsPage'
 import AdminRatesPage from './pages/admin/AdminRatesPage'
+import AdminChatPage from './pages/admin/AdminChatPage'
 
 export default function App() {
     return (
@@ -34,6 +35,7 @@ export default function App() {
                         <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
                         <Route path="/admin/reservas" element={<AdminReservationsPage />} />
                         <Route path="/admin/tarifas" element={<AdminRatesPage />} />
+                        <Route path="/admin/chat" element={<AdminChatPage />} />
                     </Route>
                 </Route>
             </Routes>
