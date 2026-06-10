@@ -8,17 +8,22 @@ export async function getConversations() {
     const { data: convs, error } = await supabase
         .from('core_chat_conversations')
         .select('*')
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-    if (error) throw new Error(`getConversations: ${error.message}`)
+        .order('last_message_at', { ascending: false })
+    if (error) {
+        console.error('getConversations query error:', error)
+        throw new Error(`getConversations: ${error.message}`)
+    }
     if (!convs?.length) return []
 
     const ids = convs.map(c => c.id)
-    const { data: msgs } = await supabase
+    const { data: msgs, error: msgError } = await supabase
         .from('core_chat_messages')
         .select('conversation_id, content, role, created_at')
         .in('conversation_id', ids)
         .order('created_at', { ascending: false })
         .limit(500)
+
+    if (msgError) console.error('getConversations messages error:', msgError)
 
     const lastMsg = {}
     for (const msg of msgs || []) {
