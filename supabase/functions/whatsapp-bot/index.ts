@@ -164,6 +164,26 @@ function formatAvailabilityContext(
         .join('\n')
 }
 
+function sanitizeMessages(
+    messages: Array<{ role: 'user' | 'assistant'; content: string }>
+): Array<{ role: 'user' | 'assistant'; content: string }> {
+    if (messages.length === 0) return messages
+
+    const result: Array<{ role: 'user' | 'assistant'; content: string }> = []
+
+    for (const msg of messages) {
+        if (result.length === 0) {
+            result.push(msg)
+        } else if (result[result.length - 1].role === msg.role) {
+            result[result.length - 1].content += '\n' + msg.content
+        } else {
+            result.push(msg)
+        }
+    }
+
+    return result
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -292,6 +312,7 @@ Deno.serve(async (req: Request) => {
 
     // ── 7. Llamar a Claude API ────────────────────────────────────────────
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
+    const sanitizedMessages = sanitizeMessages(messages)
     const claudeResp = await fetch(CLAUDE_API_URL, {
         method: 'POST',
         headers: {
@@ -303,7 +324,7 @@ Deno.serve(async (req: Request) => {
             model: CLAUDE_MODEL,
             max_tokens: 1024,
             system: systemPrompt,
-            messages,
+            messages: sanitizedMessages,
         }),
     })
 
@@ -314,9 +335,15 @@ Deno.serve(async (req: Request) => {
     }
 
     const claudeData = await claudeResp.json()
+    console.log('Claude response:', JSON.stringify(claudeData?.content))
     let assistantText: string = claudeData?.content?.[0]?.text ?? ''
 
     // ── 8. Detectar ##DERIVAR## ───────────────────────────────────────────
+    if (!assistantText || assistantText.trim() === '') {
+        const fallbackMsg = 'Gracias por tu mensaje. En este momento estoy teniendo dificultades técnicas. Por favor escríbenos nuevamente en unos minutos.'
+        assistantText = fallbackMsg
+    }
+
     const shouldDerive = assistantText.includes('##DERIVAR##')
     if (shouldDerive) {
         assistantText = assistantText.replace(/##DERIVAR##/g, '').trim()
