@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { getMessages, sendMessage, updateConversationStatus } from '../../data/admin/chat'
 import toast from 'react-hot-toast'
 
@@ -27,6 +26,7 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
     const [sending, setSending] = useState(false)
     const bottomRef = useRef(null)
     const textareaRef = useRef(null)
+    const isAtBottomRef = useRef(true)
 
     const load = useCallback(async () => {
         if (!conversation?.id) return
@@ -45,37 +45,24 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
         load()
     }, [conversation?.id])
 
-    // Realtime subscription for new messages.
-    // No server-side filter — requires REPLICA IDENTITY FULL which may not be set.
-    // Client-side filter by conversation_id instead.
+    // Polling: reload messages every 3 seconds
     useEffect(() => {
         if (!conversation?.id) return
-        const convId = conversation.id
-        const channel = supabase
-            .channel(`msgs-${convId}`)
-            .on(
-                'postgres_changes',
-                {
-                    event: 'INSERT',
-                    schema: 'public',
-                    table: 'core_chat_messages',
-                },
-                (payload) => {
-                    if (payload.new.conversation_id !== convId) return
-                    setMessages(prev => {
-                        if (prev.find(m => m.id === payload.new.id)) return prev
-                        return [...prev, payload.new]
-                    })
-                },
-            )
-            .subscribe()
-        return () => supabase.removeChannel(channel)
-    }, [conversation?.id])
+        const interval = setInterval(load, 3000)
+        return () => clearInterval(interval)
+    }, [conversation?.id, load])
 
-    // Auto-scroll to bottom on new messages
+    // Auto-scroll only if the user was already at the bottom
     useEffect(() => {
-        bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        if (isAtBottomRef.current) {
+            bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+        }
     }, [messages])
+
+    function handleMessagesScroll(e) {
+        const el = e.currentTarget
+        isAtBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 60
+    }
 
     async function handleSend() {
         const text = input.trim()
@@ -159,7 +146,7 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
             </div>
 
             {/* Messages */}
-            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+            <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3" onScroll={handleMessagesScroll}>
                 {messages.length === 0 && (
                     <p className="text-center text-xs text-gray-400 py-8">Sin mensajes aún</p>
                 )}

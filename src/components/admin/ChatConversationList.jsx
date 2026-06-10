@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback } from 'react'
-import { supabase } from '../../lib/supabaseClient'
 import { getConversations } from '../../data/admin/chat'
 
 function formatTime(ts) {
@@ -34,11 +33,8 @@ export default function ChatConversationList({ selectedId, onSelect }) {
 
     useEffect(() => {
         load()
-        const channel = supabase
-            .channel('conv-list-realtime')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'core_chat_conversations' }, load)
-            .subscribe()
-        return () => supabase.removeChannel(channel)
+        const interval = setInterval(load, 5000)
+        return () => clearInterval(interval)
     }, [load])
 
     return (
