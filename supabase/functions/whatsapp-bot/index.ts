@@ -181,6 +181,12 @@ function sanitizeMessages(
         }
     }
 
+    // Asegurar que el último mensaje siempre sea del user
+    // Si termina en assistant, remover ese último mensaje
+    while (result.length > 0 && result[result.length - 1].role === 'assistant') {
+        result.pop()
+    }
+
     return result
 }
 
