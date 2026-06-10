@@ -45,20 +45,23 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
         load()
     }, [conversation?.id])
 
-    // Realtime subscription for new messages
+    // Realtime subscription for new messages.
+    // No server-side filter — requires REPLICA IDENTITY FULL which may not be set.
+    // Client-side filter by conversation_id instead.
     useEffect(() => {
         if (!conversation?.id) return
+        const convId = conversation.id
         const channel = supabase
-            .channel(`msgs-${conversation.id}`)
+            .channel(`msgs-${convId}`)
             .on(
                 'postgres_changes',
                 {
                     event: 'INSERT',
                     schema: 'public',
                     table: 'core_chat_messages',
-                    filter: `conversation_id=eq.${conversation.id}`,
                 },
                 (payload) => {
+                    if (payload.new.conversation_id !== convId) return
                     setMessages(prev => {
                         if (prev.find(m => m.id === payload.new.id)) return prev
                         return [...prev, payload.new]
