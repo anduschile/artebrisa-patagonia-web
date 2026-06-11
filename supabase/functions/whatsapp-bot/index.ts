@@ -291,15 +291,30 @@ Deno.serve(async (req: Request) => {
         twilio_sid: messageSid,
     })
 
-    // ── 5. Cargar historial (últimos 10 mensajes) ─────────────────────────
+    // ── 5. Cargar historial (últimos 10 mensajes, con corte por gap de 2h) ──
     const { data: history } = await supabase
         .from('core_chat_messages')
-        .select('role, content')
+        .select('role, content, created_at')
         .eq('conversation_id', conversation.id)
-        .order('created_at', { ascending: true })
-        .limit(10)
+        .in('role', ['user', 'assistant'])
+        .order('created_at', { ascending: false })
+        .limit(20)
 
-    const messages = (history ?? []).map(m => ({
+    const historyAsc = (history ?? []).reverse()
+
+    // Encontrar el último gap > 2 horas y tomar solo los mensajes posteriores
+    const TWO_HOURS_MS = 2 * 60 * 60 * 1000
+    let sessionStart = 0
+    for (let i = 1; i < historyAsc.length; i++) {
+        const prev = new Date(historyAsc[i - 1].created_at).getTime()
+        const curr = new Date(historyAsc[i].created_at).getTime()
+        if (curr - prev > TWO_HOURS_MS) {
+            sessionStart = i
+        }
+    }
+    const sessionHistory = historyAsc.slice(sessionStart, sessionStart + 10)
+
+    const messages = sessionHistory.map(m => ({
         role: m.role as 'user' | 'assistant',
         content: m.content as string,
     }))
