@@ -35,28 +35,32 @@ export default function AdminLoginPage() {
 
     if (checking) {
         return (
-            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-                <div className="w-8 h-8 border-2 border-primary-500 border-t-transparent rounded-full animate-spin" />
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-cyan-950 to-slate-900 flex items-center justify-center">
+                <div className="w-8 h-8 border-2 border-primary-400 border-t-transparent rounded-full animate-spin" />
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-cyan-950 to-slate-900 flex items-center justify-center px-4">
             <div className="w-full max-w-sm">
-                {/* Logo */}
+                {/* Brand */}
                 <div className="text-center mb-8">
-                    <div className="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-primary-500 mb-4">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
-                        </svg>
+                    <div className="inline-flex items-center gap-2.5 mb-5">
+                        <div className="w-10 h-10 rounded-xl bg-primary-500 flex items-center justify-center flex-shrink-0">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" />
+                                <polyline points="9 22 9 12 15 12 15 22" />
+                            </svg>
+                        </div>
+                        <span className="font-black text-white text-2xl tracking-tight">Arte<span className="text-primary-400">Brisa</span> Patagonia</span>
                     </div>
-                    <h1 className="text-xl font-black text-gray-900">ArteBrisa <span className="text-gray-400 font-normal">Admin</span></h1>
-                    <p className="text-gray-500 text-sm mt-1">Panel de administración</p>
+                    <h1 className="text-white font-bold text-lg">Panel Administrativo</h1>
+                    <p className="text-slate-400 text-sm mt-1">Ingresá con tus credenciales</p>
                 </div>
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-7 border border-gray-200 shadow-sm space-y-4">
+                <form onSubmit={handleSubmit} className="bg-white rounded-2xl p-7 shadow-2xl space-y-4">
                     <div>
                         <label className="block text-xs font-semibold text-gray-700 mb-1.5 uppercase tracking-wide">Email</label>
                         <input
@@ -97,7 +101,7 @@ export default function AdminLoginPage() {
                     </button>
                 </form>
 
-                <p className="text-center text-xs text-gray-400 mt-6">
+                <p className="text-center text-xs text-slate-500 mt-6">
                     Arte Brisa Patagonia © 2026
                 </p>
             </div>

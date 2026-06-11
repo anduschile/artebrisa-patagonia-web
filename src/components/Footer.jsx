@@ -126,8 +126,14 @@ export default function Footer() {
                 </div>
 
                 {/* ── Bottom bar ── */}
-                <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-500 text-center">
-                    © 2026 Arte Brisa Patagonia. Todos los derechos reservados.
+                <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
+                    <span>© 2026 Arte Brisa Patagonia. Todos los derechos reservados.</span>
+                    <Link to="/admin" className="flex items-center gap-1 text-slate-700 hover:text-slate-500 transition-colors">
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+                        </svg>
+                        Acceso administrador
+                    </Link>
                 </div>
             </div>
         </footer>
