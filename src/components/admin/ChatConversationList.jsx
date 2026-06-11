@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getConversations } from '../../data/admin/chat'
 
+function formatPhone(phone) {
+    if (!phone) return '—'
+    const d = phone.replace(/\D/g, '')
+    if (d.length === 11 && d.startsWith('56'))
+        return `+56 ${d[2]} ${d.slice(3, 7)} ${d.slice(7)}`
+    return `+${d}`
+}
+
 function formatTime(ts) {
     if (!ts) return ''
     const d = new Date(ts)
@@ -79,7 +87,7 @@ export default function ChatConversationList({ selectedId, onSelect, onConversat
                             >
                                 <div className="flex items-center justify-between mb-1">
                                     <span className="font-medium text-sm text-gray-900 truncate">
-                                        {conv.contact_name || conv.phone}
+                                        {conv.contact_name?.trim() || formatPhone(conv.phone)}
                                     </span>
                                     <span className="text-[10px] text-gray-400 ml-2 shrink-0">
                                         {formatTime(conv.last_message_at)}
