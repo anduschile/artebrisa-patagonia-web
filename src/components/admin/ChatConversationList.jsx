@@ -16,7 +16,7 @@ const STATUS_META = {
     closed: { label: 'Cerrado', cls: 'bg-green-100 text-green-700' },
 }
 
-export default function ChatConversationList({ selectedId, onSelect }) {
+export default function ChatConversationList({ selectedId, onSelect, onConversationsLoad }) {
     const [conversations, setConversations] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -24,12 +24,13 @@ export default function ChatConversationList({ selectedId, onSelect }) {
         try {
             const data = await getConversations()
             setConversations(data)
+            onConversationsLoad?.(data)
         } catch (e) {
             console.error(e)
         } finally {
             setLoading(false)
         }
-    }, [])
+    }, [onConversationsLoad])
 
     useEffect(() => {
         load()

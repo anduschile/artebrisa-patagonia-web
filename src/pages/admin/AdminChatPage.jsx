@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import ChatConversationList from '../../components/admin/ChatConversationList'
 import ChatMessageView from '../../components/admin/ChatMessageView'
 
@@ -12,12 +12,21 @@ export default function AdminChatPage() {
         setShowList(false)
     }
 
+    // Keep `selected` in sync when the polling loop refreshes the list
+    const handleConversationsLoad = useCallback((convs) => {
+        setSelected(prev => {
+            if (!prev) return prev
+            const fresh = convs.find(c => c.id === prev.id)
+            return fresh ?? prev
+        })
+    }, [])
+
     return (
         // Break out of AdminLayout's px-6 py-8 wrapper and fill the full viewport height
         <div className="-mx-6 -my-8 flex overflow-hidden" style={{ height: '100vh' }}>
             {/* ── Conversation list — hidden on mobile when a conv is open ── */}
             <div className={`${showList ? 'flex' : 'hidden'} md:flex flex-col`}>
-                <ChatConversationList selectedId={selected?.id} onSelect={handleSelect} />
+                <ChatConversationList selectedId={selected?.id} onSelect={handleSelect} onConversationsLoad={handleConversationsLoad} />
             </div>
 
             {/* ── Message view ── */}
