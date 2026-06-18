@@ -271,7 +271,19 @@ export default function GanttCalendar({ units, onSelectReservation, onNewReserva
                                                             zIndex: 5,
                                                             ...getBlockColors(r),
                                                         }}
-                                                        onClick={e => { e.stopPropagation(); onSelectReservation?.(normalizeReservation(r)) }}
+                                                        onClick={e => {
+                                                            e.stopPropagation()
+                                                            const normalized = normalizeReservation(r)
+                                                            console.log('🔍 GANTT CLICK DIAGNÓSTICO', {
+                                                                reservation_id: r.id,
+                                                                raw_core_guests: r.core_guests,
+                                                                raw_guest: r.guest,
+                                                                normalized_core_guests: normalized.core_guests,
+                                                                normalized_guest: normalized.guest,
+                                                                normalized_full_object: normalized,
+                                                            })
+                                                            onSelectReservation?.(normalized)
+                                                        }}
                                                         title={label}
                                                     >
                                                         <span style={{ fontSize: 11, fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>

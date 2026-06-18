@@ -46,6 +46,15 @@ function buildSummary(r) {
 
 export default function ReservationDetailDrawer({ open, onClose, reservation: r, onStatusChange }) {
     useEffect(() => {
+        console.log('🔍 DRAWER RECIBIÓ', {
+            reservation_id: r?.id,
+            core_guests: r?.core_guests,
+            guest: r?.guest,
+            full_object: r,
+        })
+    }, [r])
+
+    useEffect(() => {
         if (!open) return
         const handler = (e) => { if (e.key === 'Escape') onClose() }
         window.addEventListener('keydown', handler)
