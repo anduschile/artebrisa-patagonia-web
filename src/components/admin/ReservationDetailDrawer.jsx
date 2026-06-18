@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { confirmToast } from '../../lib/confirmToast'
-import { updateReservationStatus } from '../../data/admin/reservations'
+import { updateReservationStatus, updateReservationNotes } from '../../data/admin/reservations'
 
 const STATUS_COLORS = {
     inquiry: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -44,7 +44,7 @@ function buildSummary(r) {
     ].join('\n')
 }
 
-export default function ReservationDetailDrawer({ open, onClose, reservation: r, onStatusChange }) {
+export default function ReservationDetailDrawer({ open, onClose, reservation: r, onStatusChange, onNotesChange }) {
     useEffect(() => {
         if (!open) return
         const handler = (e) => { if (e.key === 'Escape') onClose() }
@@ -58,6 +58,16 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
     }, [open])
 
     const [saving, setSaving] = useState(false)
+    const [notesValue, setNotesValue] = useState('')
+    const [originalNotes, setOriginalNotes] = useState('')
+    const [savingNotes, setSavingNotes] = useState(false)
+
+    useEffect(() => {
+        if (open && r) {
+            setNotesValue(r.notes || '')
+            setOriginalNotes(r.notes || '')
+        }
+    }, [open, r?.id, r?.notes])
 
     const handleStatusChange = useCallback(async (newStatus) => {
         if (!r) return
@@ -80,6 +90,22 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
             setSaving(false)
         }
     }, [r, onStatusChange, onClose])
+
+    const handleSaveNotes = useCallback(async () => {
+        if (!r || notesValue === originalNotes) return
+        setSavingNotes(true)
+        try {
+            await updateReservationNotes(r.id, notesValue)
+            setOriginalNotes(notesValue)
+            toast.success('Nota actualizada')
+            // Call parent callback to sync with reservations array and other views
+            onNotesChange?.(r.id, notesValue)
+        } catch (e) {
+            toast.error(`Error: ${e.message}`)
+        } finally {
+            setSavingNotes(false)
+        }
+    }, [r, notesValue, originalNotes, onNotesChange])
 
     if (!open || !r) return null
 
@@ -192,17 +218,25 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
                     )}
 
                     {/* Notas */}
-                    {r.notes && (
-                        <section>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Notas</p>
-                            <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 flex gap-2">
-                                <svg className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" />
-                                </svg>
-                                <p className="text-sm text-gray-600 whitespace-pre-wrap">{r.notes}</p>
-                            </div>
-                        </section>
-                    )}
+                    <section>
+                        <p className="text-xs font-bold text-gray-400 uppercase tracking-wide mb-2">Notas</p>
+                        <div className="space-y-2">
+                            <textarea
+                                value={notesValue}
+                                onChange={e => setNotesValue(e.target.value)}
+                                placeholder="Agregar notas sobre esta reserva..."
+                                className="w-full p-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-1 focus:ring-primary-500 resize-none"
+                                rows={4}
+                            />
+                            <button
+                                onClick={handleSaveNotes}
+                                disabled={savingNotes || notesValue === originalNotes}
+                                className="w-full px-3 py-2 text-sm font-semibold rounded-lg bg-primary-600 hover:bg-primary-500 text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                                {savingNotes ? 'Guardando...' : 'Guardar nota'}
+                            </button>
+                        </div>
+                    </section>
                 </div>
 
                 {/* Footer acciones */}

@@ -157,6 +157,13 @@ export default function AdminReservationsPage() {
         bumpCalendarRefresh()  // and calendar/agenda
     }, [])  // eslint-disable-line
 
+    // Synchronize notes update across all views
+    const handleDrawerNotesUpdate = useCallback((id, notes) => {
+        setSelectedReservation(prev => prev?.id === id ? { ...prev, notes } : prev)
+        setReservations(prev => prev.map(r => r.id === id ? { ...r, notes } : r))
+        // No bumpCalendarRefresh needed — Gantt/Calendario/Agenda will refetch on next natural event
+    }, [])  // eslint-disable-line
+
     // ── iCal Sync state ──
     const [showIcal, setShowIcal] = useState(false)
     const [icalCalendars, setIcalCalendars] = useState([])
@@ -971,6 +978,7 @@ export default function AdminReservationsPage() {
                 onClose={() => setSelectedReservation(null)}
                 reservation={selectedReservation}
                 onStatusChange={handleDrawerStatusUpdate}
+                onNotesChange={handleDrawerNotesUpdate}
             />
         </div>
     )

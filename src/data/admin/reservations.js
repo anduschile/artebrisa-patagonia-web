@@ -88,6 +88,17 @@ export async function updateReservationStatus(id, status) {
     if (error) throw new Error(`updateReservationStatus: ${error.message}`)
 }
 
+export async function updateReservationNotes(reservationId, notes) {
+    const { data, error } = await supabase
+        .from('core_reservations')
+        .update({ notes: notes ?? null })
+        .eq('id', reservationId)
+        .select()
+        .single()
+    if (error) throw new Error(`updateReservationNotes: ${error.message}`)
+    return data
+}
+
 /**
  * Create a manual block reservation.
  * Uses the find_or_create_guest RPC with a SYSTEM guest.
