@@ -137,7 +137,7 @@ export async function getReservationsForGantt(year, month) {
         .select(`
             id, unit_id, status, check_in, check_out, notes,
             core_units ( id, name, code ),
-            core_guests ( id, full_name ),
+            core_guests ( id, full_name, email, phone ),
             core_channels ( id, name )
         `)
         .lt('check_in', nextMonthFirst)
