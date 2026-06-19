@@ -24,6 +24,7 @@ const RECIPIENT_EMAIL = 'reservasartebrisa@gmail.com'
 const SENDER_EMAIL    = 'Arte Brisa Patagonia <reservas@artebrisapatagonia.com>'
 const CLAUDE_MODEL    = 'claude-sonnet-4-5'
 const CLAUDE_API_URL  = 'https://api.anthropic.com/v1/messages'
+const TWILIO_WEBHOOK_URL = 'https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/whatsapp-bot'
 
 const SYSTEM_PROMPT_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagonia, un complejo de alojamiento en Puerto Natales, Chile. Te llamas Arte Brisa Patagonia y hablas de forma cálida y familiar con los turistas.
 
@@ -140,12 +141,11 @@ async function validateTwilioSignature(
     const twilioSig = req.headers.get('x-twilio-signature')
     if (!twilioSig) return false
 
-    const url = new URL(req.url)
     const params = new URLSearchParams(rawBody)
 
     // Twilio ordena los params alfabéticamente y los concatena a la URL base
     const sortedKeys = [...params.keys()].sort()
-    let sigBase = url.toString()
+    let sigBase = TWILIO_WEBHOOK_URL
     for (const key of sortedKeys) {
         sigBase += key + (params.get(key) ?? '')
     }
