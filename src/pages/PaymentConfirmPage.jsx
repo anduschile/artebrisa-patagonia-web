@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import Layout from '../components/Layout'
 
 export default function PaymentConfirmPage() {
   const location = useLocation()
@@ -31,14 +30,12 @@ export default function PaymentConfirmPage() {
   if (loading) {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: LOADING')
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center bg-gray-50">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-700 mx-auto mb-4"></div>
-            <p className="text-gray-600">Procesando tu pago...</p>
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-slate-700 mx-auto mb-4"></div>
+          <p className="text-gray-600">Procesando tu pago...</p>
         </div>
-      </Layout>
+      </div>
     )
   }
 
@@ -46,8 +43,7 @@ export default function PaymentConfirmPage() {
   if (status === 'paid') {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: PAID')
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full text-center">
             <div className="mb-6">
               <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
@@ -105,7 +101,7 @@ export default function PaymentConfirmPage() {
             </a>
           </div>
         </div>
-      </Layout>
+      </div>
     )
   }
 
@@ -113,8 +109,7 @@ export default function PaymentConfirmPage() {
   if (status === 'failed') {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: FAILED')
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full text-center">
             <div className="mb-6">
               <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100">
@@ -160,7 +155,7 @@ export default function PaymentConfirmPage() {
             </div>
           </div>
         </div>
-      </Layout>
+      </div>
     )
   }
 
@@ -168,8 +163,7 @@ export default function PaymentConfirmPage() {
   if (status === 'unknown') {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: UNKNOWN')
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-yellow-50 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-yellow-50 px-4 sm:px-6 lg:px-8">
           <div className="max-w-md w-full text-center">
             <div className="mb-6">
               <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-amber-100">
@@ -213,14 +207,14 @@ export default function PaymentConfirmPage() {
             </a>
           </div>
         </div>
-      </Layout>
+      </div>
     )
   }
 
   // ── Error: unknown status or no params ─────────────────────────────
   console.log('[DEBUG-CONFIRM] Renderizando bloque: ERROR (fallback)')
   return (
-    <Layout>
+    <div>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full text-center">
           <div className="mb-6">
@@ -251,6 +245,6 @@ export default function PaymentConfirmPage() {
           </a>
         </div>
       </div>
-    </Layout>
+    </div>
   )
 }
