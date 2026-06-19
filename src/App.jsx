@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage'
 import CabanasPage from './pages/CabanasPage'
 import DepartamentosPage from './pages/DepartamentosPage'
 import UnitDetailPage from './pages/UnitDetailPage'
+import PaymentConfirmPage from './pages/PaymentConfirmPage'
 
 // Admin
 import AdminGuard from './components/admin/AdminGuard'
@@ -26,6 +27,7 @@ export default function App() {
                     <Route path="/cabanas" element={<CabanasPage />} />
                     <Route path="/departamentos" element={<DepartamentosPage />} />
                     <Route path="/unidad/:id" element={<UnitDetailPage />} />
+                    <Route path="/reserva/confirmar" element={<PaymentConfirmPage />} />
                 </Route>
 
                 {/* ── Admin ── */}
