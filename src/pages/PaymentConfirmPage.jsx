@@ -82,7 +82,7 @@ export default function PaymentConfirmPage() {
                   </div>
                 </div>
                 <p className="ml-3 text-sm text-gray-600">
-                  <span className="font-semibold">En revisión</span> — Karina revisará tu reserva y te confirmará a la brevedad por el mismo medio.
+                  <span className="font-semibold">En revisión</span> — Nuestro equipo revisará tu reserva y te confirmará a la brevedad por el mismo medio.
                 </p>
               </div>
             </div>
@@ -187,13 +187,13 @@ export default function PaymentConfirmPage() {
                 <span className="font-semibold">¿Qué pasó?</span> Intentamos confirmar tu pago con el banco pero no recibimos respuesta. Esto puede ser un error temporal de conexión.
               </p>
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">Próximo paso:</span> Si el cargo aparece en tu cuenta bancaria, tu pago fue procesado y tu reserva está siendo revisada por Karina. Si tienes dudas, contáctanos por WhatsApp.
+                <span className="font-semibold">Próximo paso:</span> Si el cargo aparece en tu cuenta bancaria, tu pago fue procesado y tu reserva está siendo revisada por nuestro equipo. Si tienes dudas, contáctanos por WhatsApp.
               </p>
             </div>
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
               <p className="text-sm text-amber-900">
-                <span className="font-semibold">Importante:</span> No intentes pagar nuevamente. Espera a que Karina confirme el estado de tu reserva.
+                <span className="font-semibold">Importante:</span> No intentes pagar nuevamente. Espera a que nuestro equipo confirme el estado de tu reserva.
               </p>
             </div>
 
@@ -229,7 +229,7 @@ export default function PaymentConfirmPage() {
 
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
             <p className="text-sm text-yellow-900">
-              <span className="font-semibold">Te recomendamos:</span> Contacta a Karina directamente por WhatsApp para que verifique el estado de tu reserva y pago.
+              <span className="font-semibold">Te recomendamos:</span> Contacta a nuestro equipo directamente por WhatsApp para que verifique el estado de tu reserva y pago.
             </p>
           </div>
 
