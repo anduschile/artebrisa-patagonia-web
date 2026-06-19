@@ -14,6 +14,10 @@ export default function PaymentConfirmPage() {
     const statusParam = params.get('status')
     const reservationIdParam = params.get('reservation_id')
 
+    console.log('[DEBUG-CONFIRM] location.search:', location.search)
+    console.log('[DEBUG-CONFIRM] statusParam:', statusParam)
+    console.log('[DEBUG-CONFIRM] reservationIdParam:', reservationIdParam)
+
     setStatus(statusParam)
     setReservationId(reservationIdParam)
 
