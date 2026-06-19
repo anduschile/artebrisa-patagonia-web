@@ -164,6 +164,13 @@ export default function AdminReservationsPage() {
         // No bumpCalendarRefresh needed — Gantt/Calendario/Agenda will refetch on next natural event
     }, [])  // eslint-disable-line
 
+    // Handle deleted blocked reservation
+    const handleDrawerDelete = useCallback((id) => {
+        setSelectedReservation(null)
+        setReservations(prev => prev.filter(r => r.id !== id))
+        bumpCalendarRefresh()  // refetch Gantt/Calendario/Agenda so deleted block disappears immediately
+    }, [])  // eslint-disable-line
+
     // ── iCal Sync state ──
     const [showIcal, setShowIcal] = useState(false)
     const [icalCalendars, setIcalCalendars] = useState([])
@@ -297,7 +304,7 @@ export default function AdminReservationsPage() {
                 setBlockSaving(false)
                 return
             }
-            await createBlock({ unit_id, property_id: unit.property_id, check_in, check_out, notes, channel_id: channel_id || null })
+            await createBlock({ unit_id, property_id: unit.property_id, check_in, check_out, notes, ...(channel_id && { channel_id }) })
             setBlockState({ unit_id: '', check_in: '', check_out: '', notes: '', channel_id: '' })
             setShowBlock(false)
             await load()
@@ -979,6 +986,7 @@ export default function AdminReservationsPage() {
                 reservation={selectedReservation}
                 onStatusChange={handleDrawerStatusUpdate}
                 onNotesChange={handleDrawerNotesUpdate}
+                onDeleted={handleDrawerDelete}
             />
         </div>
     )

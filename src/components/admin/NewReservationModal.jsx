@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabaseClient'
+import { getWebChannelId } from '../../data/channels'
 
 export default function NewReservationModal({ isOpen, onClose, initialData, onSuccess, channels = [] }) {
     const [type, setType] = useState('direct')
@@ -62,11 +63,16 @@ export default function NewReservationModal({ isOpen, onClose, initialData, onSu
                 guestId = data
             }
 
+            let finalChannelId = channelId || null
+            if (type === 'block') {
+                finalChannelId = await getWebChannelId()
+            }
+
             const { error } = await supabase.from('core_reservations').insert({
                 unit_id: initialData?.unitId,
                 property_id: initialData?.propertyId || null,
                 guest_id: guestId,
-                channel_id: type === 'direct' ? (channelId || null) : null,
+                channel_id: finalChannelId,
                 status: type === 'direct' ? 'confirmed' : 'blocked',
                 check_in: checkIn,
                 check_out: checkOut,

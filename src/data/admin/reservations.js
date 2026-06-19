@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabaseClient'
+import { getWebChannelId } from '../channels'
 
 /**
  * Fetch all reservations for admin use, with nested guest + unit + channel.
@@ -100,8 +101,30 @@ export async function updateReservationNotes(reservationId, notes) {
 }
 
 /**
+ * Delete a blocked reservation (manual block only, status must be 'blocked').
+ * Validates status before deleting to prevent accidental deletion of real reservations.
+ */
+export async function deleteBlockedReservation(id) {
+    const { data: row, error: selectError } = await supabase
+        .from('core_reservations')
+        .select('id, status')
+        .eq('id', id)
+        .single()
+    if (selectError) throw new Error(`deleteBlockedReservation (select): ${selectError.message}`)
+    if (row?.status !== 'blocked') {
+        throw new Error('Solo se pueden eliminar reservas con estado "blocked"')
+    }
+    const { error: deleteError } = await supabase
+        .from('core_reservations')
+        .delete()
+        .eq('id', id)
+    if (deleteError) throw new Error(`deleteBlockedReservation (delete): ${deleteError.message}`)
+}
+
+/**
  * Create a manual block reservation.
  * Uses the find_or_create_guest RPC with a SYSTEM guest.
+ * If no channel_id provided, uses the WEB channel.
  */
 export async function createBlock({ unit_id, property_id, check_in, check_out, notes = '', channel_id }) {
     // Get or create a SYSTEM guest
@@ -112,13 +135,16 @@ export async function createBlock({ unit_id, property_id, check_in, check_out, n
     })
     if (guestErr) throw new Error(`createBlock guest: ${guestErr.message}`)
 
+    // Use WEB channel if not provided
+    const finalChannelId = channel_id || await getWebChannelId()
+
     const { data, error } = await supabase
         .from('core_reservations')
         .insert({
             property_id,
             unit_id,
             guest_id: guestId,
-            channel_id: channel_id || null,
+            channel_id: finalChannelId,
             status: 'blocked',
             check_in,
             check_out,

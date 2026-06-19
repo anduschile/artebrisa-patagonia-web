@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react'
 import toast from 'react-hot-toast'
 import { confirmToast } from '../../lib/confirmToast'
-import { updateReservationStatus, updateReservationNotes } from '../../data/admin/reservations'
+import { updateReservationStatus, updateReservationNotes, deleteBlockedReservation } from '../../data/admin/reservations'
 
 const STATUS_COLORS = {
     inquiry: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -44,7 +44,7 @@ function buildSummary(r) {
     ].join('\n')
 }
 
-export default function ReservationDetailDrawer({ open, onClose, reservation: r, onStatusChange, onNotesChange }) {
+export default function ReservationDetailDrawer({ open, onClose, reservation: r, onStatusChange, onNotesChange, onDeleted }) {
     useEffect(() => {
         if (!open) return
         const handler = (e) => { if (e.key === 'Escape') onClose() }
@@ -106,6 +106,26 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
             setSavingNotes(false)
         }
     }, [r, notesValue, originalNotes, onNotesChange])
+
+    const handleDeleteBlock = useCallback(async () => {
+        if (!r) return
+        const confirmed = await confirmToast('¿Eliminar este bloqueo? Esta acción no se puede deshacer.', {
+            confirmLabel: 'Eliminar bloqueo',
+            cancelLabel: 'Cancelar',
+        })
+        if (!confirmed) return
+        setSaving(true)
+        try {
+            await deleteBlockedReservation(r.id)
+            toast.success('Bloqueo eliminado')
+            onDeleted?.(r.id)
+            onClose()
+        } catch (e) {
+            toast.error(`Error al eliminar: ${e.message}`)
+        } finally {
+            setSaving(false)
+        }
+    }, [r, onClose, onDeleted])
 
     if (!open || !r) return null
 
@@ -257,6 +277,15 @@ export default function ReservationDetailDrawer({ open, onClose, reservation: r,
                             className="w-full px-3 py-2.5 text-sm font-bold rounded-xl bg-red-500 hover:bg-red-400 text-white transition-colors disabled:opacity-50"
                         >
                             Cancelar reserva
+                        </button>
+                    )}
+                    {r.status === 'blocked' && (
+                        <button
+                            onClick={handleDeleteBlock}
+                            disabled={saving}
+                            className="w-full px-3 py-2.5 text-sm font-bold rounded-xl bg-red-500 hover:bg-red-400 text-white transition-colors disabled:opacity-50"
+                        >
+                            Eliminar bloqueo
                         </button>
                     )}
                     <button

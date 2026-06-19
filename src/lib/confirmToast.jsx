@@ -10,7 +10,7 @@ export function confirmToast(message, { confirmLabel = 'Confirmar', cancelLabel 
         toast(
             (t) => (
                 <div className="flex flex-col gap-3">
-                    <p className="text-sm text-slate-100">{message}</p>
+                    <p className="text-sm text-gray-900">{message}</p>
                     <div className="flex gap-2 justify-end">
                         <button
                             onClick={() => { toast.dismiss(t.id); resolve(false) }}
