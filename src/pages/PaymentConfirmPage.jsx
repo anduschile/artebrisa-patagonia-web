@@ -101,7 +101,6 @@ export default function PaymentConfirmPage() {
             </a>
           </div>
         </div>
-      </div>
     )
   }
 
@@ -155,7 +154,6 @@ export default function PaymentConfirmPage() {
             </div>
           </div>
         </div>
-      </div>
     )
   }
 
@@ -207,14 +205,12 @@ export default function PaymentConfirmPage() {
             </a>
           </div>
         </div>
-      </div>
     )
   }
 
   // ── Error: unknown status or no params ─────────────────────────────
   console.log('[DEBUG-CONFIRM] Renderizando bloque: ERROR (fallback)')
   return (
-    <div>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 sm:px-6 lg:px-8">
         <div className="max-w-md w-full text-center">
           <div className="mb-6">
@@ -245,6 +241,5 @@ export default function PaymentConfirmPage() {
           </a>
         </div>
       </div>
-    </div>
-  )
+    )
 }
