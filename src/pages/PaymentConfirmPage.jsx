@@ -29,6 +29,7 @@ export default function PaymentConfirmPage() {
   }, [location.search])
 
   if (loading) {
+    console.log('[DEBUG-CONFIRM] Renderizando bloque: LOADING')
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -43,6 +44,7 @@ export default function PaymentConfirmPage() {
 
   // ── Success: payment was authorized ────────────────────────────────
   if (status === 'paid') {
+    console.log('[DEBUG-CONFIRM] Renderizando bloque: PAID')
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-green-50 to-blue-50 px-4 sm:px-6 lg:px-8">
@@ -109,6 +111,7 @@ export default function PaymentConfirmPage() {
 
   // ── Failed: payment was rejected ───────────────────────────────────
   if (status === 'failed') {
+    console.log('[DEBUG-CONFIRM] Renderizando bloque: FAILED')
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-red-50 px-4 sm:px-6 lg:px-8">
@@ -163,6 +166,7 @@ export default function PaymentConfirmPage() {
 
   // ── Unknown: payment result is uncertain (network error) ─────────────────
   if (status === 'unknown') {
+    console.log('[DEBUG-CONFIRM] Renderizando bloque: UNKNOWN')
     return (
       <Layout>
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-yellow-50 px-4 sm:px-6 lg:px-8">
@@ -214,6 +218,7 @@ export default function PaymentConfirmPage() {
   }
 
   // ── Error: unknown status or no params ─────────────────────────────
+  console.log('[DEBUG-CONFIRM] Renderizando bloque: ERROR (fallback)')
   return (
     <Layout>
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 px-4 sm:px-6 lg:px-8">
