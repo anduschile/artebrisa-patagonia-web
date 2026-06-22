@@ -12,21 +12,26 @@ import { supabase } from '../lib/supabaseClient'
  * @returns {Promise<Array>} array of conflicting reservations (empty = available)
  */
 export async function getConflicts({ unit_id, check_in, check_out }) {
-    const ACTIVE_STATUSES = ['inquiry', 'confirmed', 'blocked']
-
     // Fetch all active reservations for this unit that could possibly overlap:
     // existing.check_in < check_out_new  →  existing.check_in is before our checkout
     const { data, error } = await supabase
         .from('core_reservations')
-        .select('id, check_in, check_out, status')
+        .select('id, check_in, check_out, status, created_at')
         .eq('unit_id', unit_id)
-        .in('status', ACTIVE_STATUSES)
-        .lt('check_in', check_out)   // PostgreSQL can compare dates as strings (ISO format)
+        .in('status', ['inquiry', 'confirmed', 'blocked'])
+        .lt('check_in', check_out)
 
     if (error) throw new Error(`getConflicts: ${error.message}`)
 
-    // In-memory filter: existing.check_out > check_in_new
-    const conflicts = (data || []).filter(r => r.check_out > check_in)
+    // Filter in-memory:
+    // - confirmed/blocked always count
+    // - inquiry only if created less than 4 hours ago
+    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+
+    const conflicts = (data || []).filter(r => {
+        const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+        return !isExpiredInquiry && r.check_out > check_in
+    })
 
     return conflicts
 }

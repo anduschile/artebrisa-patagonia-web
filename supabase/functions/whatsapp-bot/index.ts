@@ -321,13 +321,21 @@ Deno.serve(async (req: Request) => {
     }))
 
     // ── 6. Consultar disponibilidad ───────────────────────────────────────
-    const { data: availability } = await supabase
+    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+
+    const { data: allReservations } = await supabase
         .from('core_reservations')
-        .select('unit_id, check_in, check_out')
-        .in('status', ['confirmed', 'blocked'])
+        .select('unit_id, check_in, check_out, status, created_at')
+        .in('status', ['inquiry', 'confirmed', 'blocked'])
         .gte('check_out', new Date().toISOString().split('T')[0])
         .order('check_in', { ascending: true })
         .limit(50)
+
+    // Filter in-memory: confirmed/blocked always count, inquiry only if created less than 4 hours ago
+    const availability = (allReservations || []).filter(r => {
+        const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+        return !isExpiredInquiry
+    })
 
     const availabilityCtx = formatAvailabilityContext(availability ?? [])
     const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context_disponibilidad}', availabilityCtx)

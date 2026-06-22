@@ -119,8 +119,6 @@ export async function getDailyRatesForRange(unitId, startDate, endDate) {
  * @returns {Promise<Array>} unidades disponibles, ordenadas por capacidad más ajustada primero
  */
 export async function getAvailableUnits({ check_in, check_out, guests }) {
-    const ACTIVE_STATUSES = ['inquiry', 'confirmed', 'blocked']
-
     const [unitsRes, conflictsRes] = await Promise.all([
         supabase
             .from('core_units')
@@ -128,17 +126,25 @@ export async function getAvailableUnits({ check_in, check_out, guests }) {
             .eq('is_active', true),
         supabase
             .from('core_reservations')
-            .select('unit_id, check_out')
-            .in('status', ACTIVE_STATUSES)
+            .select('unit_id, check_out, status, created_at')
+            .in('status', ['inquiry', 'confirmed', 'blocked'])
             .lt('check_in', check_out),
     ])
 
     if (unitsRes.error) throw new Error(`getAvailableUnits: ${unitsRes.error.message}`)
     if (conflictsRes.error) throw new Error(`getAvailableUnits: ${conflictsRes.error.message}`)
 
+    // Filter in-memory:
+    // - confirmed/blocked always count
+    // - inquiry only if created less than 4 hours ago
+    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+
     const conflictingIds = new Set(
         (conflictsRes.data || [])
-            .filter(r => r.check_out > check_in)
+            .filter(r => {
+                const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+                return !isExpiredInquiry && r.check_out > check_in
+            })
             .map(r => r.unit_id)
     )
 
