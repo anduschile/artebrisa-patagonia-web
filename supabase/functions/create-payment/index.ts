@@ -167,7 +167,6 @@ Deno.serve(async (req: Request) => {
   const { error: updateErr } = await supabase
     .from('core_reservations')
     .update({
-      status: 'pending_payment',
       payment_id: token,
       payment_url: url,
       payment_buy_order: buyOrder,

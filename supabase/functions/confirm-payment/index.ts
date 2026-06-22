@@ -215,7 +215,7 @@ Deno.serve(async (req: Request) => {
 
   // ── 6. Update reservation based on result ──────────────────────────────
   const updatePayload: any = {
-    status: 'inquiry',
+    status: paymentSuccess ? 'confirmed' : 'inquiry',
     payment_url: null,
   }
 
