@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import ChatStatsBar from '../../components/admin/ChatStatsBar'
 import ChatConversationList from '../../components/admin/ChatConversationList'
 import ChatMessageView from '../../components/admin/ChatMessageView'
 
@@ -26,6 +27,7 @@ export default function AdminChatPage() {
         <div className="-mx-6 -my-8 flex overflow-hidden" style={{ height: '100vh' }}>
             {/* ── Conversation list — hidden on mobile when a conv is open ── */}
             <div className={`${showList ? 'flex' : 'hidden'} md:flex flex-col`}>
+                <ChatStatsBar />
                 <ChatConversationList selectedId={selected?.id} onSelect={handleSelect} onConversationsLoad={handleConversationsLoad} />
             </div>
 

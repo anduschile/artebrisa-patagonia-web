@@ -1,10 +1,49 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react'
 import { getMessages, sendMessage, updateConversationStatus } from '../../data/admin/chat'
 import toast from 'react-hot-toast'
 
 function formatTime(ts) {
     if (!ts) return ''
     return new Date(ts).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' })
+}
+
+function getDateInChile(ts) {
+    if (!ts) return '1970-01-01'
+    const d = new Date(ts)
+    const formatter = new Intl.DateTimeFormat('es-CL', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        timeZone: 'America/Santiago'
+    })
+    const parts = formatter.formatToParts(d)
+    const year = parts.find(p => p.type === 'year').value
+    const month = parts.find(p => p.type === 'month').value
+    const day = parts.find(p => p.type === 'day').value
+    return `${year}-${month}-${day}`
+}
+
+function formatDateSeparator(ts) {
+    if (!ts) return ''
+
+    const msgDate = getDateInChile(ts)
+    const today = getDateInChile(new Date().toISOString())
+    // Restar 1 día al string YYYY-MM-DD
+    const todayDate = new Date(today)
+    const yesterdayDate = new Date(todayDate)
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1)
+    const yesterdayString = yesterdayDate.toISOString().split('T')[0]
+
+    if (msgDate === today) {
+        return 'Hoy'
+    } else if (msgDate === yesterdayString) {
+        return 'Ayer'
+    } else {
+        return new Date(ts).toLocaleDateString('es-CL', {
+            day: 'numeric',
+            month: 'long'
+        })
+    }
 }
 
 function EmptyState() {
@@ -150,27 +189,41 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
                 {messages.length === 0 && (
                     <p className="text-center text-xs text-gray-400 py-8">Sin mensajes aún</p>
                 )}
-                {messages.map(msg => (
-                    <div
-                        key={msg.id}
-                        className={`flex ${msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
-                    >
-                        <div
-                            className={`
-                                max-w-[75%] px-3 py-2 rounded-2xl text-sm
-                                ${msg.role === 'assistant'
-                                    ? 'bg-primary-600 text-white rounded-br-sm'
-                                    : 'bg-gray-100 text-gray-800 rounded-bl-sm'
-                                }
-                            `}
-                        >
-                            <p className="whitespace-pre-wrap break-words">{msg.content}</p>
-                            <p className={`text-[10px] mt-1 text-right ${msg.role === 'assistant' ? 'text-primary-200' : 'text-gray-400'}`}>
-                                {formatTime(msg.created_at)}
-                            </p>
-                        </div>
-                    </div>
-                ))}
+                {messages.map((msg, idx) => {
+                    const prevMsg = idx > 0 ? messages[idx - 1] : null
+                    const shouldShowSeparator = !prevMsg ||
+                        getDateInChile(msg.created_at) !== getDateInChile(prevMsg.created_at)
+
+                    return (
+                        <Fragment key={`group-${msg.id}`}>
+                            {shouldShowSeparator && (
+                                <div className="flex justify-center py-3 mb-2">
+                                    <span className="text-xs text-gray-400 bg-gray-100 rounded-full px-3 py-1">
+                                        {formatDateSeparator(msg.created_at)}
+                                    </span>
+                                </div>
+                            )}
+                            <div
+                                className={`flex ${msg.role === 'assistant' ? 'justify-end' : 'justify-start'}`}
+                            >
+                                <div
+                                    className={`
+                                        max-w-[75%] px-3 py-2 rounded-2xl text-sm
+                                        ${msg.role === 'assistant'
+                                            ? 'bg-primary-600 text-white rounded-br-sm'
+                                            : 'bg-gray-100 text-gray-800 rounded-bl-sm'
+                                        }
+                                    `}
+                                >
+                                    <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+                                    <p className={`text-[10px] mt-1 text-right ${msg.role === 'assistant' ? 'text-primary-200' : 'text-gray-400'}`}>
+                                        {formatTime(msg.created_at)}
+                                    </p>
+                                </div>
+                            </div>
+                        </Fragment>
+                    )
+                })}
                 <div ref={bottomRef} />
             </div>
 

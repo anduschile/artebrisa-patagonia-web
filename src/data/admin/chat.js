@@ -97,3 +97,48 @@ export async function getUnreadCount() {
     if (error) return 0
     return count ?? 0
 }
+
+/**
+ * Get conversation statistics for a given period.
+ * Uses RPC get_conversation_start_dates() for efficient MIN(created_at) aggregation.
+ */
+export async function getConversationStats(period = 'week') {
+    const now = new Date()
+    let startDate = new Date()
+
+    if (period === 'today') {
+        startDate.setHours(0, 0, 0, 0)
+    } else if (period === 'week') {
+        const dayOfWeek = now.getDay()
+        const daysBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+        startDate.setDate(now.getDate() - daysBack)
+        startDate.setHours(0, 0, 0, 0)
+    } else if (period === 'month') {
+        startDate.setDate(1)
+        startDate.setHours(0, 0, 0, 0)
+    } else if (period === 'all') {
+        startDate = null
+    }
+
+    try {
+        // Call RPC to get conversation start dates efficiently
+        const { data: startDates, error: rpcError } = await supabase
+            .rpc('get_conversation_start_dates')
+
+        if (rpcError || !startDates?.length) return { total: 0, period }
+
+        // Count conversations that started in the period
+        let count = 0
+        for (const row of startDates) {
+            const date = new Date(row.started_at)
+            if (period === 'all' || date >= startDate) {
+                count++
+            }
+        }
+
+        return { total: count, period }
+    } catch (e) {
+        console.error(`getConversationStats(${period}) error:`, e)
+        return { total: 0, period }
+    }
+}
