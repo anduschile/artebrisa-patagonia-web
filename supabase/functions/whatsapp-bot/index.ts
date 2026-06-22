@@ -312,7 +312,8 @@ Deno.serve(async (req: Request) => {
             sessionStart = i
         }
     }
-    const sessionHistory = historyAsc.slice(sessionStart, sessionStart + 10)
+    const sessionMessages = historyAsc.slice(sessionStart)
+    const sessionHistory = sessionMessages.slice(-10)
 
     const messages = sessionHistory.map(m => ({
         role: m.role as 'user' | 'assistant',
