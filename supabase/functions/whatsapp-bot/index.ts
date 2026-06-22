@@ -243,7 +243,17 @@ INSTRUCCIONES:
 2. Usa un tono familiar y cercano, como si fueras parte del equipo de Arte Brisa
 3. Sé conciso, máximo 3-4 oraciones por mensaje
 4. Cuando alguien pida la ubicación, envía la dirección y el link de Google Maps del establecimiento correspondiente
-5. Para consultas de disponibilidad usa el contexto provisto arriba
+5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
+   Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
+   revisá la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
+   si se cumple esta condición:
+   (fecha_checkin_solicitada < fecha_fin_bloqueo) Y (fecha_checkout_solicitada > fecha_inicio_bloqueo)
+   Es decir: si el rango solicitado se superpone EN CUALQUIER PARTE con un rango marcado como
+   'ocupado' para esa misma unidad, NO está disponible, sin excepciones, incluso si la
+   superposición es parcial. Si tenés cualquier duda sobre el cálculo, o las fechas son
+   ambiguas, NO confirmes disponibilidad — pedí que te confirmen las fechas exactas o incluí
+   ##DERIVAR##. Nunca confirmes disponibilidad sin haber verificado explícitamente contra
+   el bloque de DISPONIBILIDAD ACTUAL para ese código de unidad específico.
 6. Si el turista quiere reservar, solicita: nombre, fechas, número de personas y tipo de unidad
 7. Una vez con esos datos, confirma que registrarás la solicitud y que será confirmada a la brevedad con detalles de pago
 8. No confirmes reservas de forma definitiva ni garantices disponibilidad sin verificar
@@ -290,25 +300,67 @@ async function validateTwilioSignature(
 }
 
 /**
- * Formatea las reservas activas en texto legible, usando códigos de unidad en lugar de UUIDs.
+ * Formatea las reservas activas en texto legible, consolidando rangos superpuestos.
+ *
+ * Algoritmo de consolidación (merge overlapping intervals):
+ * 1. Agrupar filas por unit_id
+ * 2. Ordenar rangos de cada unidad por check_in ascendente
+ * 3. Recorrer y fusionar: si check_in del rango actual <= check_out del anterior,
+ *    extender el anterior (no crear líneas duplicadas)
+ * 4. Generar una línea por cada rango consolidado
  *
  * @param rows Array de reservas activas con unit_id (UUID), check_in, check_out
  * @param unitCodeMap Mapa { unit_id: code } para traducir UUIDs a códigos
- * @returns String formateado para inyectar en el system prompt
+ * @returns String formateado (rangos consolidados) para inyectar en el system prompt
  */
 function formatAvailabilityContext(
     rows: Array<{ unit_id: string; check_in: string; check_out: string }>,
     unitCodeMap: Record<string, string>,
 ): string {
     if (rows.length === 0) return 'Sin reservas activas registradas en el sistema.'
-    return rows
-        .map(r => {
-            const code = unitCodeMap[r.unit_id]
-            // Si la unidad no existe en el mapa (unidad inactiva/eliminada), fallback a UUID crudo
-            const identifier = code || `[UUID: ${r.unit_id} - unidad no encontrada]`
-            return `- Unidad ${identifier}: ocupada del ${r.check_in} al ${r.check_out}`
-        })
-        .join('\n')
+
+    // ── 1. Agrupar por unit_id ──────────────────────────────────────────────
+    const byUnit: Record<string, Array<{ check_in: string; check_out: string }>> = {}
+    rows.forEach(r => {
+        if (!byUnit[r.unit_id]) byUnit[r.unit_id] = []
+        byUnit[r.unit_id].push({ check_in: r.check_in, check_out: r.check_out })
+    })
+
+    const lines: string[] = []
+
+    // ── 2-4. Para cada unidad: consolidar rangos y generar líneas ──────────
+    for (const [unitId, ranges] of Object.entries(byUnit)) {
+        const code = unitCodeMap[unitId]
+        const identifier = code || `[UUID: ${unitId} - unidad no encontrada]`
+
+        // Ordenar por check_in
+        ranges.sort((a, b) => a.check_in.localeCompare(b.check_in))
+
+        // Consolidar (merge overlapping intervals)
+        const consolidated: Array<{ check_in: string; check_out: string }> = []
+        for (const range of ranges) {
+            if (consolidated.length === 0) {
+                consolidated.push(range)
+            } else {
+                const last = consolidated[consolidated.length - 1]
+                // Si check_in del nuevo rango es <= check_out del anterior, se solapan o son adyacentes
+                if (range.check_in <= last.check_out) {
+                    // Extender check_out al máximo de ambos
+                    last.check_out = [last.check_out, range.check_out].sort((a, b) => a.localeCompare(b))[1]
+                } else {
+                    // Nuevo rango sin superposición
+                    consolidated.push(range)
+                }
+            }
+        }
+
+        // Generar una línea por cada rango consolidado
+        for (const range of consolidated) {
+            lines.push(`- Unidad ${identifier}: ocupada del ${range.check_in} al ${range.check_out}`)
+        }
+    }
+
+    return lines.join('\n')
 }
 
 function sanitizeMessages(
