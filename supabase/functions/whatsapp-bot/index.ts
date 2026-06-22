@@ -26,6 +26,172 @@ const CLAUDE_MODEL    = 'claude-sonnet-4-5'
 const CLAUDE_API_URL  = 'https://api.anthropic.com/v1/messages'
 const TWILIO_WEBHOOK_URL = 'https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/whatsapp-bot'
 
+// ── Contexto dinámico: unidades + tarifas ──────────────────────────────────
+
+type Unit = {
+    id: string
+    name: string
+    code: string
+    unit_type: string
+    capacity_total: number
+    base_price: number
+}
+
+/**
+ * Devuelve la fecha actual en formato 'YYYY-MM-DD' en hora de Chile (America/Santiago).
+ * IMPORTANTE: Evita el bug de timezone donde UTC puede estar un día adelante durante
+ * las noches chilenas (20:00-23:59 hora de Chile = día siguiente en UTC).
+ */
+function getTodayInChile(): string {
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/Santiago',
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+    })
+    const parts = formatter.formatToParts(new Date())
+    const year = parts.find(p => p.type === 'year')?.value
+    const month = parts.find(p => p.type === 'month')?.value
+    const day = parts.find(p => p.type === 'day')?.value
+    return `${year}-${month}-${day}`
+}
+
+/**
+ * Carga los precios override (core_unit_daily_rates) para TODAS las unidades en una fecha específica.
+ * UNA SOLA consulta a la BD, luego resuelve el resto en memoria.
+ */
+async function getUnitPricesForDate(
+    supabase: any,
+    unitIds: string[],
+    date: string
+): Promise<Record<string, number>> {
+    if (unitIds.length === 0) return {}
+
+    const { data: overrides, error: err } = await supabase
+        .from('core_unit_daily_rates')
+        .select('unit_id, price')
+        .eq('date', date)
+        .in('unit_id', unitIds)
+
+    if (err) {
+        console.error(`[whatsapp-bot] Error fetching daily rates for ${date}:`, err)
+        // Si falla la consulta, retornar objeto vacío para usar fallback (base_price)
+        return {}
+    }
+
+    // Construir mapa { unit_id: price }
+    const pricesMap: Record<string, number> = {}
+    overrides?.forEach(row => {
+        pricesMap[row.unit_id] = Number(row.price)
+    })
+    return pricesMap
+}
+
+/**
+ * Carga las unidades activas desde core_units. Reutilizable por formatAvailabilityContext
+ * y buildUnitsContext para mantener consistencia.
+ */
+async function getActiveUnits(supabase: any): Promise<Unit[]> {
+    const { data: units, error: err } = await supabase
+        .from('core_units')
+        .select('id, name, code, unit_type, capacity_total, base_price, is_active')
+        .eq('is_active', true)
+        .order('name', { ascending: true })
+
+    if (err) {
+        console.error('[whatsapp-bot] Error fetching core_units:', err)
+        return []
+    }
+
+    return units || []
+}
+
+/**
+ * Construye un mapa { unit_id: code } para traducir UUIDs a códigos de unidad.
+ * Los códigos son el identificador único legible en toda la conversación.
+ */
+function createUnitCodeMap(units: Unit[]): Record<string, string> {
+    const map: Record<string, string> = {}
+    units.forEach(unit => {
+        map[unit.id] = unit.code
+    })
+    return map
+}
+
+/**
+ * Construye el bloque dinámico de unidades + tarifas para inyectar en el system prompt.
+ * Ejecuta UNA SOLA consulta a core_unit_daily_rates para todas las unidades.
+ *
+ * IMPORTANTE (Diseño de Identificación):
+ * Identifica cada unidad por su CÓDIGO (unit.code), NO por UUID.
+ * Cuando se implemente ##RESERVA_LISTA## en el flujo de pago, el modelo debe
+ * generar el código de la unidad (ej: "CABIN1"), nunca un UUID.
+ * El servidor hará lookup exacto: core_units WHERE code = $1 → id
+ *
+ * NOTA TÉCNICA (core_rate_rules):
+ * core_rate_rules existe en la BD pero no tiene filas activas (verificado 2026-06-22).
+ * Si en el futuro se cargan reglas estacionales:
+ *   1. Extender getUnitPricesForDate() para consultar core_rate_rules
+ *      WHERE is_active=true AND date_from <= $date AND date_to >= $date
+ *   2. Aplicar ajustes (percent/fixed) sobre base_price
+ *   3. TAMBIÉN ACTUALIZAR: getDailyRatesForRange() en src/components/ReservationWidget.jsx
+ *      para mantener consistencia de precios entre canales (web y WhatsApp)
+ */
+async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> {
+    if (!units || units.length === 0) {
+        return 'TARIFAS: No hay unidades disponibles cargadas en el sistema.'
+    }
+
+    // Hoy en YYYY-MM-DD, en hora de Chile (evita bug de timezone)
+    const today = getTodayInChile()
+
+    // UNA SOLA consulta para todos los overrides de hoy
+    const unitIds = units.map(u => u.id)
+    const pricesMap = await getUnitPricesForDate(supabase, unitIds, today)
+
+    // Agrupar por unit_type
+    const byType: Record<string, Unit[]> = {}
+    units.forEach(unit => {
+        if (!byType[unit.unit_type]) byType[unit.unit_type] = []
+        byType[unit.unit_type].push(unit)
+    })
+
+    // Construir el bloque
+    const lines: string[] = ['TARIFAS POR NOCHE (en pesos chilenos):']
+    lines.push('')
+
+    for (const [unitType, unitList] of Object.entries(byType)) {
+        const typeLabel = unitType === 'cabana' ? 'Cabañas Familiares' :
+                          unitType === 'tiny_house' ? 'Tiny Houses' :
+                          unitType === 'departamento' ? 'Departamentos' :
+                          unitType
+
+        lines.push(`${typeLabel}:`)
+
+        for (const unit of unitList) {
+            // Resolver precio desde el mapa ya cargado, fallback a base_price
+            const price = pricesMap[unit.id] ?? Number(unit.base_price)
+
+            // Formatear como peso chileno
+            const priceStr = new Intl.NumberFormat('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            }).format(price)
+
+            // Usar CÓDIGO (unit.code), NO UUID
+            lines.push(
+                `- ${unit.name} [código: ${unit.code}] (máx ${unit.capacity_total} personas): ${priceStr} por noche`
+            )
+        }
+
+        lines.push('')
+    }
+
+    return lines.join('\n')
+}
+
 const SYSTEM_PROMPT_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagonia, un complejo de alojamiento en Puerto Natales, Chile. Te llamas Arte Brisa Patagonia y hablas de forma cálida y familiar con los turistas.
 
 ESTABLECIMIENTOS:
@@ -48,38 +214,7 @@ HORARIOS:
 - Check-out: 11:00 hrs, sin flexibilidad
 - Acceso sin recepción presencial: código de acceso entregado por WhatsApp 1-2 días antes
 
-TARIFAS POR NOCHE (en pesos chilenos):
-
-Departamentos - Temporada Alta (nov-mar):
-- Depto 1 (5 personas): $95.000
-- Depto 2 (3 personas): $65.000
-- Depto 3 (4 personas): $80.000
-- Depto 4 (5 personas): $90.000
-
-Departamentos - Temporada Media (sep-oct):
-- Depto 1: $80.000 | Depto 2: $55.000 | Depto 3: $70.000 | Depto 4: $80.000
-
-Departamentos - Temporada Baja (ago, jun):
-- Depto 1: $60.000 | Depto 2: $45.000 | Depto 3: $50.000 | Depto 4: $60.000
-
-Departamentos - Abril/Mayo:
-- Depto 1: $60.000 | Depto 2: $45.000 | Depto 3: $50.000 | Depto 4: $60.000
-
-Cabañas familiares - Temporada Alta (nov-mar):
-- Cabaña 1: $100.000 | Cabaña 2: $100.000 | Cabaña 3: $120.000 | Cabaña 4: $100.000
-
-Cabañas familiares - Temporada Media (sep-oct):
-- Cabaña 1-2-4: $85.000 | Cabaña 3: $100.000
-
-Cabañas familiares - Temporada Baja (ago, jun):
-- Cabaña 1-2-4: $70.000 | Cabaña 3: $90.000
-
-Tiny Houses - Temporada Alta (nov-mar): $70.000
-Tiny Houses - Temporada Media (sep-oct): $60.000
-Tiny Houses - Temporada Baja (ago, jun): $50.000
-
-Abril/Mayo cabañas: familiares $70.000-$90.000 | Tiny Houses $50.000
-Julio: CERRADO por mantención y vacaciones
+{context_tarifas}
 
 POLÍTICAS:
 - Sin estadía mínima ni máxima (desde 1 noche)
@@ -154,13 +289,25 @@ async function validateTwilioSignature(
     return mac === twilioSig
 }
 
-/** Formatea las reservas activas en texto legible para el system prompt. */
+/**
+ * Formatea las reservas activas en texto legible, usando códigos de unidad en lugar de UUIDs.
+ *
+ * @param rows Array de reservas activas con unit_id (UUID), check_in, check_out
+ * @param unitCodeMap Mapa { unit_id: code } para traducir UUIDs a códigos
+ * @returns String formateado para inyectar en el system prompt
+ */
 function formatAvailabilityContext(
     rows: Array<{ unit_id: string; check_in: string; check_out: string }>,
+    unitCodeMap: Record<string, string>,
 ): string {
     if (rows.length === 0) return 'Sin reservas activas registradas en el sistema.'
     return rows
-        .map(r => `- Unidad ${r.unit_id}: ocupada del ${r.check_in} al ${r.check_out}`)
+        .map(r => {
+            const code = unitCodeMap[r.unit_id]
+            // Si la unidad no existe en el mapa (unidad inactiva/eliminada), fallback a UUID crudo
+            const identifier = code || `[UUID: ${r.unit_id} - unidad no encontrada]`
+            return `- Unidad ${identifier}: ocupada del ${r.check_in} al ${r.check_out}`
+        })
         .join('\n')
 }
 
@@ -320,7 +467,11 @@ Deno.serve(async (req: Request) => {
         content: m.content as string,
     }))
 
-    // ── 6. Consultar disponibilidad ───────────────────────────────────────
+    // ── 6. Cargar unidades activas (reutilizable para tarifas + disponibilidad) ────────
+    const activeUnits = await getActiveUnits(supabase)
+    const unitCodeMap = createUnitCodeMap(activeUnits)
+
+    // ── 7. Consultar disponibilidad ───────────────────────────────────────
     const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
 
     const { data: allReservations } = await supabase
@@ -337,10 +488,14 @@ Deno.serve(async (req: Request) => {
         return !isExpiredInquiry
     })
 
-    const availabilityCtx = formatAvailabilityContext(availability ?? [])
-    const systemPrompt = SYSTEM_PROMPT_TEMPLATE.replace('{context_disponibilidad}', availabilityCtx)
+    // Ambos bloques de contexto ahora usan el mismo identificador (code)
+    const availabilityCtx = formatAvailabilityContext(availability ?? [], unitCodeMap)
+    const unitsCtx = await buildUnitsContext(supabase, activeUnits)
+    const systemPrompt = SYSTEM_PROMPT_TEMPLATE
+        .replace('{context_tarifas}', unitsCtx)
+        .replace('{context_disponibilidad}', availabilityCtx)
 
-    // ── 7. Llamar a Claude API ────────────────────────────────────────────
+    // ── 8. Llamar a Claude API ────────────────────────────────────────────
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
     const sanitizedMessages = sanitizeMessages(messages)
     const claudeResp = await fetch(CLAUDE_API_URL, {
@@ -368,7 +523,7 @@ Deno.serve(async (req: Request) => {
     console.log('Claude response:', JSON.stringify(claudeData?.content))
     let assistantText: string = claudeData?.content?.[0]?.text ?? ''
 
-    // ── 8. Detectar ##DERIVAR## ───────────────────────────────────────────
+    // ── 9. Detectar ##DERIVAR## ───────────────────────────────────────────
     if (!assistantText || assistantText.trim() === '') {
         const fallbackMsg = 'Gracias por tu mensaje. En este momento estoy teniendo dificultades técnicas. Por favor escríbenos nuevamente en unos minutos.'
         assistantText = fallbackMsg
@@ -403,20 +558,20 @@ Deno.serve(async (req: Request) => {
         }
     }
 
-    // ── 9. Guardar respuesta del asistente ────────────────────────────────
+    // ── 10. Guardar respuesta del asistente ───────────────────────────────
     await supabase.from('core_chat_messages').insert({
         conversation_id: conversation.id,
         role: 'assistant',
         content: assistantText,
     })
 
-    // ── 10. Actualizar last_message_at ────────────────────────────────────
+    // ── 11. Actualizar last_message_at ────────────────────────────────────
     await supabase
         .from('core_chat_conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversation.id)
 
-    // ── 11. Enviar respuesta vía Twilio REST API ───────────────────────────
+    // ── 12. Enviar respuesta vía Twilio REST API ───────────────────────────
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
     const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
     const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
