@@ -495,6 +495,11 @@ Deno.serve(async (req: Request) => {
         .replace('{context_tarifas}', unitsCtx)
         .replace('{context_disponibilidad}', availabilityCtx)
 
+    // DEBUG: Loguear el systemPrompt completo para auditoría
+    console.log('[whatsapp-bot] === SYSTEM PROMPT ENVIADO A CLAUDE ===')
+    console.log(systemPrompt)
+    console.log('[whatsapp-bot] === FIN SYSTEM PROMPT ===')
+
     // ── 8. Llamar a Claude API ────────────────────────────────────────────
     const anthropicKey = Deno.env.get('ANTHROPIC_API_KEY') ?? ''
     const sanitizedMessages = sanitizeMessages(messages)
