@@ -170,6 +170,7 @@ Deno.serve(async (req: Request) => {
       status: 'pending_payment',
       payment_id: token,
       payment_url: url,
+      payment_buy_order: buyOrder,
       payment_created_at: new Date().toISOString(),
     })
     .eq('id', reservation_id)

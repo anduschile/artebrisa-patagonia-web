@@ -157,6 +157,71 @@ export default function PaymentConfirmPage() {
     )
   }
 
+  // ── Cancelled: user closed the payment form before completing ──────────────
+  if (status === 'cancelled') {
+    console.log('[DEBUG-CONFIRM] Renderizando bloque: CANCELLED')
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-slate-50 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md w-full text-center">
+            <div className="mb-6">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100">
+                <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Cancelaste el pago</h1>
+
+            <p className="text-gray-600 mb-6">
+              No te preocupes, tu reserva no se perdió. Puedes intentar el pago nuevamente cuando quieras.
+            </p>
+
+            <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+              <p className="text-sm text-gray-500 mb-1">Referencia de reserva</p>
+              <p className="text-lg font-mono font-semibold text-gray-900">{reservationId}</p>
+            </div>
+
+            <div className="space-y-3 text-left mb-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                    ✓
+                  </div>
+                </div>
+                <p className="ml-3 text-sm text-gray-600">
+                  Tu información está segura — se mantiene en nuestro sistema.
+                </p>
+              </div>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <div className="flex items-center justify-center h-6 w-6 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                    ✓
+                  </div>
+                </div>
+                <p className="ml-3 text-sm text-gray-600">
+                  Puedes completar el pago en cualquier momento desde tu reserva.
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-900">
+                <span className="font-semibold">¿Dudas?</span> Contáctanos por WhatsApp y te ayudamos.
+              </p>
+            </div>
+
+            <a
+              href="/"
+              className="inline-block bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
+            >
+              Volver al inicio
+            </a>
+          </div>
+        </div>
+    )
+  }
+
   // ── Unknown: payment result is uncertain (network error) ─────────────────
   if (status === 'unknown') {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: UNKNOWN')

@@ -7,8 +7,9 @@
 // completa la transacción en el checkout de Webpay. Valida el pago y redirige
 // al frontend con el resultado.
 //
-// Transbank envía: POST body form-urlencoded con token_ws
-// Responde: HTTP 302 redirect a /reserva/confirmar?status=paid/failed&reservation_id=...
+// Transbank envía: POST body form-urlencoded con token_ws (normal)
+//                  o TBK_TOKEN, TBK_ORDEN_COMPRA (cancelación del usuario)
+// Responde: HTTP 302 redirect a /reserva/confirmar?status=paid/failed/cancelled/unknown&reservation_id=...
 //
 // Variables de entorno requeridas:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — auto-inyectadas
@@ -33,7 +34,7 @@ function redirect(url: string, status: number = 302): Response {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 })
   }
 
@@ -41,14 +42,75 @@ Deno.serve(async (req: Request) => {
 
   // ── 1. Parse form-urlencoded body from Transbank ────────────────────────
   let tokenWs: string | null = null
+  let tbkToken: string | null = null
+  let tbkOrdenCompra: string | null = null
 
   try {
-    const body = await req.text()
-    const params = new URLSearchParams(body)
-    tokenWs = params.get('token_ws')
+    if (req.method === 'POST') {
+      const body = await req.text()
+      const params = new URLSearchParams(body)
+      tokenWs = params.get('token_ws')
+      tbkToken = params.get('TBK_TOKEN')
+      tbkOrdenCompra = params.get('TBK_ORDEN_COMPRA')
+    } else {
+      // GET request: extract from query string
+      const url = new URL(req.url)
+      tokenWs = url.searchParams.get('token_ws')
+      tbkToken = url.searchParams.get('TBK_TOKEN')
+      tbkOrdenCompra = url.searchParams.get('TBK_ORDEN_COMPRA')
+    }
 
+    // ── Check for cancellation first (TBK_TOKEN = user cancelled) ──────────
+    if (tbkToken) {
+      console.log(`[CONFIRM-PAYMENT] User cancelled payment: TBK_TOKEN=${tbkToken}, TBK_ORDEN_COMPRA=${tbkOrdenCompra}`)
+
+      // Find reservation by payment_buy_order
+      if (!tbkOrdenCompra) {
+        console.warn('[CONFIRM-PAYMENT] Cancellation without TBK_ORDEN_COMPRA')
+        return redirect(`${frontendReturnUrl}/reserva/confirmar?status=error`)
+      }
+
+      // Initialize Supabase client
+      const supabase = createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        { auth: { persistSession: false } },
+      )
+
+      const { data: reservation, error: findErr } = await supabase
+        .from('core_reservations')
+        .select('id')
+        .eq('payment_buy_order', tbkOrdenCompra)
+        .single()
+
+      if (findErr || !reservation) {
+        console.warn(`[CONFIRM-PAYMENT] Reservation not found for TBK_ORDEN_COMPRA=${tbkOrdenCompra}:`, findErr)
+        return redirect(`${frontendReturnUrl}/reserva/confirmar?status=error`)
+      }
+
+      const reservationId = reservation.id
+      console.log(`[CONFIRM-PAYMENT] Marking reservation as cancelled: ${reservationId}`)
+
+      // Mark as cancelled and redirect (NO call to Transbank commit)
+      const { error: updateErr } = await supabase
+        .from('core_reservations')
+        .update({
+          status: 'inquiry',
+          payment_status: 'cancelled_by_user',
+          payment_url: null,
+        })
+        .eq('id', reservationId)
+
+      if (updateErr) {
+        console.error(`[CONFIRM-PAYMENT] Failed to update reservation ${reservationId}: ${updateErr}`)
+      }
+
+      return redirect(`${frontendReturnUrl}/reserva/confirmar?status=cancelled&reservation_id=${reservationId}`)
+    }
+
+    // ── Normal flow: token_ws (payment completion) ────────────────────────
     if (!tokenWs) {
-      console.warn('[CONFIRM-PAYMENT] Missing token_ws in POST body')
+      console.warn('[CONFIRM-PAYMENT] Missing token_ws and TBK_TOKEN in request')
       return redirect(`${frontendReturnUrl}/reserva/confirmar?status=error`)
     }
   } catch (e) {
