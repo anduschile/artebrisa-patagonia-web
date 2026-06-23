@@ -35,6 +35,8 @@ type Unit = {
     unit_type: string
     capacity_total: number
     base_price: number
+    property_id: string
+    is_active: boolean
 }
 
 /**
@@ -94,7 +96,7 @@ async function getUnitPricesForDate(
 async function getActiveUnits(supabase: any): Promise<Unit[]> {
     const { data: units, error: err } = await supabase
         .from('core_units')
-        .select('id, name, code, unit_type, capacity_total, base_price, is_active')
+        .select('id, name, code, unit_type, capacity_total, base_price, property_id, is_active')
         .eq('is_active', true)
         .order('name', { ascending: true })
 
@@ -116,6 +118,319 @@ function createUnitCodeMap(units: Unit[]): Record<string, string> {
         map[unit.id] = unit.code
     })
     return map
+}
+
+/**
+ * Calcula el precio total para una reserva, consultando overrides de precio
+ * en una sola query para todo el rango de fechas (no N+1).
+ */
+async function calculateReservationPrice(
+    supabase: any,
+    unitId: string,
+    checkIn: string,
+    checkOut: string,
+    unitBasePrice: number
+): Promise<number> {
+    const checkInDate = new Date(checkIn)
+    const checkOutDate = new Date(checkOut)
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (24 * 60 * 60 * 1000))
+
+    // UNA SOLA consulta para todos los overrides del rango
+    const { data: overrides, error: err } = await supabase
+        .from('core_unit_daily_rates')
+        .select('date, price')
+        .eq('unit_id', unitId)
+        .gte('date', checkIn)
+        .lt('date', checkOut)
+
+    if (err) {
+        console.error('[whatsapp-bot] calculateReservationPrice: error fetching rates:', err)
+        return unitBasePrice * nights
+    }
+
+    // Construir mapa { date: price }
+    const overridesMap: Record<string, number> = {}
+    overrides?.forEach(r => {
+        overridesMap[r.date] = Number(r.price)
+    })
+
+    // Calcular precio por cada noche
+    let totalPrice = 0
+    for (let i = 0; i < nights; i++) {
+        const currentDate = new Date(checkInDate)
+        currentDate.setDate(currentDate.getDate() + i)
+        const dateStr = currentDate.toISOString().split('T')[0]
+        const priceForDate = overridesMap[dateStr] ?? unitBasePrice
+        totalPrice += priceForDate
+    }
+
+    return totalPrice
+}
+
+/**
+ * Parsea el marcador ##RESERVA_LISTA##{JSON} de la respuesta del bot.
+ * Retorna un objeto con { success: true, data } si está OK.
+ * Retorna { success: false, reason, rawText? } si hay error:
+ *   - 'no_marker': no hay marcador (continuar normalmente)
+ *   - 'invalid_json': marcador presente pero JSON no parsea (derivar + email)
+ */
+function parseReservaLista(text: string):
+    | { success: true; data: { nombre: string; check_in: string; check_out: string; personas: number; unidad_codigo: string } }
+    | { success: false; reason: 'no_marker' | 'invalid_json'; rawText?: string } {
+
+    const match = text.match(/##RESERVA_LISTA##(\{[^}]*\})/)
+    if (!match) {
+        return { success: false, reason: 'no_marker' }
+    }
+
+    try {
+        const data = JSON.parse(match[1])
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseReservaLista: JSON inválido:', match[1], e)
+        return { success: false, reason: 'invalid_json', rawText: match[1] }
+    }
+}
+
+/**
+ * Procesa una reserva confirmada desde WhatsApp.
+ * Valida formato, disponibilidad, crea guest + reserva inquiry, dispara pago.
+ *
+ * GARANTÍA: SIEMPRE retorna { success, reason } o { success, paymentUrl, monto }
+ * nunca lanza excepciones no controladas (try/catch global envuelve todo).
+ */
+async function processReservaLista(
+    supabase: any,
+    parsed: {
+        nombre: string
+        check_in: string
+        check_out: string
+        personas: number
+        unidad_codigo: string
+    },
+    phone: string,
+    conversationId: string,
+    activeUnits: Unit[]
+): Promise<{ success: boolean; paymentUrl?: string; monto?: number; reason?: string }> {
+    try {
+        // ── VALIDACIÓN DE FORMATO (antes de cualquier consulta a BD) ──────────
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+        if (!dateRegex.test(parsed.check_in)) {
+            return { success: false, reason: 'formato_check_in_invalido' }
+        }
+        if (!dateRegex.test(parsed.check_out)) {
+            return { success: false, reason: 'formato_check_out_invalido' }
+        }
+        if (!Number.isInteger(parsed.personas) || parsed.personas <= 0) {
+            return { success: false, reason: 'personas_invalido' }
+        }
+
+        // a. Lookup unit_id por code
+        const unit = activeUnits.find(u => u.code === parsed.unidad_codigo)
+        if (!unit) {
+            return { success: false, reason: 'unidad_no_encontrada' }
+        }
+
+        const today = getTodayInChile()
+
+        // b. Validar check_in < check_out y check_in >= hoy
+        if (parsed.check_in >= parsed.check_out) {
+            return { success: false, reason: 'fechas_invalidas_orden' }
+        }
+        if (parsed.check_in < today) {
+            return { success: false, reason: 'check_in_en_pasado' }
+        }
+
+        // c. Validar personas <= capacity_total
+        if (parsed.personas > unit.capacity_total) {
+            return { success: false, reason: 'capacidad_insuficiente' }
+        }
+
+        // d. Re-verificar disponibilidad (conflictos)
+        const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+
+        const { data: conflicts, error: conflictsErr } = await supabase
+            .from('core_reservations')
+            .select('check_in, check_out, status, created_at')
+            .eq('unit_id', unit.id)
+            .in('status', ['inquiry', 'confirmed', 'blocked'])
+            .lt('check_in', parsed.check_out)
+
+        if (conflictsErr) {
+            console.error('[whatsapp-bot] processReservaLista: error checking conflicts:', conflictsErr)
+            return { success: false, reason: 'error_verificando_disponibilidad' }
+        }
+
+        const activeConflicts = (conflicts || []).filter(r => {
+            const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+            return !isExpiredInquiry && r.check_out > parsed.check_in
+        })
+
+        if (activeConflicts.length > 0) {
+            return { success: false, reason: 'no_disponible' }
+        }
+
+        // f. Resolver guest_id (buscar por phone primero, sin riesgo de excepción por duplicados)
+        let guest_id: string
+
+        const { data: guestList, error: guestErr } = await supabase
+            .from('core_guests')
+            .select('id')
+            .eq('phone', phone)
+            .order('created_at', { ascending: true })
+            .limit(1)
+
+        if (guestErr) {
+            console.error('[whatsapp-bot] processReservaLista: error querying guests:', guestErr)
+            return { success: false, reason: 'error_buscando_guest' }
+        }
+
+        const existingGuest = guestList?.[0] || null
+
+        if (existingGuest) {
+            guest_id = existingGuest.id
+        } else {
+            // Llamar RPC find_or_create_guest con email null (forzar nueva si no existe)
+            const { data: newGuestId, error: rpcErr } = await supabase.rpc('find_or_create_guest', {
+                p_full_name: parsed.nombre.trim(),
+                p_email: null,
+                p_phone: phone,
+            })
+
+            if (rpcErr || !newGuestId) {
+                console.error('[whatsapp-bot] processReservaLista: find_or_create_guest error:', rpcErr)
+                return { success: false, reason: 'error_creando_guest' }
+            }
+
+            guest_id = newGuestId
+        }
+
+        // e. Buscar si ya existe una reserva 'inquiry' para el mismo guest/unit/fechas en últimos 30 min
+        const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
+
+        const { data: existingReservation } = await supabase
+            .from('core_reservations')
+            .select('id')
+            .eq('guest_id', guest_id)
+            .eq('unit_id', unit.id)
+            .eq('check_in', parsed.check_in)
+            .eq('check_out', parsed.check_out)
+            .eq('status', 'inquiry')
+            .gte('created_at', thirtyMinutesAgo)
+            .maybeSingle()
+
+        let reservationId: string
+
+        if (existingReservation) {
+            // Reusar la existente (deduplicación)
+            reservationId = existingReservation.id
+            console.log(`[whatsapp-bot] processReservaLista: reusando reserva existente ${reservationId}`)
+        } else {
+            // h. Calcular precios y crear nueva reserva
+            const totalPrice = await calculateReservationPrice(supabase, unit.id, parsed.check_in, parsed.check_out, Number(unit.base_price))
+            const nights = Math.ceil((new Date(parsed.check_out).getTime() - new Date(parsed.check_in).getTime()) / (24 * 60 * 60 * 1000))
+
+            const { data: newReservation, error: insertErr } = await supabase
+                .from('core_reservations')
+                .insert({
+                    property_id: unit.property_id,
+                    unit_id: unit.id,
+                    guest_id: guest_id,
+                    channel_id: '6f103945-cd69-4c55-8610-5167b028bdb3', // WhatsApp
+                    status: 'inquiry',
+                    check_in: parsed.check_in,
+                    check_out: parsed.check_out,
+                    adults: parsed.personas,
+                    children: 0,
+                    quoted_total: totalPrice,
+                    quoted_currency: 'CLP',
+                    quoted_nights: nights,
+                    notes: `Reserva vía WhatsApp. Conversación: ${conversationId}. Seña: 1ra noche.`,
+                })
+                .select('id')
+                .single()
+
+            if (insertErr || !newReservation) {
+                console.error('[whatsapp-bot] processReservaLista: insert reservation error:', insertErr)
+                return { success: false, reason: 'error_creando_reserva' }
+            }
+
+            reservationId = newReservation.id
+        }
+
+        // i. Llamar a create-payment para obtener la URL y token
+        const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
+        const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+
+        if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+            console.error('[whatsapp-bot] processReservaLista: missing Supabase config')
+            return { success: false, reason: 'error_config' }
+        }
+
+        // Obtener detalles de la reserva
+        const { data: reservation } = await supabase
+            .from('core_reservations')
+            .select('quoted_total, quoted_nights')
+            .eq('id', reservationId)
+            .single()
+
+        if (!reservation) {
+            return { success: false, reason: 'reserva_no_encontrada' }
+        }
+
+        // Obtener el precio EXACTO de la primera noche, no promedio
+        const pricesForFirstNight = await getUnitPricesForDate(supabase, [unit.id], parsed.check_in)
+        const priceFirstNight = pricesForFirstNight[unit.id] ?? Number(unit.base_price)
+
+        const createPaymentUrl = `${SUPABASE_URL}/functions/v1/create-payment`
+
+        const paymentRes = await fetch(createPaymentUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${SERVICE_ROLE_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                reservation_id: reservationId,
+                amount: priceFirstNight,
+            }),
+        })
+
+        if (!paymentRes.ok) {
+            const errText = await paymentRes.text()
+            console.error('[whatsapp-bot] processReservaLista: create-payment error:', paymentRes.status, errText)
+            return { success: false, reason: 'error_pago' }
+        }
+
+        const paymentData = await paymentRes.json()
+
+        // Actualizar reserva con datos de pago
+        const { error: updateErr } = await supabase
+            .from('core_reservations')
+            .update({
+                payment_id: paymentData.token,
+                payment_url: paymentData.url,
+                payment_buy_order: paymentData.buy_order,
+                payment_created_at: new Date().toISOString(),
+            })
+            .eq('id', reservationId)
+
+        if (updateErr) {
+            console.error('[whatsapp-bot] processReservaLista: error updating payment fields:', updateErr)
+        }
+
+        // j. Retornar éxito con URL y monto
+        return {
+            success: true,
+            paymentUrl: paymentData.url,
+            monto: priceFirstNight,
+        }
+    } catch (e) {
+        // Try/catch GLOBAL — SIEMPRE retorna { success, reason }, nunca exception
+        console.error('[whatsapp-bot] processReservaLista: error no controlado:', e)
+        return { success: false, reason: 'error_desconocido' }
+    }
 }
 
 /**
@@ -276,12 +591,30 @@ INSTRUCCIONES:
      [mes], todas nuestras unidades están reservadas/bloqueadas en ese período." NO derivés
      a humano solo porque el mes esté completo o vacío de disponibilidad — esa es información
      que ya tenés y podés comunicar tú mismo.
-6. Si el turista quiere reservar, solicita: nombre, fechas, número de personas y tipo de unidad
-7. Una vez con esos datos, confirma que registrarás la solicitud y que será confirmada a la brevedad con detalles de pago
-8. No confirmes reservas de forma definitiva ni garantices disponibilidad sin verificar
-9. Si hay queja, problema con reserva existente o necesitas tomar una decisión que no puedes: incluye ##DERIVAR## en tu respuesta
-10. No inventes información. Si no sabes algo, dilo y ofrece derivar
-11. No menciones que eres IA a menos que te lo pregunten directamente`
+6. GENERACIÓN DE RESERVA (##RESERVA_LISTA##):
+   Si el turista ha confirmado EXPLÍCITAMENTE (mediante mensajes claros del cliente):
+   - Su nombre completo
+   - Fecha de check-in (YYYY-MM-DD)
+   - Fecha de check-out (YYYY-MM-DD)
+   - Número de personas (SOLO ADULTOS, sin niños; si hay niños, derivá con ##DERIVAR##)
+   - Código de unidad (ej: CABIN1, DEPT2)
+
+   Y si NO detectas problemas de disponibilidad, capacidad o fechas inválidas,
+   incluí al final de tu respuesta (en una línea nueva separada) el marcador:
+   ##RESERVA_LISTA##{"nombre":"Nombre Completo","check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","personas":N,"unidad_codigo":"CODE"}
+
+   REGLAS CRÍTICAS:
+   - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
+   - Usá el CODE exacto de la unidad (nunca el nombre conversacional, nunca UUID)
+   - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá
+   - Si hay CUALQUIER duda sobre disponibilidad, capacidad o validación, NO incluyas el marcador
+   - Si el turista menciona NIÑOS o MENORES, derivá con ##DERIVAR## en lugar del marcador
+7. Si el turista quiere reservar, solicita: nombre, fechas, número de personas y tipo de unidad
+8. Una vez con esos datos, confirma que registrarás la solicitud y que será confirmada a la brevedad con detalles de pago
+9. No confirmes reservas de forma definitiva ni garantices disponibilidad sin verificar
+10. Si hay queja, problema con reserva existente o necesitas tomar una decisión que no puedes: incluye ##DERIVAR## en tu respuesta
+11. No inventes información. Si no sabes algo, dilo y ofrece derivar
+12. No menciones que eres IA a menos que te lo pregunten directamente`
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -602,7 +935,96 @@ Deno.serve(async (req: Request) => {
     console.log('Claude response:', JSON.stringify(claudeData?.content))
     let assistantText: string = claudeData?.content?.[0]?.text ?? ''
 
-    // ── 9. Detectar ##DERIVAR## ───────────────────────────────────────────
+    // ── 9. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
+    const parseResult = parseReservaLista(assistantText)
+
+    if (parseResult.success) {
+        // JSON parseó correctamente — procesar la reserva
+        assistantText = assistantText.replace(/##RESERVA_LISTA##\{[^}]*\}/, '').trim()
+
+        const paymentResult = await processReservaLista(
+            supabase,
+            parseResult.data,
+            phone,
+            conversation.id,
+            activeUnits
+        )
+
+        if (paymentResult.success) {
+            // ✅ Éxito: agregar confirmación con link de pago
+            const montoStr = paymentResult.monto?.toLocaleString('es-CL', {
+                style: 'currency',
+                currency: 'CLP',
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0,
+            })
+            assistantText += `\n\n✅ *Reserva confirmada*\n\nSeña de 1 noche: ${montoStr}\n\n🔗 [Completá tu pago aquí](${paymentResult.paymentUrl})\n\n(El código de acceso a la unidad te llegará 24 horas antes del check-in)`
+        } else {
+            // ❌ Fallo en processReservaLista: derivar a humano + email específico
+            console.error(`[whatsapp-bot] Fallo al procesar ##RESERVA_LISTA##: ${paymentResult.reason}`)
+            assistantText += `\n\n⚠️ No pudimos procesar tu reserva en este momento. Nuestro equipo se pondrá en contacto contigo para ayudarte.`
+
+            // Derivar a humano
+            await supabase
+                .from('core_chat_conversations')
+                .update({ status: 'human' })
+                .eq('id', conversation.id)
+
+            // Email específico con detalles del fallo
+            const resendKey = Deno.env.get('RESEND_API_KEY') ?? ''
+            if (resendKey) {
+                const displayName = profileName || phone
+                await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${resendKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        from: SENDER_EMAIL,
+                        to: [RECIPIENT_EMAIL],
+                        subject: 'Error procesando reserva desde WhatsApp',
+                        text: `Error procesando ##RESERVA_LISTA## con ${displayName} (${phone}).\n\nMotivo: ${paymentResult.reason}\n\nDatos parseados:\n${JSON.stringify(parseResult.data, null, 2)}\n\nÚltimo mensaje del turista: "${body}"`,
+                        html: `<p>Error procesando <code>##RESERVA_LISTA##</code> con <strong>${displayName}</strong> (${phone}).</p><p><strong>Motivo del fallo:</strong> <code>${paymentResult.reason}</code></p><p><strong>Datos parseados:</strong></p><pre>${JSON.stringify(parseResult.data, null, 2)}</pre><p><strong>Último mensaje del turista:</strong> <em>${body}</em></p>`,
+                    }),
+                }).catch(e => console.error('Resend error:', e))
+            }
+        }
+    } else if (parseResult.reason === 'invalid_json') {
+        // JSON malformado en ##RESERVA_LISTA##: derivar a humano + email específico
+        console.error(`[whatsapp-bot] JSON malformado en ##RESERVA_LISTA##: ${parseResult.rawText}`)
+        assistantText = assistantText.replace(/##RESERVA_LISTA##\{[^}]*\}/, '').trim()
+        assistantText += `\n\n⚠️ No pudimos procesar tu solicitud. Nuestro equipo se pondrá en contacto contigo.`
+
+        // Derivar a humano
+        await supabase
+            .from('core_chat_conversations')
+            .update({ status: 'human' })
+            .eq('id', conversation.id)
+
+        // Email específico para JSON malformado
+        const resendKey = Deno.env.get('RESEND_API_KEY') ?? ''
+        if (resendKey) {
+            const displayName = profileName || phone
+            await fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${resendKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: SENDER_EMAIL,
+                    to: [RECIPIENT_EMAIL],
+                    subject: 'JSON inválido en ##RESERVA_LISTA##',
+                    text: `El modelo generó un marcador ##RESERVA_LISTA## con JSON malformado.\n\nTeléfono: ${phone}\n\nJSON crudo que no pudo parsearse:\n${parseResult.rawText}\n\nÚltimo mensaje del turista: "${body}"`,
+                    html: `<p>El modelo generó un marcador <code>##RESERVA_LISTA##</code> con JSON malformado.</p><p><strong>Teléfono:</strong> ${phone}</p><p><strong>JSON crudo que no pudo parsearse:</strong></p><pre>${parseResult.rawText}</pre><p><strong>Último mensaje del turista:</strong> <em>${body}</em></p>`,
+                }),
+            }).catch(e => console.error('Resend error:', e))
+        }
+    }
+    // Si parseResult.reason === 'no_marker': no hacer nada especial, continuar
+
+    // ── 10. Detectar ##DERIVAR## (flujo normal, sin cambios) ──────────────────
     if (!assistantText || assistantText.trim() === '') {
         const fallbackMsg = 'Gracias por tu mensaje. En este momento estoy teniendo dificultades técnicas. Por favor escríbenos nuevamente en unos minutos.'
         assistantText = fallbackMsg
@@ -637,20 +1059,20 @@ Deno.serve(async (req: Request) => {
         }
     }
 
-    // ── 10. Guardar respuesta del asistente ───────────────────────────────
+    // ── 11. Guardar respuesta del asistente ───────────────────────────────
     await supabase.from('core_chat_messages').insert({
         conversation_id: conversation.id,
         role: 'assistant',
         content: assistantText,
     })
 
-    // ── 11. Actualizar last_message_at ────────────────────────────────────
+    // ── 12. Actualizar last_message_at ────────────────────────────────────
     await supabase
         .from('core_chat_conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversation.id)
 
-    // ── 12. Enviar respuesta vía Twilio REST API ───────────────────────────
+    // ── 13. Enviar respuesta vía Twilio REST API ───────────────────────────
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
     const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
     const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
