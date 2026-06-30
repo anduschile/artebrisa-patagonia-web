@@ -129,7 +129,7 @@ export default function AdminRatesPage() {
             setUnits(prev => prev.map(u => u.id === unit.id ? { ...u, base_price: val } : u))
             setEditingBasePrice(null)
             toast.success('Precio base actualizado')
-            fetchData()
+            await fetchData()
         } catch (err) {
             toast.error(`Error: ${err.message}`)
         } finally {

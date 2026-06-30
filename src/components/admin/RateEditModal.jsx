@@ -2,6 +2,7 @@ import { useState } from 'react'
 import toast from 'react-hot-toast'
 import { confirmToast } from '../../lib/confirmToast'
 import { supabase } from '../../lib/supabaseClient'
+import { upsertDailyRates } from '../../data/admin/rateRules'
 
 export default function RateEditModal({ unit, initialDate, currentMonth, currentYear, onClose, onSaved }) {
     const [price, setPrice] = useState(unit.base_price || 0)
@@ -42,11 +43,7 @@ export default function RateEditModal({ unit, initialDate, currentMonth, current
                 currency: 'CLP'
             }))
 
-            const { error } = await supabase
-                .from('core_unit_daily_rates')
-                .upsert(upserts, { onConflict: 'unit_id,date' })
-
-            if (error) throw error
+            await upsertDailyRates(upserts)
             onSaved()
             onClose()
             toast.success('Tarifas guardadas')

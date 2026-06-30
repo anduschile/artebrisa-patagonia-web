@@ -40,11 +40,27 @@ export async function deleteRateRule(id) {
 }
 
 export async function updateUnitBasePrice(unitId, basePrice) {
-    const { error } = await supabase
+    const { data, error } = await supabase
         .from('core_units')
         .update({ base_price: basePrice })
         .eq('id', unitId)
+        .select()
     if (error) throw new Error(`updateUnitBasePrice: ${error.message}`)
+    if (!data || data.length === 0) {
+        throw new Error('No se pudo guardar el precio: sin permisos o la unidad no existe')
+    }
+}
+
+export async function upsertDailyRates(upserts) {
+    const { data, error } = await supabase
+        .from('core_unit_daily_rates')
+        .upsert(upserts, { onConflict: 'unit_id,date' })
+        .select()
+    if (error) throw new Error(`upsertDailyRates: ${error.message}`)
+    if (!data || data.length === 0) {
+        throw new Error('No se pudo guardar las tarifas: sin permisos o datos inválidos')
+    }
+    return data
 }
 
 /**
