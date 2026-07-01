@@ -18,21 +18,32 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const MP_API_ENDPOINT = 'https://api.mercadopago.com/checkout/preferences'
 
+const corsHeaders = {
+  'Access-Control-Allow-Origin': 'https://artebrisapatagonia.com',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+}
+
 function jsonError(msg: string, status: number): Response {
   return new Response(JSON.stringify({ error: msg }), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
   })
 }
 
 function jsonOk(data: unknown): Response {
   return new Response(JSON.stringify(data), {
     status: 200,
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json', ...corsHeaders },
   })
 }
 
 Deno.serve(async (req: Request) => {
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: corsHeaders })
+  }
+
   if (req.method !== 'POST') {
     return jsonError('Method not allowed', 405)
   }
