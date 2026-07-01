@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { motion, AnimatePresence } from 'framer-motion'
+import { supabase } from '../lib/supabaseClient'
 import { getWebChannelId } from '../data/channels'
 import { findOrCreateGuest } from '../data/guests'
 import { getConflicts, createInquiryReservation } from '../data/reservations'
@@ -45,6 +46,28 @@ function buildWhatsAppMsg({ unit, reservation, guest }) {
         `🔑 *ID reserva:* #${reservation.id}`,
     ]
     return encodeURIComponent(lines.join('\n'))
+}
+
+// ─── Get price for a specific date (with override fallback) ───
+async function getPriceForDate(unitId, dateStr, basePriceFallback) {
+    try {
+        const { data, error } = await supabase
+            .from('core_unit_daily_rates')
+            .select('price')
+            .eq('unit_id', unitId)
+            .eq('date', dateStr)
+            .maybeSingle()
+
+        if (error) {
+            console.error('Error fetching daily rate:', error)
+            return basePriceFallback
+        }
+
+        return data?.price ?? basePriceFallback
+    } catch (e) {
+        console.error('Exception in getPriceForDate:', e)
+        return basePriceFallback
+    }
 }
 
 // ─── Step indicator ──────────────────────────────────────────
@@ -244,7 +267,48 @@ export default function ReservationWidget({ unit }) {
                 quoted_currency: 'CLP'
             })
 
-            setDone({ reservation, guest: { full_name: fullName, email, phone } })
+            // Get price of first night (for MP seña payment)
+            const priceFirstNight = await getPriceForDate(
+                unit.id,
+                checkIn,
+                Number(unit.base_price || 0)
+            )
+
+            if (priceFirstNight <= 0) {
+                setError('No se pudo determinar el monto. Contáctanos por WhatsApp.')
+                return
+            }
+
+            // Call create-payment Edge Function
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+            const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${anonKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    reservation_id: reservation.id,
+                    amount: priceFirstNight,
+                }),
+            })
+
+            if (!paymentRes.ok) {
+                const errData = await paymentRes.json()
+                setError(`No pudimos procesar el pago: ${errData.error || 'error desconocido'}. Contáctanos por WhatsApp.`)
+                return
+            }
+
+            const paymentData = await paymentRes.json()
+            if (!paymentData.url) {
+                setError('No se pudo generar el enlace de pago. Contáctanos por WhatsApp.')
+                return
+            }
+
+            // Redirect to Mercado Pago checkout
+            window.location.href = paymentData.url
         } catch (e) {
             setError('Error al crear la reserva: ' + e.message)
         } finally {
