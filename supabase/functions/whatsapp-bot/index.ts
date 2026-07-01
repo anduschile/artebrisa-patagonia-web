@@ -422,7 +422,7 @@ async function processReservaLista(
 
         // k. Notificar a Karina por WhatsApp (fire-and-forget)
         try {
-            const karinasPhone = '+56950921745'
+            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
             const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const check_outFormatted = new Date(parsed.check_out + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const priceFormatted = priceFirstNight.toLocaleString('es-CL')

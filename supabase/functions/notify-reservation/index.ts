@@ -114,7 +114,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Send WhatsApp message to Karina
-    const karinasPhone = '+56950921745'
+    const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
 
     const twilioBody = new URLSearchParams({
