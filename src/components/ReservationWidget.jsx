@@ -311,8 +311,6 @@ export default function ReservationWidget({ unit }) {
             window.location.href = paymentData.url
 
             // Notify Karina about new reservation (fire-and-forget)
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
             fetch(`${supabaseUrl}/functions/v1/notify-reservation`, {
                 method: 'POST',
                 headers: {
