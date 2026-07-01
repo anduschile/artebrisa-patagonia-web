@@ -1,26 +1,22 @@
 // ─── create-payment Edge Function ─────────────────────────────────────────
-// Supabase Edge Function (Deno) — Webpay Plus integration (integration environment)
+// Supabase Edge Function (Deno) — Mercado Pago Checkout Pro integration
 //
 // POST /functions/v1/create-payment
 //
-// Inicia una transacción de pago en Webpay Plus (Transbank).
+// Inicia una transacción de pago en Mercado Pago.
 // Recibe: { reservation_id, amount }
-// Responde: { token, url } o error
+// Responde: { token, url, buy_order } o error
 //
 // Variables de entorno requeridas (supabase secrets set ...):
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — auto-inyectadas
-//   TRANSBANK_API_KEY_ID
-//   TRANSBANK_API_KEY_SECRET
-//   TRANSBANK_RETURN_URL
-//   TRANSBANK_ENVIRONMENT (integration | production)
+//   MP_ACCESS_TOKEN
+//   MP_RETURN_URL
+//   MP_WEBHOOK_URL
 // ──────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-const TRANSBANK_ENDPOINTS = {
-  integration: 'https://webpay3gint.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions',
-  production: 'https://webpay3g.transbank.cl/rswebpaytransaction/api/webpay/v1.2/transactions',
-}
+const MP_API_ENDPOINT = 'https://api.mercadopago.com/checkout/preferences'
 
 function jsonError(msg: string, status: number): Response {
   return new Response(JSON.stringify({ error: msg }), {
@@ -34,15 +30,6 @@ function jsonOk(data: unknown): Response {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   })
-}
-
-/** Genera un buy_order único de máximo 26 caracteres */
-function generateBuyOrder(reservationId: string): string {
-  // Transbank requiere máximo 26 caracteres
-  // Usa los últimos 20 caracteres del UUID + timestamp de milisegundos (mod 1000000)
-  const now = Date.now() % 1000000
-  const suffix = reservationId.slice(-10)
-  return `${now}${suffix}`.substring(0, 26)
 }
 
 Deno.serve(async (req: Request) => {
@@ -92,74 +79,75 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  // ── 2. Generate Webpay transaction parameters ───────────────────────────
-  const buyOrder = generateBuyOrder(reservation_id)
-  const sessionId = reservation_id
+  // ── 2. Prepare Mercado Pago preference ──────────────────────────────────
+  const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
+  const mpReturnUrl = Deno.env.get('MP_RETURN_URL') ?? 'https://artebrisapatagonia.com'
+  const mpWebhookUrl = Deno.env.get('MP_WEBHOOK_URL')
 
-  // ── 3. Call Transbank API ──────────────────────────────────────────────
-  const apiKeyId = Deno.env.get('TRANSBANK_API_KEY_ID')
-  const apiKeySecret = Deno.env.get('TRANSBANK_API_KEY_SECRET')
-  const returnUrl = Deno.env.get('TRANSBANK_RETURN_URL')
-  const environment = Deno.env.get('TRANSBANK_ENVIRONMENT') ?? 'integration'
-
-  if (!apiKeyId || !apiKeySecret || !returnUrl) {
-    console.error('Missing Transbank configuration secrets')
+  if (!mpAccessToken || !mpWebhookUrl) {
+    console.error('Missing Mercado Pago configuration secrets')
     return jsonError('Server misconfiguration', 500)
   }
 
-  const endpoint = TRANSBANK_ENDPOINTS[environment as keyof typeof TRANSBANK_ENDPOINTS]
-  if (!endpoint) {
-    console.error('Invalid TRANSBANK_ENVIRONMENT:', environment)
-    return jsonError('Server misconfiguration', 500)
+  const preferencePayload = {
+    items: [
+      {
+        title: 'Seña reserva Arte Brisa Patagonia',
+        quantity: 1,
+        unit_price: amount,
+        currency_id: 'CLP',
+      },
+    ],
+    back_urls: {
+      success: `${mpReturnUrl}/reserva/confirmar?status=paid`,
+      failure: `${mpReturnUrl}/reserva/confirmar?status=failed`,
+      pending: `${mpReturnUrl}/reserva/confirmar?status=pending`,
+    },
+    auto_return: 'approved',
+    external_reference: reservation_id,
+    notification_url: mpWebhookUrl,
   }
 
-  const transactionPayload = {
-    buy_order: buyOrder,
-    session_id: sessionId,
-    amount: amount,
-    return_url: returnUrl,
-  }
+  console.log(`[CREATE-PAYMENT] Iniciando preferencia MP: reservation_id=${reservation_id}, amount=${amount}`)
 
-  console.log(`[CREATE-PAYMENT] Iniciando transacción: buy_order=${buyOrder}, amount=${amount}, reservation_id=${reservation_id}`)
-
-  let transResponse: Response
+  // ── 3. Call Mercado Pago API ───────────────────────────────────────────
+  let mpResponse: Response
   try {
-    transResponse = await fetch(endpoint, {
+    mpResponse = await fetch(MP_API_ENDPOINT, {
       method: 'POST',
       headers: {
-        'Tbk-Api-Key-Id': apiKeyId,
-        'Tbk-Api-Key-Secret': apiKeySecret,
+        'Authorization': `Bearer ${mpAccessToken}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(transactionPayload),
+      body: JSON.stringify(preferencePayload),
     })
   } catch (e) {
-    console.error('Network error calling Transbank:', e)
+    console.error('Network error calling Mercado Pago:', e)
     return jsonError('Failed to connect to payment provider', 502)
   }
 
-  // ── 4. Handle Transbank response ───────────────────────────────────────
-  const statusCode = transResponse.status
+  // ── 4. Handle Mercado Pago response ────────────────────────────────────
+  const statusCode = mpResponse.status
   let responseData: any
 
   try {
-    responseData = await transResponse.json()
+    responseData = await mpResponse.json()
   } catch (e) {
-    console.error('Transbank response parse error (status=' + statusCode + '):', e)
+    console.error('Mercado Pago response parse error (status=' + statusCode + '):', e)
     return jsonError('Invalid response from payment provider', 502)
   }
 
-  if (!transResponse.ok) {
-    console.error(`Transbank error (status=${statusCode}):`, JSON.stringify(responseData))
-    const detail = responseData?.detail || responseData?.message || 'Unknown error'
+  if (!mpResponse.ok) {
+    console.error(`Mercado Pago error (status=${statusCode}):`, JSON.stringify(responseData))
+    const detail = responseData?.message || responseData?.cause?.[0]?.description || 'Unknown error'
     return jsonError(`Payment provider error: ${detail}`, 502)
   }
 
-  const token = responseData.token
-  const url = responseData.url
+  const preferenceId = responseData.id
+  const initPoint = responseData.init_point
 
-  if (!token || !url) {
-    console.error('Transbank response missing token or url:', JSON.stringify(responseData))
+  if (!preferenceId || !initPoint) {
+    console.error('Mercado Pago response missing id or init_point:', JSON.stringify(responseData))
     return jsonError('Invalid payment provider response', 502)
   }
 
@@ -167,25 +155,25 @@ Deno.serve(async (req: Request) => {
   const { error: updateErr } = await supabase
     .from('core_reservations')
     .update({
-      payment_id: token,
-      payment_url: url,
-      payment_buy_order: buyOrder,
+      payment_id: preferenceId,
+      payment_url: initPoint,
+      payment_buy_order: preferenceId,
       payment_created_at: new Date().toISOString(),
     })
     .eq('id', reservation_id)
 
   if (updateErr) {
     console.error('Failed to update reservation:', reservation_id, updateErr)
-    // NOTA: La transacción ya fue iniciada en Transbank. No podemos deshacerla.
-    // El cliente debe usar el token/url aunque la BD falle (y se recuperará en el paso de confirmación).
-    console.warn('Returning token/url to client despite DB error — may need manual reconciliation')
+    // NOTA: La preferencia ya fue creada en MP. No podemos deshacerla.
+    // El cliente debe usar el init_point aunque la BD falle (y se recuperará en el paso de confirmación).
+    console.warn('Returning init_point to client despite DB error — may need manual reconciliation')
   }
 
-  console.log(`[CREATE-PAYMENT] Transacción iniciada exitosamente: reservation_id=${reservation_id}, token=${token}`)
+  console.log(`[CREATE-PAYMENT] Preferencia creada exitosamente: reservation_id=${reservation_id}, preference_id=${preferenceId}`)
 
   return jsonOk({
-    token,
-    url,
-    buy_order: buyOrder,
+    token: preferenceId,
+    url: initPoint,
+    buy_order: preferenceId,
   })
 })
