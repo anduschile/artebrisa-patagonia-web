@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUnitImage } from '../data/unitImages'
-import { SERVICES_BY_TYPE, PRICES_BY_CODE } from '../data/unitDefaults'
+import { SERVICES_BY_TYPE, formatCLP } from '../data/unitDefaults'
 
 // ─── Helpers ─────────────────────────────────────────────────
 function truncate(str, max = 130) {
@@ -101,7 +101,7 @@ export default function UnitCard({ unit }) {
         : 'bg-primary-100 text-primary-700'
 
     const excerpt = truncate(unit.description, 130)
-    const priceNum = PRICES_BY_CODE[unit.code]?.alta ?? null
+    const priceNum = unit.base_price ?? null
     const href = `/unidad/${unit.id}`
 
     function handleCardClick(e) {
@@ -168,8 +168,8 @@ export default function UnitCard({ unit }) {
                 {/* Price */}
                 <div className="mb-3">
                     <span className="text-xs text-slate-400">Desde </span>
-                    {priceNum
-                        ? <span className="text-primary-600 font-bold text-base">${priceNum.toLocaleString('es-CL')} <span className="text-xs text-slate-400 font-normal">(aprox.)</span> <span className="text-xs font-normal text-slate-400">/ noche</span></span>
+                    {priceNum > 0
+                        ? <span className="text-primary-600 font-bold text-base">{formatCLP(priceNum)} <span className="text-xs text-slate-400 font-normal">(aprox.)</span> <span className="text-xs font-normal text-slate-400">/ noche</span></span>
                         : <span className="text-slate-400 font-semibold text-sm">— / noche</span>
                     }
                 </div>
