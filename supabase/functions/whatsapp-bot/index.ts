@@ -420,6 +420,40 @@ async function processReservaLista(
             console.error('[whatsapp-bot] processReservaLista: error updating payment fields:', updateErr)
         }
 
+        // k. Notificar a Karina por WhatsApp (fire-and-forget)
+        try {
+            const karinasPhone = '+56950921745'
+            const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
+            const check_outFormatted = new Date(parsed.check_out + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
+            const priceFormatted = priceFirstNight.toLocaleString('es-CL')
+
+            const notificationMsg = `🔔 Nueva reserva WhatsApp\n👤 ${parsed.nombre}\n🏠 ${unit.name}\n📅 ${check_inFormatted} → ${check_outFormatted}\n👥 ${parsed.personas} personas\n💰 Seña: $${priceFormatted} (1ra noche)\n🔗 https://artebrisapatagonia.com/admin/reservas`
+
+            const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+            const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+            const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+
+            if (accountSid && twilioAuthToken && fromNumber) {
+                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const twilioBody = new URLSearchParams({
+                    From: fromNumber,
+                    To: `whatsapp:${karinasPhone}`,
+                    Body: notificationMsg,
+                })
+
+                await fetch(twilioUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: twilioBody.toString(),
+                }).catch(e => console.error('[whatsapp-bot] Error notificando a Karina:', e))
+            }
+        } catch (e) {
+            console.error('[whatsapp-bot] Exception notificando a Karina:', e)
+        }
+
         // j. Retornar éxito con URL y monto
         return {
             success: true,
