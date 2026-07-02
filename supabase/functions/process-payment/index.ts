@@ -11,6 +11,7 @@
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — auto-inyectadas
 //   MP_ACCESS_TOKEN
 //   MP_WEBHOOK_URL
+//   RESEND_API_KEY
 // ──────────────────────────────────────────────────────────────────────────
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
@@ -35,6 +36,158 @@ function jsonOk(data: unknown): Response {
     status: 200,
     headers: { 'Content-Type': 'application/json', ...corsHeaders },
   })
+}
+
+function formatCLP(amount: number | null): string {
+  if (amount == null) return 'No disponible'
+  return new Intl.NumberFormat('es-CL', {
+    style: 'currency',
+    currency: 'CLP',
+    maximumFractionDigits: 0,
+  }).format(amount)
+}
+
+function formatDate(iso: string): string {
+  const [y, m, d] = iso.split('-')
+  return `${d}-${m}-${y}`
+}
+
+function escapeHtml(s: string | null | undefined): string {
+  if (!s) return ''
+  return s
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+function getAddressByUnitCode(unitCode: string | null): string {
+  if (!unitCode) return 'Clodomiro Rosas 164D'
+  if (unitCode.startsWith('CAB-') || unitCode.startsWith('TINY-')) {
+    return 'Clodomiro Rosas 164D'
+  } else if (unitCode.startsWith('DEP-')) {
+    return 'Guacolda 1615'
+  }
+  return 'Clodomiro Rosas 164D'
+}
+
+async function sendGuestConfirmationEmail(
+  supabase: any,
+  reservationId: string,
+  payerEmail: string,
+  paidAmount: number,
+) {
+  try {
+    const { data: reservation, error: fetchErr } = await supabase
+      .from('core_reservations')
+      .select(`
+        id, check_in, check_out, status,
+        core_units ( code, name ),
+        core_guests ( full_name )
+      `)
+      .eq('id', reservationId)
+      .single()
+
+    if (fetchErr || !reservation) {
+      console.error(`[GUEST-EMAIL] Failed to fetch reservation ${reservationId}:`, fetchErr)
+      return
+    }
+
+    const unit = Array.isArray(reservation.core_units) ? reservation.core_units[0] : reservation.core_units
+    const guest = Array.isArray(reservation.core_guests) ? reservation.core_guests[0] : reservation.core_guests
+
+    const unitName = unit?.name ?? 'Unidad'
+    const unitCode = unit?.code ?? ''
+    const guestName = guest?.full_name ?? 'Huésped'
+    const address = getAddressByUnitCode(unitCode)
+    const amountFormatted = formatCLP(paidAmount)
+
+    const sender = 'Arte Brisa Patagonia <reservas@artebrisapatagonia.com>'
+    const subject = `Confirmación de pago — Reserva ${reservationId}`
+
+    const html = `
+<div style="font-family: Arial, sans-serif; color: #222; max-width: 560px;">
+  <h2 style="margin:0 0 16px;">¡Pago confirmado!</h2>
+  <p style="margin:0 0 16px;">Hola ${escapeHtml(guestName)},</p>
+  <p style="margin:0 0 16px;">Tu pago ha sido procesado exitosamente. Aquí están los detalles de tu reserva:</p>
+
+  <div style="background:#f5f5f5; padding:16px; border-radius:6px; margin:16px 0;">
+    <p style="margin:0 0 8px;"><strong>Confirmación de pago</strong></p>
+    <p style="margin:0 0 8px; color:#666;">Monto pagado: <strong>${escapeHtml(amountFormatted)}</strong></p>
+    <p style="margin:0; color:#666;">ID de reserva: <strong>${escapeHtml(reservationId)}</strong></p>
+  </div>
+
+  <div style="margin:16px 0;">
+    <p style="margin:0 0 8px; font-weight:bold;">Detalles de la estadía</p>
+    <p style="margin:0 0 4px; color:#666;">Unidad: ${escapeHtml(unitName)} (${escapeHtml(unitCode)})</p>
+    <p style="margin:0 0 4px; color:#666;">Check-in: ${escapeHtml(formatDate(reservation.check_in))}</p>
+    <p style="margin:0 0 8px; color:#666;">Check-out: ${escapeHtml(formatDate(reservation.check_out))}</p>
+  </div>
+
+  <div style="margin:16px 0;">
+    <p style="margin:0 0 8px; font-weight:bold;">Información de la unidad</p>
+    <p style="margin:0 0 4px; color:#666;">Dirección: ${escapeHtml(address)}</p>
+    <p style="margin:0 0 8px; color:#666;">Horario: Check-in 14:00 hrs / Check-out 11:00 hrs</p>
+  </div>
+
+  <div style="margin:16px 0; padding-top:16px; border-top:1px solid #eee;">
+    <p style="margin:0 0 8px; color:#666;">¿Preguntas? Contáctanos por WhatsApp:</p>
+    <p style="margin:0;"><a href="https://wa.me/56950921745" style="color:#1f6feb; text-decoration:none;">+56 9 5092 1745</a></p>
+  </div>
+
+  <p style="margin:24px 0 0; color:#999; font-size:12px;">Este es un correo automatizado. No responda a este mensaje.</p>
+</div>`.trim()
+
+    const text = [
+      '¡Pago confirmado!',
+      '',
+      `Hola ${guestName},`,
+      'Tu pago ha sido procesado exitosamente.',
+      '',
+      'CONFIRMACIÓN DE PAGO',
+      `Monto pagado: ${amountFormatted}`,
+      `ID de reserva: ${reservationId}`,
+      '',
+      'DETALLES DE LA ESTADÍA',
+      `Unidad: ${unitName} (${unitCode})`,
+      `Check-in: ${formatDate(reservation.check_in)}`,
+      `Check-out: ${formatDate(reservation.check_out)}`,
+      '',
+      'INFORMACIÓN DE LA UNIDAD',
+      `Dirección: ${address}`,
+      'Horario: Check-in 14:00 hrs / Check-out 11:00 hrs',
+      '',
+      '¿Preguntas? Contáctanos por WhatsApp: +56 9 5092 1745',
+      '',
+      'Este es un correo automatizado. No responda a este mensaje.',
+    ].join('\n')
+
+    const resendKey = Deno.env.get('RESEND_API_KEY')
+    if (!resendKey) {
+      console.error('[GUEST-EMAIL] RESEND_API_KEY no configurada')
+      return
+    }
+
+    const resendResp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${resendKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ from: sender, to: [payerEmail], subject, html, text }),
+    })
+
+    if (!resendResp.ok) {
+      const errBody = await resendResp.text()
+      console.error(`[GUEST-EMAIL] Resend error (${resendResp.status}):`, errBody)
+      return
+    }
+
+    const sent = await resendResp.json()
+    console.log(`[GUEST-EMAIL] Confirmación enviada: reservation_id=${reservationId}, email_id=${sent?.id ?? 'unknown'}`)
+  } catch (error) {
+    console.error('[GUEST-EMAIL] Unexpected error:', error)
+  }
 }
 
 Deno.serve(async (req: Request) => {
@@ -225,6 +378,8 @@ Deno.serve(async (req: Request) => {
     return jsonError('Invalid payment provider response', 502)
   }
 
+  const paidAmount = responseData.transaction_amount
+
   // ── 6. Map Mercado Pago status to our database schema ──────────────────
   let dbStatus: string
   let paymentStatus: string
@@ -259,6 +414,13 @@ Deno.serve(async (req: Request) => {
     .from('core_reservations')
     .update(updatePayload)
     .eq('id', reservation_id)
+
+  // ── 8. Send guest confirmation email (fire-and-forget) ────────────────────
+  if (mpStatus === 'approved') {
+    // Non-blocking email send; errors are logged but don't affect payment response
+    sendGuestConfirmationEmail(supabase, reservation_id, payer_email, paidAmount)
+      .catch(err => console.error('[GUEST-EMAIL] Unhandled error:', err))
+  }
 
   if (updateErr) {
     console.error('Failed to update reservation:', reservation_id, updateErr)
