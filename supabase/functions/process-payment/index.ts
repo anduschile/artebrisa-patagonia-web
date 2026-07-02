@@ -242,7 +242,7 @@ Deno.serve(async (req: Request) => {
   // ── 1. Fetch reservation and verify status ──────────────────────────────
   const { data: reservation, error: fetchErr } = await supabase
     .from('core_reservations')
-    .select('id, status, unit_id, check_in')
+    .select('id, status, unit_id, check_in, check_out, quoted_total, core_units ( code )')
     .eq('id', reservation_id)
     .single()
 
@@ -258,46 +258,54 @@ Deno.serve(async (req: Request) => {
     )
   }
 
-  // ── 2. Get price of first night ─────────────────────────────────────────
-  let priceFirstNight: number
+  // ── 2. Get authoritative payment amount (total de la reserva) ──────────
+  let quotedTotal: number = reservation.quoted_total || 0
 
-  try {
-    // Try to fetch daily rate override for check_in date
-    const { data: dailyRate, error: rateErr } = await supabase
-      .from('core_unit_daily_rates')
-      .select('price')
-      .eq('unit_id', reservation.unit_id)
-      .eq('date', reservation.check_in)
-      .maybeSingle()
+  if (quotedTotal <= 0) {
+    console.warn('[PROCESS-PAYMENT] quoted_total null, usando precio primera noche como fallback para reservation:', reservation_id)
 
-    if (rateErr) {
-      console.warn('Error fetching daily rate:', rateErr)
-      priceFirstNight = 0
-    } else if (dailyRate?.price) {
-      priceFirstNight = dailyRate.price
-    } else {
-      // Fallback to base_price from unit
-      const { data: unit, error: unitErr } = await supabase
-        .from('core_units')
-        .select('base_price')
-        .eq('id', reservation.unit_id)
-        .single()
+    try {
+      // Try to fetch daily rate override for check_in date
+      const { data: dailyRate, error: rateErr } = await supabase
+        .from('core_unit_daily_rates')
+        .select('price')
+        .eq('unit_id', reservation.unit_id)
+        .eq('date', reservation.check_in)
+        .maybeSingle()
 
-      if (unitErr || !unit) {
-        console.error('Unit not found:', reservation.unit_id, unitErr)
-        return jsonError('Unit not found', 404)
+      if (rateErr) {
+        console.warn('Error fetching daily rate:', rateErr)
+        quotedTotal = 0
+      } else if (dailyRate?.price) {
+        quotedTotal = dailyRate.price
+      } else {
+        // Fallback to base_price from unit
+        const { data: unit, error: unitErr } = await supabase
+          .from('core_units')
+          .select('base_price')
+          .eq('id', reservation.unit_id)
+          .single()
+
+        if (unitErr || !unit) {
+          console.error('Unit not found:', reservation.unit_id, unitErr)
+          return jsonError('Unit not found', 404)
+        }
+
+        quotedTotal = unit.base_price || 0
       }
 
-      priceFirstNight = unit.base_price || 0
+      if (quotedTotal <= 0) {
+        return jsonError('Unable to determine payment amount', 400)
+      }
+    } catch (e) {
+      console.error('Error fetching price:', e)
+      return jsonError('Error calculating payment amount', 500)
     }
-
-    if (priceFirstNight <= 0) {
-      return jsonError('Unable to determine payment amount', 400)
-    }
-  } catch (e) {
-    console.error('Error fetching price:', e)
-    return jsonError('Error calculating payment amount', 500)
   }
+
+  const unitCode = Array.isArray(reservation.core_units)
+    ? reservation.core_units[0]?.code
+    : reservation.core_units?.code
 
   // ── 3. Prepare Mercado Pago payment payload ────────────────────────────
   const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
@@ -309,9 +317,9 @@ Deno.serve(async (req: Request) => {
   }
 
   const paymentPayload: any = {
-    transaction_amount: priceFirstNight,
+    transaction_amount: quotedTotal,
     token: token,
-    description: 'Seña reserva Arte Brisa Patagonia',
+    description: `Reserva ${unitCode || reservation.unit_id} ${formatDate(reservation.check_in)} - ${formatDate(reservation.check_out)}`,
     installments: installments,
     payment_method_id: payment_method_id,
     payer: {
@@ -334,7 +342,7 @@ Deno.serve(async (req: Request) => {
     paymentPayload.issuer_id = issuer_id
   }
 
-  console.log(`[PROCESS-PAYMENT] Iniciando pago: reservation_id=${reservation_id}, amount=${priceFirstNight}`)
+  console.log(`[PROCESS-PAYMENT] Iniciando pago: reservation_id=${reservation_id}, amount=${quotedTotal}`)
 
   // ── 4. Call Mercado Pago API ───────────────────────────────────────────
   let mpResponse: Response
@@ -407,7 +415,7 @@ Deno.serve(async (req: Request) => {
   }
 
   if (paymentStatus === 'paid') {
-    updatePayload.paid_amount = priceFirstNight
+    updatePayload.paid_amount = quotedTotal
   }
 
   const { error: updateErr } = await supabase
@@ -433,6 +441,6 @@ Deno.serve(async (req: Request) => {
   return jsonOk({
     status: mpStatus === 'approved' ? 'approved' : mpStatus === 'in_process' || mpStatus === 'pending' ? 'pending' : mpStatus === 'rejected' ? 'rejected' : 'unknown',
     payment_id: paymentId,
-    amount: priceFirstNight,
+    amount: quotedTotal,
   })
 })

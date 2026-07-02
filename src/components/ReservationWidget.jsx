@@ -84,7 +84,7 @@ function StepDot({ n, active, done }) {
 
 // ─── Card Payment Form (Step 3) ──────────────────────────────
 function CardPaymentForm({
-    reservation_id, priceFirstNight, unit, guest, checkIn, checkOut,
+    reservation_id, priceFirstNight, quotedTotal, unit, guest, checkIn, checkOut,
     adults, children, onPaymentResult, onError, onBack
 }) {
     const [processing, setProcessing] = useState(false)
@@ -117,7 +117,7 @@ function CardPaymentForm({
 
             const bricksBuilder = window.mp.bricks()
             const brickController = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
-                initialization: { amount: priceFirstNight },
+                initialization: { amount: quotedTotal },
                 customization: {
                     paymentMethods: {
                         excludedPaymentTypes: ['ticket', 'atm'],
@@ -203,8 +203,8 @@ function CardPaymentForm({
                     </div>
                 </div>
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-end">
-                    <span className="text-slate-500">Seña a pagar:</span>
-                    <span className="text-2xl font-black text-primary-700">{formatCLP(priceFirstNight)}</span>
+                    <span className="text-slate-500">Total a pagar:</span>
+                    <span className="text-2xl font-black text-primary-700">{formatCLP(quotedTotal)}</span>
                 </div>
             </div>
 
@@ -726,6 +726,7 @@ export default function ReservationWidget({ unit }) {
                 <CardPaymentForm
                     reservation_id={reservationId}
                     priceFirstNight={priceFirstNight}
+                    quotedTotal={quote.total}
                     unit={unit}
                     guest={{fullName, email, phone}}
                     checkIn={checkIn}
