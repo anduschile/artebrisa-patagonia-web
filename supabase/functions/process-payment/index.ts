@@ -54,8 +54,8 @@ Deno.serve(async (req: Request) => {
   let issuer_id: number | null
   let installments: number
   let payer_email: string
-  let identification_type: string
-  let identification_number: string
+  let identification_type: string | null
+  let identification_number: string | null
 
   try {
     const body = await req.json()
@@ -65,11 +65,11 @@ Deno.serve(async (req: Request) => {
     issuer_id = body.issuer_id ? parseInt(body.issuer_id, 10) : null
     installments = parseInt(body.installments, 10) || 1
     payer_email = body.payer_email?.trim()
-    identification_type = body.identification_type?.trim()
-    identification_number = body.identification_number?.trim()
+    identification_type = body.identification_type?.trim() || null
+    identification_number = body.identification_number?.trim() || null
 
-    if (!reservation_id || !token || !payment_method_id || !payer_email || !identification_type || !identification_number) {
-      return jsonError('Missing required fields: reservation_id, token, payment_method_id, payer_email, identification_type, identification_number', 400)
+    if (!reservation_id || !token || !payment_method_id || !payer_email) {
+      return jsonError('Missing required fields: reservation_id, token, payment_method_id, payer_email', 400)
     }
 
     if (installments < 1) {
@@ -163,13 +163,17 @@ Deno.serve(async (req: Request) => {
     payment_method_id: payment_method_id,
     payer: {
       email: payer_email,
-      identification: {
-        type: identification_type,
-        number: identification_number,
-      },
     },
     external_reference: reservation_id,
     notification_url: mpWebhookUrl,
+  }
+
+  // Only add identification if provided
+  if (identification_type && identification_number) {
+    paymentPayload.payer.identification = {
+      type: identification_type,
+      number: identification_number,
+    }
   }
 
   // Only add issuer_id if provided

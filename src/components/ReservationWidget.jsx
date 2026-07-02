@@ -85,8 +85,7 @@ function StepDot({ n, active, done }) {
 // ─── Card Payment Form (Step 3) ──────────────────────────────
 function CardPaymentForm({
     reservation_id, priceFirstNight, unit, guest, checkIn, checkOut,
-    adults, children, identificationNumber, setIdentificationNumber,
-    identificationType, setIdentificationType, onPaymentResult, onError, onBack
+    adults, children, onPaymentResult, onError, onBack
 }) {
     const [processing, setProcessing] = useState(false)
 
@@ -127,11 +126,6 @@ function CardPaymentForm({
                         console.error('Brick error:', error)
                     },
                     onSubmit: async (cardFormData) => {
-                        if (!identificationNumber.trim()) {
-                            onError('El número de documento es requerido')
-                            return
-                        }
-
                         setProcessing(true)
                         try {
                             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
@@ -149,9 +143,7 @@ function CardPaymentForm({
                                     payment_method_id: cardFormData.payment_method_id,
                                     issuer_id: cardFormData.issuer_id,
                                     installments: cardFormData.installments,
-                                    payer_email: guest.email,
-                                    identification_type: identificationType,
-                                    identification_number: identificationNumber
+                                    payer_email: guest.email
                                 })
                             })
 
@@ -210,33 +202,6 @@ function CardPaymentForm({
                     <span className="text-slate-500">Seña a pagar:</span>
                     <span className="text-2xl font-black text-primary-700">{formatCLP(priceFirstNight)}</span>
                 </div>
-            </div>
-
-            {/* Identification fields */}
-            <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo de documento *</label>
-                <select
-                    value={identificationType}
-                    onChange={e => setIdentificationType(e.target.value)}
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-                >
-                    <option value="RUT">RUT (Chile)</option>
-                    <option value="DNI">DNI (Otro país)</option>
-                    <option value="Pasaporte">Pasaporte</option>
-                    <option value="Otro">Otro</option>
-                </select>
-            </div>
-
-            <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">Número de documento *</label>
-                <input
-                    type="text"
-                    value={identificationNumber}
-                    onChange={e => setIdentificationNumber(e.target.value)}
-                    placeholder="Ingresa tu documento (sin espacios ni guiones)"
-                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
-                    required
-                />
             </div>
 
             {/* Card Payment Brick container */}
@@ -383,8 +348,6 @@ export default function ReservationWidget({ unit }) {
     const [reservationId, setReservationId] = useState(null)
     const [priceFirstNight, setPriceFirstNight] = useState(null)
     const [paymentResult, setPaymentResult] = useState(null)
-    const [identificationNumber, setIdentificationNumber] = useState('')
-    const [identificationType, setIdentificationType] = useState('RUT')
 
     const nights = nightCount(checkIn, checkOut)
 
@@ -765,10 +728,6 @@ export default function ReservationWidget({ unit }) {
                     checkOut={checkOut}
                     adults={adults}
                     children={children}
-                    identificationNumber={identificationNumber}
-                    setIdentificationNumber={setIdentificationNumber}
-                    identificationType={identificationType}
-                    setIdentificationType={setIdentificationType}
                     onPaymentResult={setPaymentResult}
                     onError={setError}
                     onBack={() => { setStep(2); setError(null) }}
