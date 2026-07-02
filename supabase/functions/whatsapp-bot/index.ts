@@ -546,7 +546,7 @@ const SYSTEM_PROMPT_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagoni
 ESTABLECIMIENTOS:
 
 Departamentos Patagonia
-- Dirección: Huacolda 1615, entre Patagonia y 18 de Septiembre, Puerto Natales
+- Dirección: Guacolda 1615, entre Patagonia y 18 de Septiembre, Puerto Natales
 - Ubicación en mapa: https://maps.app.goo.gl/rLHmjrGWSE1pD9QX6
 - Unidades: 4 departamentos (para 3, 4 y 5 personas)
 - Estacionamiento: no tiene privado, estacionamiento en calle gratuito disponible
