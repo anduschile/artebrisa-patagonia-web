@@ -91,7 +91,7 @@ function CardPaymentForm({
     const [processing, setProcessing] = useState(false)
 
     useEffect(() => {
-        if (!priceFirstNight || !window.mp) return
+        if (!priceFirstNight) return
 
         initializeBrick()
 
