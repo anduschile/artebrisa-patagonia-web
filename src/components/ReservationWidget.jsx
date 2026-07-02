@@ -82,6 +82,237 @@ function StepDot({ n, active, done }) {
     )
 }
 
+// ─── Card Payment Form (Step 3) ──────────────────────────────
+function CardPaymentForm({
+    reservation_id, priceFirstNight, unit, guest, checkIn, checkOut,
+    adults, children, identificationNumber, setIdentificationNumber,
+    identificationType, setIdentificationType, onPaymentResult, onError, onBack
+}) {
+    const [processing, setProcessing] = useState(false)
+
+    useEffect(() => {
+        if (!priceFirstNight || !window.mp) return
+
+        initializeBrick()
+
+        return () => {
+            if (window.cardPaymentBrickController) {
+                window.cardPaymentBrickController.unmount()
+            }
+        }
+    }, [priceFirstNight])
+
+    async function initializeBrick() {
+        try {
+            const mpPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY
+            if (!mpPublicKey) {
+                onError('Configuración de Mercado Pago no disponible')
+                return
+            }
+
+            window.mp = new window.MercadoPago(mpPublicKey, { locale: 'es-CL' })
+
+            const bricksBuilder = window.mp.bricks()
+            await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
+                initialization: { amount: priceFirstNight },
+                customization: {
+                    paymentMethods: {
+                        excludedPaymentTypes: ['ticket', 'atm'],
+                        maxInstallments: 1
+                    }
+                },
+                callbacks: {
+                    onReady: () => {},
+                    onError: (error) => {
+                        console.error('Brick error:', error)
+                    },
+                    onSubmit: async (cardFormData) => {
+                        if (!identificationNumber.trim()) {
+                            onError('El número de documento es requerido')
+                            return
+                        }
+
+                        setProcessing(true)
+                        try {
+                            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+                            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
+
+                            const res = await fetch(`${supabaseUrl}/functions/v1/process-payment`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${anonKey}`,
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    reservation_id: reservation_id,
+                                    token: cardFormData.token,
+                                    payment_method_id: cardFormData.payment_method_id,
+                                    issuer_id: cardFormData.issuer_id,
+                                    installments: cardFormData.installments,
+                                    payer_email: guest.email,
+                                    identification_type: identificationType,
+                                    identification_number: identificationNumber
+                                })
+                            })
+
+                            if (!res.ok) {
+                                const errData = await res.json()
+                                onError(`Error: ${errData.error || 'error desconocido'}`)
+                                setProcessing(false)
+                                return
+                            }
+
+                            const result = await res.json()
+                            onPaymentResult(result.status)
+                        } catch (e) {
+                            onError('Error al procesar el pago: ' + e.message)
+                            setProcessing(false)
+                        }
+                    }
+                }
+            })
+
+            window.cardPaymentBrickController = bricksBuilder
+        } catch (e) {
+            console.error('Error initializing Brick:', e)
+            onError('Error inicializando formulario de pago: ' + e.message)
+        }
+    }
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="px-6 pb-6 space-y-4"
+        >
+            {/* Reservation summary */}
+            <div className="bg-slate-50 rounded-xl p-4 text-sm space-y-3 border border-slate-200">
+                <div className="font-semibold text-slate-900 mb-3">{guest.fullName}</div>
+                <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
+                    <div>
+                        <span className="text-slate-500">Unidad</span>
+                        <div className="font-semibold text-slate-900">{unit.name || unit.code}</div>
+                    </div>
+                    <div>
+                        <span className="text-slate-500">Noches</span>
+                        <div className="font-semibold text-slate-900">{nightCount(checkIn, checkOut)}</div>
+                    </div>
+                    <div>
+                        <span className="text-slate-500">Check-in</span>
+                        <div className="font-semibold text-slate-900">{formatDate(checkIn)}</div>
+                    </div>
+                    <div>
+                        <span className="text-slate-500">Check-out</span>
+                        <div className="font-semibold text-slate-900">{formatDate(checkOut)}</div>
+                    </div>
+                </div>
+                <div className="pt-3 border-t border-slate-200 flex justify-between items-end">
+                    <span className="text-slate-500">Seña a pagar:</span>
+                    <span className="text-2xl font-black text-primary-700">{formatCLP(priceFirstNight)}</span>
+                </div>
+            </div>
+
+            {/* Identification fields */}
+            <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Tipo de documento *</label>
+                <select
+                    value={identificationType}
+                    onChange={e => setIdentificationType(e.target.value)}
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                >
+                    <option value="RUT">RUT (Chile)</option>
+                    <option value="DNI">DNI (Otro país)</option>
+                    <option value="Pasaporte">Pasaporte</option>
+                    <option value="Otro">Otro</option>
+                </select>
+            </div>
+
+            <div>
+                <label className="block text-xs font-semibold text-slate-600 mb-1">Número de documento *</label>
+                <input
+                    type="text"
+                    value={identificationNumber}
+                    onChange={e => setIdentificationNumber(e.target.value)}
+                    placeholder="Ingresa tu documento (sin espacios ni guiones)"
+                    className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                    required
+                />
+            </div>
+
+            {/* Card Payment Brick container */}
+            <div id="cardPaymentBrick_container" />
+
+            {/* Back button */}
+            <button
+                type="button"
+                onClick={onBack}
+                disabled={processing}
+                className="w-full px-4 py-2.5 border border-slate-300 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+                ← Atrás
+            </button>
+        </motion.div>
+    )
+}
+
+// ─── Payment Result (Step 3 after payment) ──────────────────
+function PaymentResult({ status, onRetry }) {
+    const [emoji, setEmoji] = useState('✓')
+    const [title, setTitle] = useState('')
+    const [message, setMessage] = useState('')
+    const [showRetry, setShowRetry] = useState(false)
+
+    useEffect(() => {
+        if (status === 'approved') {
+            setEmoji('✓')
+            setTitle('¡Reserva confirmada!')
+            setMessage('Recibirás un WhatsApp con los detalles de acceso.')
+            setShowRetry(false)
+        } else if (status === 'pending') {
+            setEmoji('⏱')
+            setTitle('Pago en proceso')
+            setMessage('Tu pago está siendo procesado. Te avisaremos por WhatsApp cuando se confirme.')
+            setShowRetry(false)
+        } else if (status === 'rejected') {
+            setEmoji('✕')
+            setTitle('Pago rechazado')
+            setMessage('Podés intentar con otra tarjeta o contactarnos por WhatsApp.')
+            setShowRetry(true)
+        } else {
+            setEmoji('⚠')
+            setTitle('Error')
+            setMessage('Ocurrió un error procesando el pago.')
+            setShowRetry(true)
+        }
+    }, [status])
+
+    const bgColor = status === 'approved' ? 'bg-green-100' : status === 'pending' ? 'bg-blue-100' : 'bg-red-100'
+    const textColor = status === 'approved' ? 'text-green-600' : status === 'pending' ? 'text-blue-600' : 'text-red-600'
+    const dotColor = status === 'approved' ? 'bg-green-500' : status === 'pending' ? 'bg-blue-500' : 'bg-red-500'
+
+    return (
+        <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-6 px-6 space-y-4"
+        >
+            <div className={`w-14 h-14 ${bgColor} rounded-full flex items-center justify-center mx-auto mb-4`}>
+                <div className={`text-2xl ${textColor}`}>{emoji}</div>
+            </div>
+            <h3 className="text-lg font-black text-slate-900">{title}</h3>
+            <p className="text-slate-600 text-sm">{message}</p>
+            {showRetry && (
+                <button
+                    onClick={onRetry}
+                    className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors text-sm"
+                >
+                    Intentar de nuevo
+                </button>
+            )}
+        </motion.div>
+    )
+}
+
 // ─── Confirmation screen ─────────────────────────────────────
 function ConfirmationScreen({ reservation, unit, guest }) {
     const waMsg = buildWhatsAppMsg({ unit, reservation, guest })
@@ -135,7 +366,7 @@ function ConfirmationScreen({ reservation, unit, guest }) {
 
 // ─── Main widget ─────────────────────────────────────────────
 export default function ReservationWidget({ unit }) {
-    const [step, setStep] = useState(1) // 1=dates, 2=guest
+    const [step, setStep] = useState(1) // 1=dates, 2=guest, 3=payment
     const [checkIn, setCheckIn] = useState(tomorrowStr())
     const [checkOut, setCheckOut] = useState('')
     const [adults, setAdults] = useState(1)
@@ -149,6 +380,11 @@ export default function ReservationWidget({ unit }) {
     const [conflictMsg, setConflictMsg] = useState(null)
     const [quote, setQuote] = useState({ total: 0, avg: 0, loading: false, nights: 0 })
     const [done, setDone] = useState(null) // { reservation, guest }
+    const [reservationId, setReservationId] = useState(null)
+    const [priceFirstNight, setPriceFirstNight] = useState(null)
+    const [paymentResult, setPaymentResult] = useState(null)
+    const [identificationNumber, setIdentificationNumber] = useState('')
+    const [identificationType, setIdentificationType] = useState('RUT')
 
     const nights = nightCount(checkIn, checkOut)
 
@@ -279,38 +515,14 @@ export default function ReservationWidget({ unit }) {
                 return
             }
 
-            // Call create-payment Edge Function
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-
-            const paymentRes = await fetch(`${supabaseUrl}/functions/v1/create-payment`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${anonKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    reservation_id: reservation.id,
-                    amount: priceFirstNight,
-                }),
-            })
-
-            if (!paymentRes.ok) {
-                const errData = await paymentRes.json()
-                setError(`No pudimos procesar el pago: ${errData.error || 'error desconocido'}. Contáctanos por WhatsApp.`)
-                return
-            }
-
-            const paymentData = await paymentRes.json()
-            if (!paymentData.url) {
-                setError('No se pudo generar el enlace de pago. Contáctanos por WhatsApp.')
-                return
-            }
-
-            // Redirect to Mercado Pago checkout
-            window.location.href = paymentData.url
+            // Save reservation ID and price, advance to step 3 (payment with Card Payment Brick)
+            setReservationId(reservation.id)
+            setPriceFirstNight(priceFirstNight)
+            setStep(3)
 
             // Notify Karina about new reservation (fire-and-forget)
+            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
+            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
             fetch(`${supabaseUrl}/functions/v1/notify-reservation`, {
                 method: 'POST',
                 headers: {
@@ -348,11 +560,16 @@ export default function ReservationWidget({ unit }) {
                 <div className="flex-1 h-0.5 bg-slate-200">
                     <div className={`h-full bg-primary-400 transition-all duration-300 ${step > 1 ? 'w-full' : 'w-0'}`} />
                 </div>
-                <StepDot n={2} active={step === 2} done={false} />
+                <StepDot n={2} active={step === 2} done={step > 2} />
+                <div className="flex-1 h-0.5 bg-slate-200">
+                    <div className={`h-full bg-primary-400 transition-all duration-300 ${step > 2 ? 'w-full' : 'w-0'}`} />
+                </div>
+                <StepDot n={3} active={step === 3} done={false} />
             </div>
             <div className="flex justify-between px-6 pb-3 text-[11px] text-slate-400 font-medium">
                 <span>Fechas y huéspedes</span>
                 <span>Tus datos</span>
+                <span>Pago</span>
             </div>
 
             {/* Error / conflict banner */}
@@ -531,10 +748,39 @@ export default function ReservationWidget({ unit }) {
                             disabled={loading || !fullName.trim()}
                             className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
                         >
-                            {loading ? 'Enviando...' : 'Enviar solicitud'}
+                            {loading ? 'Enviando...' : 'Continuar al pago'}
                         </button>
                     </div>
                 </form>
+            )}
+
+            {/* ── Step 3: Card Payment Brick ── */}
+            {step === 3 && paymentResult === null && (
+                <CardPaymentForm
+                    reservation_id={reservationId}
+                    priceFirstNight={priceFirstNight}
+                    unit={unit}
+                    guest={{fullName, email, phone}}
+                    checkIn={checkIn}
+                    checkOut={checkOut}
+                    adults={adults}
+                    children={children}
+                    identificationNumber={identificationNumber}
+                    setIdentificationNumber={setIdentificationNumber}
+                    identificationType={identificationType}
+                    setIdentificationType={setIdentificationType}
+                    onPaymentResult={setPaymentResult}
+                    onError={setError}
+                    onBack={() => { setStep(2); setError(null) }}
+                />
+            )}
+
+            {/* ── Step 3: Payment Result ── */}
+            {step === 3 && paymentResult !== null && (
+                <PaymentResult
+                    status={paymentResult}
+                    onRetry={() => setPaymentResult(null)}
+                />
             )}
         </div>
     )
