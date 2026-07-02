@@ -96,7 +96,11 @@ function CardPaymentForm({
 
         return () => {
             if (window.cardPaymentBrickController) {
-                window.cardPaymentBrickController.unmount()
+                try {
+                    window.cardPaymentBrickController.unmount()
+                } catch (e) {
+                    console.error('Error unmounting Brick:', e)
+                }
             }
         }
     }, [priceFirstNight])
@@ -112,7 +116,7 @@ function CardPaymentForm({
             window.mp = new window.MercadoPago(mpPublicKey, { locale: 'es-CL' })
 
             const bricksBuilder = window.mp.bricks()
-            await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
+            const brickController = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
                 initialization: { amount: priceFirstNight },
                 customization: {
                     paymentMethods: {
@@ -164,7 +168,7 @@ function CardPaymentForm({
                 }
             })
 
-            window.cardPaymentBrickController = bricksBuilder
+            window.cardPaymentBrickController = brickController
         } catch (e) {
             console.error('Error initializing Brick:', e)
             onError('Error inicializando formulario de pago: ' + e.message)
