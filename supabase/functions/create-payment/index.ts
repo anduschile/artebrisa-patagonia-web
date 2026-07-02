@@ -117,6 +117,12 @@ Deno.serve(async (req: Request) => {
     auto_return: 'approved',
     external_reference: reservation_id,
     notification_url: mpWebhookUrl,
+    payment_methods: {
+      excluded_payment_types: [
+        { id: 'ticket' },
+        { id: 'atm' },
+      ],
+    },
   }
 
   console.log(`[CREATE-PAYMENT] Iniciando preferencia MP: reservation_id=${reservation_id}, amount=${amount}`)
