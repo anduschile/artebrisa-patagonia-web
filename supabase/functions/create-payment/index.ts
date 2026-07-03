@@ -103,7 +103,7 @@ Deno.serve(async (req: Request) => {
   const preferencePayload = {
     items: [
       {
-        title: 'Seña reserva Arte Brisa Patagonia',
+        title: 'Reserva Arte Brisa Patagonia',
         quantity: 1,
         unit_price: amount,
         currency_id: 'CLP',

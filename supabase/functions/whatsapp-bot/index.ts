@@ -59,37 +59,6 @@ function getTodayInChile(): string {
 }
 
 /**
- * Carga los precios override (core_unit_daily_rates) para TODAS las unidades en una fecha específica.
- * UNA SOLA consulta a la BD, luego resuelve el resto en memoria.
- */
-async function getUnitPricesForDate(
-    supabase: any,
-    unitIds: string[],
-    date: string
-): Promise<Record<string, number>> {
-    if (unitIds.length === 0) return {}
-
-    const { data: overrides, error: err } = await supabase
-        .from('core_unit_daily_rates')
-        .select('unit_id, price')
-        .eq('date', date)
-        .in('unit_id', unitIds)
-
-    if (err) {
-        console.error(`[whatsapp-bot] Error fetching daily rates for ${date}:`, err)
-        // Si falla la consulta, retornar objeto vacío para usar fallback (base_price)
-        return {}
-    }
-
-    // Construir mapa { unit_id: price }
-    const pricesMap: Record<string, number> = {}
-    overrides?.forEach(row => {
-        pricesMap[row.unit_id] = Number(row.price)
-    })
-    return pricesMap
-}
-
-/**
  * Carga las unidades activas desde core_units. Reutilizable por formatAvailabilityContext
  * y buildUnitsContext para mantener consistencia.
  */
@@ -346,7 +315,7 @@ async function processReservaLista(
                     quoted_total: totalPrice,
                     quoted_currency: 'CLP',
                     quoted_nights: nights,
-                    notes: `Reserva vía WhatsApp. Conversación: ${conversationId}. Seña: 1ra noche.`,
+                    notes: `Reserva vía WhatsApp. Conversación: ${conversationId}. Cobro: total de la reserva.`,
                 })
                 .select('id')
                 .single()
@@ -379,9 +348,8 @@ async function processReservaLista(
             return { success: false, reason: 'reserva_no_encontrada' }
         }
 
-        // Obtener el precio EXACTO de la primera noche, no promedio
-        const pricesForFirstNight = await getUnitPricesForDate(supabase, [unit.id], parsed.check_in)
-        const priceFirstNight = pricesForFirstNight[unit.id] ?? Number(unit.base_price)
+        // Se cobra el TOTAL de la reserva (quoted_total), no un adelanto parcial
+        const totalAmount = Number(reservation.quoted_total)
 
         const createPaymentUrl = `${SUPABASE_URL}/functions/v1/create-payment`
 
@@ -393,7 +361,7 @@ async function processReservaLista(
             },
             body: JSON.stringify({
                 reservation_id: reservationId,
-                amount: priceFirstNight,
+                amount: totalAmount,
             }),
         })
 
@@ -425,9 +393,9 @@ async function processReservaLista(
             const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
             const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const check_outFormatted = new Date(parsed.check_out + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
-            const priceFormatted = priceFirstNight.toLocaleString('es-CL')
+            const priceFormatted = totalAmount.toLocaleString('es-CL')
 
-            const notificationMsg = `🔔 Nueva reserva WhatsApp\n👤 ${parsed.nombre}\n🏠 ${unit.name}\n📅 ${check_inFormatted} → ${check_outFormatted}\n👥 ${parsed.personas} personas\n💰 Seña: $${priceFormatted} (1ra noche)\n🔗 https://artebrisapatagonia.com/admin/reservas`
+            const notificationMsg = `🔔 Nueva reserva WhatsApp\n👤 ${parsed.nombre}\n🏠 ${unit.name}\n📅 ${check_inFormatted} → ${check_outFormatted}\n👥 ${parsed.personas} personas\n💰 Total: $${priceFormatted}\n🔗 https://artebrisapatagonia.com/admin/reservas`
 
             const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
             const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
@@ -458,7 +426,7 @@ async function processReservaLista(
         return {
             success: true,
             paymentUrl: paymentData.url,
-            monto: priceFirstNight,
+            monto: totalAmount,
         }
     } catch (e) {
         // Try/catch GLOBAL — SIEMPRE retorna { success, reason }, nunca exception
@@ -468,8 +436,11 @@ async function processReservaLista(
 }
 
 /**
- * Construye el bloque dinámico de unidades + tarifas para inyectar en el system prompt.
- * Ejecuta UNA SOLA consulta a core_unit_daily_rates para todas las unidades.
+ * Construye el bloque dinámico de unidades + tarifas BASE para inyectar en el system prompt.
+ * Muestra siempre base_price (precio "desde"), NUNCA el precio de hoy: este bloque es
+ * contexto general de referencia, no una cotización para fechas específicas del huésped.
+ * El precio real por rango de fechas se calcula aparte con calculateReservationPrice()
+ * al momento de generar la reserva (##RESERVA_LISTA##).
  *
  * IMPORTANTE (Diseño de Identificación):
  * Identifica cada unidad por su CÓDIGO (unit.code), NO por UUID.
@@ -479,24 +450,15 @@ async function processReservaLista(
  *
  * NOTA TÉCNICA (core_rate_rules):
  * core_rate_rules existe en la BD pero no tiene filas activas (verificado 2026-06-22).
- * Si en el futuro se cargan reglas estacionales:
- *   1. Extender getUnitPricesForDate() para consultar core_rate_rules
- *      WHERE is_active=true AND date_from <= $date AND date_to >= $date
- *   2. Aplicar ajustes (percent/fixed) sobre base_price
- *   3. TAMBIÉN ACTUALIZAR: getDailyRatesForRange() en src/components/ReservationWidget.jsx
- *      para mantener consistencia de precios entre canales (web y WhatsApp)
+ * Si en el futuro se cargan reglas estacionales, aplicarlas en calculateReservationPrice()
+ * (precio real por rango), no en este bloque de precios base.
+ * TAMBIÉN ACTUALIZAR: getDailyRatesForRange() en src/components/ReservationWidget.jsx
+ * para mantener consistencia de precios entre canales (web y WhatsApp).
  */
 async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> {
     if (!units || units.length === 0) {
         return 'TARIFAS: No hay unidades disponibles cargadas en el sistema.'
     }
-
-    // Hoy en YYYY-MM-DD, en hora de Chile (evita bug de timezone)
-    const today = getTodayInChile()
-
-    // UNA SOLA consulta para todos los overrides de hoy
-    const unitIds = units.map(u => u.id)
-    const pricesMap = await getUnitPricesForDate(supabase, unitIds, today)
 
     // Agrupar por unit_type
     const byType: Record<string, Unit[]> = {}
@@ -505,8 +467,9 @@ async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> 
         byType[unit.unit_type].push(unit)
     })
 
-    // Construir el bloque
-    const lines: string[] = ['TARIFAS POR NOCHE (en pesos chilenos):']
+    // Construir el bloque (precio BASE "desde" — el precio final depende de las fechas
+    // exactas de la estadía y se calcula aparte, ver instrucción 4b del system prompt)
+    const lines: string[] = ['TARIFAS BASE POR NOCHE ("desde", en pesos chilenos):']
     lines.push('')
 
     for (const [unitType, unitList] of Object.entries(byType)) {
@@ -518,20 +481,16 @@ async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> 
         lines.push(`${typeLabel}:`)
 
         for (const unit of unitList) {
-            // Resolver precio desde el mapa ya cargado, fallback a base_price
-            const price = pricesMap[unit.id] ?? Number(unit.base_price)
-
-            // Formatear como peso chileno
             const priceStr = new Intl.NumberFormat('es-CL', {
                 style: 'currency',
                 currency: 'CLP',
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
-            }).format(price)
+            }).format(Number(unit.base_price))
 
             // Usar CÓDIGO (unit.code), NO UUID
             lines.push(
-                `- ${unit.name} [código: ${unit.code}] (máx ${unit.capacity_total} personas): ${priceStr} por noche`
+                `- ${unit.name} [código: ${unit.code}] (máx ${unit.capacity_total} personas): desde ${priceStr} por noche`
             )
         }
 
@@ -592,15 +551,28 @@ INSTRUCCIONES:
 2. Usa un tono familiar y cercano, como si fueras parte del equipo de Arte Brisa
 3. Sé conciso, máximo 3-4 oraciones por mensaje
 4. Cuando alguien pida la ubicación, envía la dirección y el link de Google Maps del establecimiento correspondiente
+4b. PRECIOS Y COTIZACIONES:
+   - La sección TARIFAS BASE POR NOCHE muestra precios "desde", calculados sobre la tarifa
+     base de cada unidad. NO es necesariamente el precio final: la tarifa real puede variar
+     según temporada y fechas exactas.
+   - Si el turista aún no te ha confirmado fechas de check-in y check-out específicas, puedes
+     mostrar el precio "desde $X" de la sección TARIFAS BASE.
+   - Si el turista ya te confirmó fechas específicas pero todavía no tienes los 5 datos
+     completos para generar la reserva (instrucción 6), NO inventes ni calcules tú mismo el
+     precio final para esas fechas — dile que el precio exacto para esas fechas se confirma
+     automáticamente al generar la reserva.
+   - Nunca afirmes un precio final concreto para fechas específicas basándote en la sección
+     TARIFAS BASE POR NOCHE: es solo un precio de referencia general (precio base), no el
+     precio real calculado para el rango de fechas del turista.
 5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
    Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
-   revisá la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
+   revisa la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
    si se cumple esta condición:
    (fecha_checkin_solicitada < fecha_fin_bloqueo) Y (fecha_checkout_solicitada > fecha_inicio_bloqueo)
    Es decir: si el rango solicitado se superpone EN CUALQUIER PARTE con un rango marcado como
    'ocupado' para esa misma unidad, NO está disponible, sin excepciones, incluso si la
-   superposición es parcial. Si tenés cualquier duda sobre el cálculo, o las fechas son
-   ambiguas, NO confirmes disponibilidad — pedí que te confirmen las fechas exactas o incluí
+   superposición es parcial. Si tienes cualquier duda sobre el cálculo, o las fechas son
+   ambiguas, NO confirmes disponibilidad — pide que te confirmen las fechas exactas o incluye
    ##DERIVAR##. Nunca confirmes disponibilidad sin haber verificado explícitamente contra
    el bloque de DISPONIBILIDAD ACTUAL para ese código de unidad específico.
 5b. PRIORIDAD DE DATOS: La sección DISPONIBILIDAD ACTUAL siempre refleja el estado
@@ -614,37 +586,37 @@ INSTRUCCIONES:
    en la conversación.
 5c. CONSULTAS DE ÚLTIMO MOMENTO VS. CONSULTAS DE RANGO AMPLIO:
    - Si el turista pregunta por disponibilidad para EL MISMO DÍA (hoy) o con menos de
-     24 horas de anticipación, derivá a humano con ##DERIVAR## — estas consultas requieren
+     24 horas de anticipación, deriva a humano con ##DERIVAR## — estas consultas requieren
      confirmación humana inmediata porque pueden depender de información que cambia en
      tiempo real.
    - Si el turista pregunta por un MES CALENDARIO COMPLETO o un rango amplio de fechas
-     (ej. "¿hay algo en junio?", "¿qué tienen para julio?"), respondé directamente usando
+     (ej. "¿hay algo en junio?", "¿qué tienen para julio?"), responde directamente usando
      el bloque DISPONIBILIDAD ACTUAL, sin derivar, salvo que genuinamente no tengas datos
      suficientes para ese rango. Si TODAS las unidades están ocupadas para ese mes completo
-     según los datos, decilo directamente: "Lamentablemente no tenemos disponibilidad durante
-     [mes], todas nuestras unidades están reservadas/bloqueadas en ese período." NO derivés
+     según los datos, dilo directamente: "Lamentablemente no tenemos disponibilidad durante
+     [mes], todas nuestras unidades están reservadas/bloqueadas en ese período." NO derives
      a humano solo porque el mes esté completo o vacío de disponibilidad — esa es información
-     que ya tenés y podés comunicar tú mismo.
+     que ya tienes y puedes comunicar tú mismo.
 6. GENERACIÓN DE RESERVA (##RESERVA_LISTA##):
    Si el turista ha confirmado EXPLÍCITAMENTE (mediante mensajes claros del cliente):
    - Su nombre completo
    - Fecha de check-in (YYYY-MM-DD)
    - Fecha de check-out (YYYY-MM-DD)
-   - Número de personas (SOLO ADULTOS, sin niños; si hay niños, derivá con ##DERIVAR##)
-   - Código de unidad — usá EXACTAMENTE uno de estos códigos: CAB-CHILCO, CAB-CIRUELILLO, CAB-FLOR-DE-NOTRO, CAB-LUPINO, DEP-1, DEP-2, DEP-3, DEP-4, TINY-CALAFATE, TINY-MARGARITA, TINY-NIRRE, TINY-VIOLETA
+   - Número de personas (SOLO ADULTOS, sin niños; si hay niños, deriva con ##DERIVAR##)
+   - Código de unidad — usa EXACTAMENTE uno de estos códigos: CAB-CHILCO, CAB-CIRUELILLO, CAB-FLOR-DE-NOTRO, CAB-LUPINO, DEP-1, DEP-2, DEP-3, DEP-4, TINY-CALAFATE, TINY-MARGARITA, TINY-NIRRE, TINY-VIOLETA
 
    Y si NO detectas problemas de disponibilidad, capacidad o fechas inválidas,
-   incluí al final de tu respuesta (en una línea nueva separada) el marcador:
+   incluye al final de tu respuesta (en una línea nueva separada) el marcador:
    ##RESERVA_LISTA##{"nombre":"Nombre Completo","check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","personas":N,"unidad_codigo":"CODE"}
 
    REGLAS CRÍTICAS:
    - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
-   - Usá el CODE exacto de la unidad (nunca el nombre conversacional, nunca UUID, ej: CAB-CHILCO, DEP-2, TINY-NIRRE)
+   - Usa el CODE exacto de la unidad (nunca el nombre conversacional, nunca UUID, ej: CAB-CHILCO, DEP-2, TINY-NIRRE)
    - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá
    - Si hay CUALQUIER duda sobre disponibilidad, capacidad o validación, NO incluyas el marcador
-   - Si el turista menciona NIÑOS o MENORES, derivá con ##DERIVAR## en lugar del marcador
+   - Si el turista menciona NIÑOS o MENORES, deriva con ##DERIVAR## en lugar del marcador
 7. Si el turista quiere reservar, solicita: nombre, fechas, número de personas y tipo de unidad
-8. Una vez que tengas los 5 datos confirmados (nombre, check-in, check-out, personas, unidad), NO envíes un mensaje de confirmación manual — en cambio, generá el marcador ##RESERVA_LISTA## según la instrucción 6. El sistema procesará el pago automáticamente.
+8. Una vez que tengas los 5 datos confirmados (nombre, check-in, check-out, personas, unidad), NO envíes un mensaje de confirmación manual — en cambio, genera el marcador ##RESERVA_LISTA## según la instrucción 6. El sistema procesará el pago automáticamente.
 9. No confirmes reservas de forma definitiva ni garantices disponibilidad sin verificar
 10. Si hay queja, problema con reserva existente o necesitas tomar una decisión que no puedes: incluye ##DERIVAR## en tu respuesta
 11. No inventes información. Si no sabes algo, dilo y ofrece derivar
@@ -992,7 +964,7 @@ Deno.serve(async (req: Request) => {
                 minimumFractionDigits: 0,
                 maximumFractionDigits: 0,
             })
-            assistantText += `\n\n✅ *Reserva confirmada*\n\nSeña de 1 noche: ${montoStr}\n\n🔗 [Completá tu pago aquí](${paymentResult.paymentUrl})\n\n(El código de acceso a la unidad te llegará 24 horas antes del check-in)`
+            assistantText += `\n\n✅ *Reserva confirmada*\n\nTotal a pagar: ${montoStr}\n\n🔗 [Completa tu pago aquí](${paymentResult.paymentUrl})\n\n(El código de acceso a la unidad te llegará 24 horas antes del check-in)`
         } else {
             // ❌ Fallo en processReservaLista: derivar a humano + email específico
             console.error(`[whatsapp-bot] Fallo al procesar ##RESERVA_LISTA##: ${paymentResult.reason}`)
