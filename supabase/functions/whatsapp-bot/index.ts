@@ -769,10 +769,17 @@ Deno.serve(async (req: Request) => {
     const rawBody = await req.text()
 
     // ── Validar firma Twilio ──────────────────────────────────────────────
+    // TEMPORAL DIAGNÓSTICO — REMOVER
+    console.log('[TWILIO-SIG-DEBUG] Header signature:', req.headers.get('x-twilio-signature'))
+    console.log('[TWILIO-SIG-DEBUG] From:', new URLSearchParams(rawBody).get('From'))
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
     const skipSig = Deno.env.get('SKIP_TWILIO_SIGNATURE') === 'true'
     const sigValid = skipSig || await validateTwilioSignature(req, twilioAuthToken, rawBody)
+    // TEMPORAL DIAGNÓSTICO — REMOVER
+    console.log('[TWILIO-SIG-DEBUG] sigValid:', sigValid, 'skipSig:', skipSig)
     if (!sigValid) {
+        // TEMPORAL DIAGNÓSTICO — REMOVER
+        console.error('[TWILIO-SIG-DEBUG] Firma inválida para From:', new URLSearchParams(rawBody).get('From'))
         return jsonError('Forbidden: invalid Twilio signature', 403)
     }
 
