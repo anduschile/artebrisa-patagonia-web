@@ -631,6 +631,13 @@ function twimlEmpty(): Response {
     )
 }
 
+function twimlMessage(text: string): Response {
+    return new Response(
+        `<?xml version="1.0" encoding="UTF-8"?><Response><Message>${text}</Message></Response>`,
+        { status: 200, headers: { 'Content-Type': 'text/xml' } },
+    )
+}
+
 function jsonError(msg: string, status: number): Response {
     return new Response(JSON.stringify({ error: msg }), {
         status,
@@ -828,6 +835,9 @@ Deno.serve(async (req: Request) => {
         conversation = created
     }
 
+    // TEMPORAL DIAGNÓSTICO — REMOVER
+    console.log('[BOT-FLOW] Conversación:', conversation.id, 'From:', phone)
+
     // ── 2. Si está en modo humano: guardar y salir ─────────────────────────
     if (conversation.status === 'human') {
         await supabase.from('core_chat_messages').insert({
@@ -851,12 +861,31 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 4. Guardar mensaje del usuario ────────────────────────────────────
-    await supabase.from('core_chat_messages').insert({
-        conversation_id: conversation.id,
-        role: 'user',
-        content: body,
-        twilio_sid: messageSid,
-    })
+    if (body === '') {
+        // Mensaje sin texto (imagen, audio, sticker, ubicación, etc.)
+        await supabase.from('core_chat_messages').insert({
+            conversation_id: conversation.id,
+            role: 'user',
+            content: '[Mensaje multimedia]',
+            twilio_sid: messageSid,
+        })
+
+        return twimlMessage('Solo puedo procesar mensajes de texto. Si tienes alguna consulta sobre disponibilidad o reservas, escríbeme con texto.')
+    }
+
+    const { data: insertedMsg } = await supabase
+        .from('core_chat_messages')
+        .insert({
+            conversation_id: conversation.id,
+            role: 'user',
+            content: body,
+            twilio_sid: messageSid,
+        })
+        .select('id')
+        .single()
+
+    // TEMPORAL DIAGNÓSTICO — REMOVER
+    console.log('[BOT-FLOW] Mensaje guardado, id:', insertedMsg?.id)
 
     // ── 5. Cargar historial (últimos 10 mensajes, con corte por gap de 2h) ──
     const { data: history } = await supabase
@@ -1104,6 +1133,9 @@ Deno.serve(async (req: Request) => {
         },
         body: twilioBody.toString(),
     })
+
+    // TEMPORAL DIAGNÓSTICO — REMOVER
+    console.log('[BOT-FLOW] Respuesta enviada a Twilio, status:', twilioSend.status)
 
     if (!twilioSend.ok) {
         const errText = await twilioSend.text()
