@@ -59,6 +59,23 @@ function getTodayInChile(): string {
 }
 
 /**
+ * Suma 'months' meses a una fecha 'YYYY-MM-DD' (string), sin librerías externas.
+ * El día no se ajusta a meses cortos (ej. 31 de febrero es aceptable aquí):
+ * el resultado solo se usa para comparación lexicográfica de strings ISO,
+ * no como fecha calendario real.
+ */
+function addMonthsToDateString(dateStr: string, months: number): string {
+    const [year, month, day] = dateStr.split('-').map(Number)
+    const totalMonths = year * 12 + (month - 1) + months
+    const newYear = Math.floor(totalMonths / 12)
+    const newMonth = (totalMonths % 12) + 1
+    const yyyy = String(newYear).padStart(4, '0')
+    const mm = String(newMonth).padStart(2, '0')
+    const dd = String(day).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+}
+
+/**
  * Carga las unidades activas desde core_units. Reutilizable por formatAvailabilityContext
  * y buildUnitsContext para mantener consistencia.
  */
@@ -209,6 +226,9 @@ async function processReservaLista(
         }
         if (parsed.check_in < today) {
             return { success: false, reason: 'check_in_en_pasado' }
+        }
+        if (parsed.check_in > addMonthsToDateString(today, 18)) {
+            return { success: false, reason: 'check_in_fecha_muy_lejana' }
         }
 
         // c. Validar personas <= capacity_total
@@ -501,6 +521,8 @@ async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> 
 }
 
 const SYSTEM_PROMPT_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagonia, un complejo de alojamiento en Puerto Natales, Chile. Te llamas Arte Brisa Patagonia y hablas de forma cálida y familiar con los turistas.
+
+La fecha de hoy es {fecha_actual}. Cuando el huésped mencione una fecha sin especificar el año (ej: "4 de octubre", "del 20 al 25 de diciembre"), asume el año más próximo que sea igual o posterior a hoy. Si la fecha mencionada ya pasó este año, asume el año siguiente. Nunca asumas un año más de 18 meses hacia el futuro sin que el huésped lo especifique explícitamente.
 
 ESTABLECIMIENTOS:
 
@@ -943,6 +965,7 @@ Deno.serve(async (req: Request) => {
     const systemPrompt = SYSTEM_PROMPT_TEMPLATE
         .replace('{context_tarifas}', unitsCtx)
         .replace('{context_disponibilidad}', availabilityCtx)
+        .replace('{fecha_actual}', getTodayInChile())
 
     // DEBUG: Loguear el systemPrompt completo para auditoría
     console.log('[whatsapp-bot] === SYSTEM PROMPT ENVIADO A CLAUDE ===')
@@ -1001,6 +1024,10 @@ Deno.serve(async (req: Request) => {
                 maximumFractionDigits: 0,
             })
             assistantText += `\n\n✅ *Reserva confirmada*\n\nTotal a pagar: ${montoStr}\n\n🔗 [Completa tu pago aquí](${paymentResult.paymentUrl})\n\n(El código de acceso a la unidad te llegará 24 horas antes del check-in)`
+        } else if (paymentResult.reason === 'check_in_fecha_muy_lejana') {
+            // ⚠️ Posible año mal inferido: pedir aclaración sin derivar a humano
+            console.error(`[whatsapp-bot] Fecha muy lejana en ##RESERVA_LISTA## (posible año mal inferido): ${JSON.stringify(parseResult.data)}`)
+            assistantText += `\n\nCreo que puede haber un malentendido con el año de la fecha — ¿me puedes confirmar el año exacto de tu check-in? Por ejemplo: "4 de octubre de 2026".`
         } else {
             // ❌ Fallo en processReservaLista: derivar a humano + email específico
             console.error(`[whatsapp-bot] Fallo al procesar ##RESERVA_LISTA##: ${paymentResult.reason}`)
