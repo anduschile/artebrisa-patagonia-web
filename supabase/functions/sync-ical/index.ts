@@ -368,9 +368,9 @@ async function processCalendar(
             const { data: existing, error: selectErr } = await supabase
                 .from('core_reservations')
                 .select('id')
-                .eq('unit_id', cal.unit_id)
-                .eq('external_provider', provider)
+                .eq('external_source', 'ical')
                 .eq('external_uid', ev.uid)
+                .eq('external_calendar_id', cal.id)
                 .maybeSingle()
 
             if (selectErr) throw new Error(`Select error: ${selectErr.message}`)
