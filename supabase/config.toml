@@ -1,5 +1,8 @@
 [functions.whatsapp-bot]
 verify_jwt = false
 
+[functions.sync-ical]
+verify_jwt = false
+
 [functions.confirm-payment]
 verify_jwt = false
