@@ -179,6 +179,29 @@ function parseReservaLista(text: string):
 }
 
 /**
+ * Parsea el marcador ##COTIZAR##{JSON} de la respuesta del bot.
+ * A diferencia de ##RESERVA_LISTA##, un fallo de parseo aquí no deriva a humano
+ * ni dispara email — simplemente no se activa el flujo de cotización con precio real.
+ */
+function parseCotizar(text: string):
+    | { success: true; data: { unit_code: string; check_in: string; check_out: string } }
+    | { success: false } {
+
+    const match = text.match(/##COTIZAR##(\{[^}]*\})/)
+    if (!match) {
+        return { success: false }
+    }
+
+    try {
+        const data = JSON.parse(match[1])
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseCotizar: JSON inválido:', match[1], e)
+        return { success: false }
+    }
+}
+
+/**
  * Procesa una reserva confirmada desde WhatsApp.
  * Valida formato, disponibilidad, crea guest + reserva inquiry, dispara pago.
  *
@@ -579,13 +602,24 @@ INSTRUCCIONES:
      según temporada y fechas exactas.
    - Si el turista aún no te ha confirmado fechas de check-in y check-out específicas, puedes
      mostrar el precio "desde $X" de la sección TARIFAS BASE.
-   - Si el turista ya te confirmó fechas específicas pero todavía no tienes los 5 datos
-     completos para generar la reserva (instrucción 6), NO inventes ni calcules tú mismo el
-     precio final para esas fechas — dile que el precio exacto para esas fechas se confirma
-     automáticamente al generar la reserva.
+   - Si el turista ya te confirmó fechas específicas para una unidad determinada, pero todavía
+     no tienes los 5 datos completos para generar la reserva (instrucción 6), NO inventes ni
+     calcules tú mismo el precio final para esas fechas — usa el marcador ##COTIZAR## de la
+     instrucción 4c en vez de responder con texto.
    - Nunca afirmes un precio final concreto para fechas específicas basándote en la sección
      TARIFAS BASE POR NOCHE: es solo un precio de referencia general (precio base), no el
      precio real calculado para el rango de fechas del turista.
+4c. COTIZACIÓN DE FECHAS ESPECÍFICAS (##COTIZAR##):
+   Si el turista ya te confirmó fechas de check-in y check-out específicas para una unidad
+   determinada (aunque todavía no tengas los demás datos para completar la reserva de la
+   instrucción 6), responde ÚNICAMENTE con el siguiente marcador, sin ningún otro texto antes
+   o después en ese turno:
+   ##COTIZAR##{"unit_code":"CODE","check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD"}
+   - Usa el CODE exacto de la unidad (mismos códigos de la instrucción 6)
+   - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
+   - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá; el
+     sistema calculará el precio real y generará la respuesta que el turista sí recibirá
+   - No mezcles este marcador con texto conversacional en el mismo turno
 5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
    Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
    revisa la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
@@ -1000,7 +1034,88 @@ Deno.serve(async (req: Request) => {
     console.log('Claude response:', JSON.stringify(claudeData?.content))
     let assistantText: string = claudeData?.content?.[0]?.text ?? ''
 
-    // ── 9. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
+    // ── 9. Detectar y procesar ##COTIZAR## (cotización con precio real, 2da llamada) ────
+    const cotizarResult = parseCotizar(assistantText)
+
+    if (cotizarResult.success) {
+        const { unit_code, check_in, check_out } = cotizarResult.data
+        const cotizarStart = Date.now()
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+        const unit = activeUnits.find(u => u.code === unit_code)
+        let usedFallback = false
+
+        const priceFallbackText = (basePrice: number) =>
+            `Dame un momento para confirmarte el precio exacto para esas fechas 🙂 Mientras tanto, el precio de referencia de ${unit_code} es desde ${basePrice.toLocaleString('es-CL')} por noche.`
+
+        if (!unit) {
+            // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##COTIZAR## unit_code no encontrado: ${unit_code}`)
+            assistantText = `Dame un momento para confirmarte disponibilidad y precio para esas fechas 🙂 Ya te contacto con la información.`
+
+            await supabase
+                .from('core_chat_conversations')
+                .update({ status: 'human' })
+                .eq('id', conversation.id)
+        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out) {
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            assistantText = priceFallbackText(Number(unit.base_price))
+        } else {
+            try {
+                const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
+                const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
+                const avgPrice = Math.round(totalPrice / nights)
+
+                const priceNote = `El precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
+
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+                try {
+                    const secondResp = await fetch(CLAUDE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': anthropicKey,
+                            'anthropic-version': '2023-06-01',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: CLAUDE_MODEL,
+                            max_tokens: 1024,
+                            system: `${systemPrompt}\n\n${priceNote}`,
+                            messages: sanitizedMessages,
+                        }),
+                        signal: controller.signal,
+                    })
+
+                    if (!secondResp.ok) {
+                        throw new Error(`HTTP ${secondResp.status}`)
+                    }
+
+                    const secondData = await secondResp.json()
+                    const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+                    if (!secondText.trim()) {
+                        throw new Error('respuesta vacía')
+                    }
+
+                    assistantText = secondText
+                } finally {
+                    clearTimeout(timeoutId)
+                }
+            } catch (e) {
+                usedFallback = true
+                const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
+                assistantText = priceFallbackText(Number(unit.base_price))
+            }
+        }
+
+        console.log(`[whatsapp-bot] ##COTIZAR## disparado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - cotizarStart} fallback=${usedFallback}`)
+    }
+
+    // ── 10. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
     const parseResult = parseReservaLista(assistantText)
 
     if (parseResult.success) {
@@ -1093,7 +1208,7 @@ Deno.serve(async (req: Request) => {
     }
     // Si parseResult.reason === 'no_marker': no hacer nada especial, continuar
 
-    // ── 10. Detectar ##DERIVAR## (flujo normal, sin cambios) ──────────────────
+    // ── 11. Detectar ##DERIVAR## (flujo normal, sin cambios) ──────────────────
     if (!assistantText || assistantText.trim() === '') {
         const fallbackMsg = 'Gracias por tu mensaje. En este momento estoy teniendo dificultades técnicas. Por favor escríbenos nuevamente en unos minutos.'
         assistantText = fallbackMsg
@@ -1128,20 +1243,20 @@ Deno.serve(async (req: Request) => {
         }
     }
 
-    // ── 11. Guardar respuesta del asistente ───────────────────────────────
+    // ── 12. Guardar respuesta del asistente ───────────────────────────────
     await supabase.from('core_chat_messages').insert({
         conversation_id: conversation.id,
         role: 'assistant',
         content: assistantText,
     })
 
-    // ── 12. Actualizar last_message_at ────────────────────────────────────
+    // ── 13. Actualizar last_message_at ────────────────────────────────────
     await supabase
         .from('core_chat_conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversation.id)
 
-    // ── 13. Enviar respuesta vía Twilio REST API ───────────────────────────
+    // ── 14. Enviar respuesta vía Twilio REST API ───────────────────────────
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
     const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
     const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
