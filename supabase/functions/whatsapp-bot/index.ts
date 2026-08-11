@@ -1232,9 +1232,10 @@ Deno.serve(async (req: Request) => {
             .update({ status: 'human' })
             .eq('id', conversation.id)
 
+        const displayName = profileName || phone
+
         const resendKey = Deno.env.get('RESEND_API_KEY') ?? ''
         if (resendKey) {
-            const displayName = profileName || phone
             await fetch('https://api.resend.com/emails', {
                 method: 'POST',
                 headers: {
@@ -1249,6 +1250,36 @@ Deno.serve(async (req: Request) => {
                     html: `<p>El chat con <strong>${displayName}</strong> (${phone}) requiere atención humana.</p><p>Último mensaje: <em>${body}</em></p>`,
                 }),
             }).catch(e => console.error('Resend error:', e))
+        }
+
+        // Notificar a Karina por WhatsApp (fire-and-forget), mismo patrón que reserva exitosa
+        try {
+            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
+            const notificationMsg = `⚠️ Un huésped necesita atención humana en el chat.\n👤 ${displayName} (${phone})\n💬 "${body}"`
+
+            const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+            const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+            const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+
+            if (accountSid && twilioAuthToken && fromNumber) {
+                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const twilioBody = new URLSearchParams({
+                    From: fromNumber,
+                    To: `whatsapp:${karinasPhone}`,
+                    Body: notificationMsg,
+                })
+
+                await fetch(twilioUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: twilioBody.toString(),
+                }).catch(e => console.error('[whatsapp-bot] Error notificando a Karina (DERIVAR):', e))
+            }
+        } catch (e) {
+            console.error('[whatsapp-bot] Exception notificando a Karina (DERIVAR):', e)
         }
     }
 
