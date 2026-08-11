@@ -653,6 +653,15 @@ INSTRUCCIONES:
      [mes], todas nuestras unidades están reservadas/bloqueadas en ese período." NO derives
      a humano solo porque el mes esté completo o vacío de disponibilidad — esa es información
      que ya tienes y puedes comunicar tú mismo.
+5d. MARCADOR DE FECHA MENCIONADA (validación interna, obligatorio):
+   Cada vez que confirmes o niegues disponibilidad para una fecha o mes específico
+   (instrucciones 5 y 5c), agrega al FINAL de tu respuesta, en una línea separada, el marcador:
+   <!--FECHA_MENCIONADA:YYYY-MM-DD-->
+   - Si la consulta fue sobre un mes completo sin día específico, usa el día 1 de ese mes
+     como fecha representativa (ej. consulta sobre junio → YYYY-06-01)
+   - Este marcador es invisible para el huésped — el sistema lo elimina automáticamente antes
+     de enviar la respuesta
+   - No lo omitas: es la forma en que el sistema verifica que la fecha que usaste es correcta
 6. GENERACIÓN DE RESERVA (##RESERVA_LISTA##):
    Si el turista ha confirmado EXPLÍCITAMENTE (mediante mensajes claros del cliente):
    - Su nombre completo
@@ -1057,7 +1066,7 @@ Deno.serve(async (req: Request) => {
                 .from('core_chat_conversations')
                 .update({ status: 'human' })
                 .eq('id', conversation.id)
-        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out) {
+        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             usedFallback = true
             console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
             assistantText = priceFallbackText(Number(unit.base_price))
@@ -1243,20 +1252,39 @@ Deno.serve(async (req: Request) => {
         }
     }
 
-    // ── 12. Guardar respuesta del asistente ───────────────────────────────
+    // ── 12. Validar ##FECHA_MENCIONADA## (post-procesamiento centralizado) ───
+    const fechaMencionadaMatch = assistantText.match(/<!--FECHA_MENCIONADA:(\d{4}-\d{2}-\d{2})-->/)
+
+    if (fechaMencionadaMatch) {
+        const fechaMencionada = fechaMencionadaMatch[1]
+        const todayForValidation = getTodayInChile()
+        console.log(`[whatsapp-bot] FECHA_MENCIONADA encontrada: ${fechaMencionada}`)
+
+        if (fechaMencionada < todayForValidation || fechaMencionada > addMonthsToDateString(todayForValidation, 18)) {
+            // Reemplazo total de la respuesta (no un parche puntual): perder contexto conversacional
+            // es más seguro que dejar pasar una confirmación de disponibilidad con año mal calculado.
+            assistantText = 'Creo que puede haber un malentendido con el año de esa fecha — ¿me confirmas el año exacto?'
+        } else {
+            assistantText = assistantText.replace(/<!--FECHA_MENCIONADA:\d{4}-\d{2}-\d{2}-->/, '').trim()
+        }
+    } else {
+        console.log('[whatsapp-bot] FECHA_MENCIONADA no encontrada en esta respuesta')
+    }
+
+    // ── 13. Guardar respuesta del asistente ───────────────────────────────
     await supabase.from('core_chat_messages').insert({
         conversation_id: conversation.id,
         role: 'assistant',
         content: assistantText,
     })
 
-    // ── 13. Actualizar last_message_at ────────────────────────────────────
+    // ── 14. Actualizar last_message_at ────────────────────────────────────
     await supabase
         .from('core_chat_conversations')
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversation.id)
 
-    // ── 14. Enviar respuesta vía Twilio REST API ───────────────────────────
+    // ── 15. Enviar respuesta vía Twilio REST API ───────────────────────────
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
     const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
     const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
