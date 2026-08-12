@@ -47,7 +47,7 @@ export default function ChatConversationList({ selectedId, onSelect, onConversat
     }, [load])
 
     return (
-        <div className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col h-full">
+        <div className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0 flex-1">
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                 <h2 className="font-semibold text-gray-900 text-sm">Conversaciones</h2>
