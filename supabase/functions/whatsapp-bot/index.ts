@@ -1076,7 +1076,7 @@ Deno.serve(async (req: Request) => {
                 const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
                 const avgPrice = Math.round(totalPrice / nights)
 
-                const priceNote = `El precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
+                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
 
                 const controller = new AbortController()
                 const timeoutId = setTimeout(() => controller.abort(), 8000)
@@ -1300,6 +1300,21 @@ Deno.serve(async (req: Request) => {
         }
     } else {
         console.log('[whatsapp-bot] FECHA_MENCIONADA no encontrada en esta respuesta')
+    }
+
+    // ── 12b. Guardia de seguridad: nunca enviar un marcador interno sin procesar ──
+    // Última línea de defensa, independiente de la causa: si por cualquier motivo
+    // (prompt, parseo, nueva llamada a Claude, etc.) queda un marcador ##ALGO## crudo
+    // en el texto final, no debe llegar nunca al huésped.
+    const rawMarkerMatch = assistantText.match(/##[A-ZÁÉÍÓÚÑ]+##/)
+    if (rawMarkerMatch) {
+        console.error(`[whatsapp-bot] Marcador interno sin procesar detectado antes de enviar (${rawMarkerMatch[0]}), se reemplaza por fallback seguro. Texto original: ${assistantText}`)
+        assistantText = 'Dame un momento para confirmarte esa información 🙂 Ya te contacto directamente.'
+
+        await supabase
+            .from('core_chat_conversations')
+            .update({ status: 'human' })
+            .eq('id', conversation.id)
     }
 
     // ── 13. Guardar respuesta del asistente ───────────────────────────────
