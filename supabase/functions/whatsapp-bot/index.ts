@@ -202,6 +202,42 @@ function parseCotizar(text: string):
 }
 
 /**
+ * Parsea el marcador ##LISTAR_PRECIOS##{JSON} de la respuesta del bot.
+ * Igual que parseCotizar, pero para precios reales de VARIAS unidades candidatas
+ * (fechas confirmadas, unidad aún sin elegir). Un fallo de parseo aquí no deriva
+ * a humano ni dispara email — simplemente no se activa el flujo de precios reales.
+ */
+function parseListarPrecios(text: string):
+    | { success: true; data: { check_in: string; check_out: string; unit_codes: string[] } }
+    | { success: false } {
+
+    const match = text.match(/##LISTAR_PRECIOS##(\{[^}]*\})/)
+    if (!match) {
+        return { success: false }
+    }
+
+    try {
+        const data = JSON.parse(match[1])
+        const validShape =
+            typeof data.check_in === 'string' &&
+            typeof data.check_out === 'string' &&
+            Array.isArray(data.unit_codes) &&
+            data.unit_codes.length > 0 &&
+            data.unit_codes.every((c: unknown) => typeof c === 'string')
+
+        if (!validShape) {
+            console.error('[whatsapp-bot] parseListarPrecios: estructura inválida:', match[1])
+            return { success: false }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseListarPrecios: JSON inválido:', match[1], e)
+        return { success: false }
+    }
+}
+
+/**
  * Procesa una reserva confirmada desde WhatsApp.
  * Valida formato, disponibilidad, crea guest + reserva inquiry, dispara pago.
  *
@@ -606,6 +642,9 @@ INSTRUCCIONES:
      no tienes los 5 datos completos para generar la reserva (instrucción 6), NO inventes ni
      calcules tú mismo el precio final para esas fechas — usa el marcador ##COTIZAR## de la
      instrucción 4c en vez de responder con texto.
+   - Si el turista ya te confirmó fechas específicas pero todavía está viendo varias unidades
+     candidatas sin haber elegido una, usa ##LISTAR_PRECIOS## (instrucción 4d) — no muestres
+     el precio "desde $X" de TARIFAS BASE para ese listado.
    - Nunca afirmes un precio final concreto para fechas específicas basándote en la sección
      TARIFAS BASE POR NOCHE: es solo un precio de referencia general (precio base), no el
      precio real calculado para el rango de fechas del turista.
@@ -620,6 +659,22 @@ INSTRUCCIONES:
    - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá; el
      sistema calculará el precio real y generará la respuesta que el turista sí recibirá
    - No mezcles este marcador con texto conversacional en el mismo turno
+4d. LISTADO DE VARIAS UNIDADES PARA FECHAS CONOCIDAS (##LISTAR_PRECIOS##):
+   Si el turista ya te confirmó fechas de check-in y check-out específicas, pero TODAVÍA no ha
+   elegido una unidad determinada — por ejemplo, le estás mostrando varias opciones disponibles
+   (varias Tiny Houses, varias cabañas) para que compare, o le estás ofreciendo alternativas
+   porque la unidad que pidió originalmente no está disponible para esas fechas — responde
+   ÚNICAMENTE con el siguiente marcador, sin ningún otro texto antes o después en ese turno:
+   ##LISTAR_PRECIOS##{"check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD","unit_codes":["CODE1","CODE2"]}
+   - Incluye en unit_codes SOLO unidades que ya verificaste como disponibles para esas fechas
+     según DISPONIBILIDAD ACTUAL (instrucción 5)
+   - Usa los CODE exactos de las unidades (mismos códigos de la instrucción 6)
+   - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
+   - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá; el
+     sistema calculará el precio real de cada unidad y generará la respuesta que el turista
+     sí recibirá
+   - No mezcles este marcador con texto conversacional en el mismo turno
+   - No lo uses para una sola unidad ya determinada — para ese caso usa ##COTIZAR## (instrucción 4c)
 5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
    Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
    revisa la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
@@ -1122,6 +1177,119 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(`[whatsapp-bot] ##COTIZAR## disparado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - cotizarStart} fallback=${usedFallback}`)
+    }
+
+    // ── 9b. Detectar y procesar ##LISTAR_PRECIOS## (precios reales para varias unidades candidatas) ──
+    const listarPreciosResult = parseListarPrecios(assistantText)
+
+    if (listarPreciosResult.success) {
+        const { check_in, check_out, unit_codes } = listarPreciosResult.data
+        const listarStart = Date.now()
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+
+        const uniqueCodes = [...new Set(unit_codes)]
+        const resolved = uniqueCodes.map(code => ({ code, unit: activeUnits.find(u => u.code === code) ?? null }))
+        const unknownCodes = resolved.filter(r => r.unit === null).map(r => r.code)
+        const knownUnits = resolved.map(r => r.unit).filter((u): u is Unit => u !== null)
+
+        let usedFallback = false
+        const genericFallbackText =
+            `Dame un momento para confirmarte los precios exactos para esas fechas 🙂 Ya te contacto con la información.`
+
+        if (unknownCodes.length > 0) {
+            // unit_code(s) inválidos generados por el LLM: señal de que algo no cuadra, amerita revisión humana
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## unit_codes no encontrados: ${unknownCodes.join(', ')}`)
+            assistantText = genericFallbackText
+
+            await supabase
+                .from('core_chat_conversations')
+                .update({ status: 'human' })
+                .eq('id', conversation.id)
+        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            assistantText = genericFallbackText
+        } else {
+            // Precio real por unidad EN PARALELO — son consultas a BD, no llamadas a Claude
+            const settled = await Promise.allSettled(
+                knownUnits.map(async unit => {
+                    const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
+                    const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
+                    return { code: unit.code, totalPrice, nights, avgPrice: Math.round(totalPrice / nights) }
+                })
+            )
+
+            const priced = settled
+                .filter((r): r is PromiseFulfilledResult<{ code: string; totalPrice: number; nights: number; avgPrice: number }> => r.status === 'fulfilled')
+                .map(r => r.value)
+
+            const failedCodes = knownUnits
+                .filter((_, i) => settled[i].status === 'rejected')
+                .map(u => u.code)
+
+            if (failedCodes.length > 0) {
+                console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fallo calculando precio para: ${failedCodes.join(', ')}`)
+            }
+
+            if (priced.length === 0) {
+                usedFallback = true
+                assistantText = genericFallbackText
+            } else {
+                const priceLines = priced
+                    .map(p => `- ${p.code}: $${p.totalPrice.toLocaleString('es-CL')} total ($${p.avgPrice.toLocaleString('es-CL')}/noche, ${p.nights} noches)`)
+                    .join('\n')
+
+                const missingNote = failedCodes.length > 0
+                    ? `\n\nNo se pudo calcular el precio de: ${failedCodes.join(', ')} — para esas NO des ningún precio, dile al huésped que se las confirmas aparte.`
+                    : ''
+
+                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.`
+
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+                try {
+                    const secondResp = await fetch(CLAUDE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': anthropicKey,
+                            'anthropic-version': '2023-06-01',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: CLAUDE_MODEL,
+                            max_tokens: 1024,
+                            system: `${systemPrompt}\n\n${priceNote}`,
+                            messages: sanitizedMessages,
+                        }),
+                        signal: controller.signal,
+                    })
+
+                    if (!secondResp.ok) {
+                        throw new Error(`HTTP ${secondResp.status}`)
+                    }
+
+                    const secondData = await secondResp.json()
+                    const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+                    if (!secondText.trim()) {
+                        throw new Error('respuesta vacía')
+                    }
+
+                    assistantText = secondText
+                } catch (e) {
+                    usedFallback = true
+                    const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                    console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## segunda llamada falló (${reason})`)
+                    assistantText = genericFallbackText
+                } finally {
+                    clearTimeout(timeoutId)
+                }
+            }
+        }
+
+        console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## disparado: unit_codes=${uniqueCodes.join(',')} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - listarStart} fallback=${usedFallback}`)
     }
 
     // ── 10. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
