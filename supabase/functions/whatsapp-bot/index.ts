@@ -469,7 +469,7 @@ async function processReservaLista(
 
         // k. Notificar a Karina por WhatsApp (fire-and-forget)
         try {
-            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
+            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
             const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const check_outFormatted = new Date(parsed.check_out + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const priceFormatted = totalAmount.toLocaleString('es-CL')
@@ -1422,7 +1422,7 @@ Deno.serve(async (req: Request) => {
 
         // Notificar a Karina por WhatsApp (fire-and-forget), mismo patrón que reserva exitosa
         try {
-            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56950921745'
+            const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
             const notificationMsg = `⚠️ Un huésped necesita atención humana en el chat.\n👤 ${displayName} (${phone})\n💬 "${body}"`
 
             const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
