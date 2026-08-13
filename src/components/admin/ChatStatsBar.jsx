@@ -31,9 +31,9 @@ export default function ChatStatsBar() {
     }, [period])
 
     return (
-        <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-center justify-between gap-4">
+        <div className="w-72 shrink-0 px-4 py-3 border-b border-gray-200 bg-gray-50 flex flex-col gap-2">
             {/* Period buttons */}
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-1.5">
                 {PERIODS.map(p => (
                     <button
                         key={p.value}
