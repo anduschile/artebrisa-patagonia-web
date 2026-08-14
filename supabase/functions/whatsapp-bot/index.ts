@@ -238,6 +238,37 @@ function parseListarPrecios(text: string):
 }
 
 /**
+ * Parsea el marcador ##ENVIAR_FOTOS##{JSON} de la respuesta del bot.
+ * Igual que parseCotizar/parseListarPrecios, pero para el envío de fotos de UNA unidad.
+ * Un fallo de parseo aquí no deriva a humano ni dispara email — simplemente no se activa
+ * el envío de fotos.
+ */
+function parseEnviarFotos(text: string):
+    | { success: true; data: { unit_code: string } }
+    | { success: false } {
+
+    const match = text.match(/##ENVIAR_FOTOS##(\{[^}]*\})/)
+    if (!match) {
+        return { success: false }
+    }
+
+    try {
+        const data = JSON.parse(match[1])
+        const validShape = typeof data.unit_code === 'string' && data.unit_code.trim().length > 0
+
+        if (!validShape) {
+            console.error('[whatsapp-bot] parseEnviarFotos: estructura inválida:', match[1])
+            return { success: false }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseEnviarFotos: JSON inválido:', match[1], e)
+        return { success: false }
+    }
+}
+
+/**
  * Procesa una reserva confirmada desde WhatsApp.
  * Valida formato, disponibilidad, crea guest + reserva inquiry, dispara pago.
  *
@@ -675,6 +706,21 @@ INSTRUCCIONES:
      sí recibirá
    - No mezcles este marcador con texto conversacional en el mismo turno
    - No lo uses para una sola unidad ya determinada — para ese caso usa ##COTIZAR## (instrucción 4c)
+4e. ENVÍO DE FOTOS DE UNA UNIDAD (##ENVIAR_FOTOS##):
+   Esta instrucción es independiente de 4c y 4d — no reemplaza una cotización, es solo para
+   cuando el turista pide ver fotos de una unidad.
+   - Si el turista pide ver fotos de una unidad ESPECÍFICA ya identificada (por código de
+     unidad claro, ej: ya te confirmó que le interesa CAB-CHILCO), responde ÚNICAMENTE con el
+     siguiente marcador, sin ningún otro texto antes o después en ese turno:
+     ##ENVIAR_FOTOS##{"unit_code":"CODE"}
+     - Usa el CODE exacto de la unidad (mismos códigos de la instrucción 6)
+     - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
+     - Este marcador se procesa automáticamente servidor-side — el turista nunca lo verá; el
+       sistema le enviará las fotos directamente
+     - No mezcles este marcador con texto conversacional en el mismo turno
+   - Si el turista pide fotos pero todavía no ha quedado claro a qué unidad se refiere (ej:
+     "mándame fotos de las cabañas" sin especificar cuál), NO dispares el marcador — primero
+     pregúntale cuál unidad le interesa.
 5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
    Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
    revisa la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
@@ -1292,6 +1338,114 @@ Deno.serve(async (req: Request) => {
         console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## disparado: unit_codes=${uniqueCodes.join(',')} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - listarStart} fallback=${usedFallback}`)
     }
 
+    // ── 9c. Detectar y procesar ##ENVIAR_FOTOS## (envío de fotos de una unidad) ──
+    let mediaAlreadySent = false
+    const enviarFotosResult = parseEnviarFotos(assistantText)
+
+    if (enviarFotosResult.success) {
+        const { unit_code } = enviarFotosResult.data
+        const fotosStart = Date.now()
+
+        const fotosFallbackText = 'Dame un momento, te comparto las fotos directamente 🙂'
+
+        const { data: photoRow, error: photoErr } = await supabase
+            .from('unit_photos')
+            .select('photo_urls')
+            .eq('unit_code', unit_code)
+            .maybeSingle()
+
+        if (photoErr) {
+            console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error consultando unit_photos para unit_code=${unit_code}:`, photoErr)
+            assistantText = fotosFallbackText
+        } else if (!photoRow || !Array.isArray(photoRow.photo_urls) || photoRow.photo_urls.length < 2) {
+            // Sin fila cargada, o fila con menos de 2 URLs: pendiente de completar en unit_photos
+            console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## unit_code sin fotos suficientes (pendiente de completar en unit_photos): unit_code=${unit_code} urls_encontradas=${photoRow?.photo_urls?.length ?? 0}`)
+            assistantText = fotosFallbackText
+        } else {
+            const photoUrls = photoRow.photo_urls.slice(0, 3)
+            const captionText = `Estas son algunas fotos de ${unit_code}:`
+
+            const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+            const fotosAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+            const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+
+            if (accountSid && fotosAuthToken && fromNumber) {
+                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                let anySent = false
+
+                // WhatsApp (a diferencia de MMS) solo acepta UN media por mensaje: Twilio ignora
+                // silenciosamente los MediaUrl adicionales. Por eso se manda 1) el caption como
+                // mensaje de texto normal y 2) un mensaje separado por cada foto, secuencial
+                // (no Promise.all) para preservar el orden en que llegan al huésped.
+                try {
+                    const captionBody = new URLSearchParams({
+                        From: fromNumber,
+                        To: fromRaw,
+                        Body: captionText,
+                    })
+                    const captionSend = await fetch(twilioUrl, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                        },
+                        body: captionBody.toString(),
+                    })
+
+                    if (!captionSend.ok) {
+                        const errText = await captionSend.text()
+                        console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando caption por Twilio (unit_code=${unit_code}):`, captionSend.status, errText)
+                    } else {
+                        anySent = true
+                    }
+                } catch (e) {
+                    console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando caption por Twilio (unit_code=${unit_code}):`, e)
+                }
+
+                for (const url of photoUrls) {
+                    try {
+                        const photoBody = new URLSearchParams({
+                            From: fromNumber,
+                            To: fromRaw,
+                            MediaUrl: url,
+                        })
+                        const photoSend = await fetch(twilioUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
+                                'Content-Type': 'application/x-www-form-urlencoded',
+                            },
+                            body: photoBody.toString(),
+                        })
+
+                        if (!photoSend.ok) {
+                            const errText = await photoSend.text()
+                            console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, photoSend.status, errText)
+                        } else {
+                            anySent = true
+                        }
+                    } catch (e) {
+                        console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, e)
+                    }
+                }
+
+                if (anySent) {
+                    // Al menos el caption o una foto llegó al huésped: no duplicar en el paso 15.
+                    assistantText = captionText
+                    mediaAlreadySent = true
+                } else {
+                    // Nada llegó al huésped: dejar que el paso 15 mande el fallback.
+                    assistantText = fotosFallbackText
+                }
+            } else {
+                console.error('[whatsapp-bot] ##ENVIAR_FOTOS## faltan credenciales de Twilio para enviar fotos')
+                assistantText = fotosFallbackText
+            }
+        }
+
+        console.log(`[whatsapp-bot] ##ENVIAR_FOTOS## disparado: unit_code=${unit_code} elapsed_ms=${Date.now() - fotosStart} media_enviado=${mediaAlreadySent}`)
+    }
+
     // ── 10. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
     const parseResult = parseReservaLista(assistantText)
 
@@ -1499,31 +1653,35 @@ Deno.serve(async (req: Request) => {
         .eq('id', conversation.id)
 
     // ── 15. Enviar respuesta vía Twilio REST API ───────────────────────────
-    const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
-    const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
-    const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+    // Si ##ENVIAR_FOTOS## ya envió el mensaje con las fotos (paso 9c), no reenviar
+    // el mismo texto en un segundo mensaje separado.
+    if (!mediaAlreadySent) {
+        const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+        const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+        const twilioUrl  = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
 
-    const twilioBody = new URLSearchParams({
-        From: fromNumber,
-        To:   fromRaw,
-        Body: assistantText,
-    })
+        const twilioBody = new URLSearchParams({
+            From: fromNumber,
+            To:   fromRaw,
+            Body: assistantText,
+        })
 
-    const twilioSend = await fetch(twilioUrl, {
-        method: 'POST',
-        headers: {
-            'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
-            'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: twilioBody.toString(),
-    })
+        const twilioSend = await fetch(twilioUrl, {
+            method: 'POST',
+            headers: {
+                'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: twilioBody.toString(),
+        })
 
-    // TEMPORAL DIAGNÓSTICO — REMOVER
-    console.log('[BOT-FLOW] Respuesta enviada a Twilio, status:', twilioSend.status)
+        // TEMPORAL DIAGNÓSTICO — REMOVER
+        console.log('[BOT-FLOW] Respuesta enviada a Twilio, status:', twilioSend.status)
 
-    if (!twilioSend.ok) {
-        const errText = await twilioSend.text()
-        console.error('Twilio send error:', twilioSend.status, errText)
+        if (!twilioSend.ok) {
+            const errText = await twilioSend.text()
+            console.error('Twilio send error:', twilioSend.status, errText)
+        }
     }
 
     return twimlEmpty()
