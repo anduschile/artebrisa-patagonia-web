@@ -1,17 +1,26 @@
 // ─── export-ical Edge Function ────────────────────────────────────────────────
 // Supabase Edge Function (Deno) — no external npm dependencies.
 //
-// GET /functions/v1/export-ical?unit=<unit_code>
+// GET /functions/v1/export-ical?unit=<unit_code>&channel=<airbnb|booking>
 //
 // Public endpoint (deploy with --no-verify-jwt). Returns a VCALENDAR (.ics)
 // with future confirmed + blocked reservations for the unit, so that
 // Booking, Airbnb and other iCal-aware platforms can import availability.
 //
-// IMPORTANT: only reservations created in-house are exported (external_source
-// IS NULL). Reservations imported from OTAs via sync-ical (external_source =
-// 'ical') are excluded to avoid a feedback loop: Airbnb → Arte Brisa →
-// export-ical → Airbnb. In-house blocks (web, phone, walk-in, low-season)
-// still go out so OTAs stay correctly blocked.
+// IMPORTANT — feedback-loop avoidance:
+// In-house reservations (external_source IS NULL: web, phone, walk-in,
+// low-season) are always exported to every channel.
+// Reservations imported from an OTA via sync-ical (external_source = 'ical')
+// are excluded ONLY from the export that goes back to that same OTA, to
+// avoid a feedback loop: Airbnb → Arte Brisa → export-ical → Airbnb.
+// They ARE exported to every OTHER channel, so e.g. a Booking.com
+// reservation still blocks the dates on Airbnb, and vice versa.
+//
+// - ?channel=airbnb  → excludes reservations with channel_id = Airbnb's
+// - ?channel=booking → excludes reservations with channel_id = Booking's
+// - channel omitted  → back-compat fallback: excludes ALL reservations with
+//   external_source non-null (legacy behaviour, used by the 24 URLs
+//   configured in Airbnb/Booking before this parameter existed)
 //
 // Environment variables required (auto-injected by Supabase):
 //   SUPABASE_URL
@@ -31,7 +40,16 @@ interface ReservationRow {
     check_out: string
     status: string
     notes: string | null
+    external_source: string | null
+    channel_id: string | null
     core_guests: GuestRef | GuestRef[] | null
+}
+
+// ── Channel mapping ──────────────────────────────────────────────────────────
+// Same channel_id values used by sync-ical when importing OTA reservations.
+const CHANNEL_IDS: Record<string, string> = {
+    airbnb: 'd7e30a58-20db-40eb-bfe5-d53ded1e493e',
+    booking: '68df4842-1461-4cef-aaf3-97b51a400ec1',
 }
 
 // ── ICS helpers ──────────────────────────────────────────────────────────────
@@ -109,6 +127,22 @@ Deno.serve(async (req: Request) => {
         })
     }
 
+    // ── Optional ?channel= param (back-compat: omitted = legacy behaviour) ───
+    const channelParam = url.searchParams.get('channel')?.trim().toLowerCase() || null
+    let requestingChannelId: string | null = null
+    if (channelParam) {
+        requestingChannelId = CHANNEL_IDS[channelParam] ?? null
+        if (!requestingChannelId) {
+            return new Response(
+                `Invalid channel: '${channelParam}'. Valid values: ${Object.keys(CHANNEL_IDS).join(', ')}`,
+                {
+                    status: 400,
+                    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+                }
+            )
+        }
+    }
+
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, serviceKey, {
@@ -140,11 +174,10 @@ Deno.serve(async (req: Request) => {
 
     const { data: reservations, error: resErr } = await supabase
         .from('core_reservations')
-        .select('id, check_in, check_out, status, notes, core_guests(full_name)')
+        .select('id, check_in, check_out, status, notes, external_source, channel_id, core_guests(full_name)')
         .eq('unit_id', unit.id)
         .in('status', ['confirmed', 'blocked'])
         .gte('check_out', today)
-        .is('external_source', null)   // solo reservas propias; excluye lo importado de OTAs (Airbnb/Booking)
         .order('check_in', { ascending: true })
 
     if (resErr) {
@@ -153,6 +186,18 @@ Deno.serve(async (req: Request) => {
             headers: { 'Content-Type': 'text/plain; charset=utf-8' },
         })
     }
+
+    // ── Feedback-loop filter ─────────────────────────────────────────────────
+    // In-house reservations (external_source null) always pass through.
+    // OTA-imported reservations are excluded only from the export that goes
+    // back to their own channel; no ?channel= means the legacy behaviour
+    // (exclude every OTA-imported reservation) so the 24 existing URLs keep
+    // working unchanged.
+    const filteredReservations = ((reservations || []) as ReservationRow[]).filter((r) => {
+        if (!r.external_source) return true
+        if (!requestingChannelId) return false
+        return r.channel_id !== requestingChannelId
+    })
 
     // ── 3. Build VCALENDAR ───────────────────────────────────────────────────
     const host = 'artebrisapatagonia.com'
@@ -169,7 +214,7 @@ Deno.serve(async (req: Request) => {
         'X-WR-TIMEZONE:America/Santiago',
     ]
 
-    for (const r of (reservations || []) as ReservationRow[]) {
+    for (const r of filteredReservations) {
         // Guest name: PostgREST may return the embedded relation as obj OR array
         const g = r.core_guests
         const guestName = Array.isArray(g) ? g[0]?.full_name : g?.full_name
