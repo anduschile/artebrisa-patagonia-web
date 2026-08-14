@@ -9,3 +9,4 @@ dist/
 *.tif
 *.tiff
 
+supabase/.temp/
