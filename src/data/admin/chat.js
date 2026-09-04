@@ -76,6 +76,21 @@ export async function sendMessage(conversationId, phone, content) {
 }
 
 /**
+ * Start a proactive conversation with a guest via the approved WhatsApp
+ * template (contacto_huesped_v1), for contact outside the 24h window.
+ * Returns { ok, conversationId } on success, or
+ * { alreadyActive, conversationId, hoursSinceLastMessage } if a live
+ * conversation already exists within the window (no template sent).
+ */
+export async function startProactiveConversation({ name, phone, message }) {
+    const { data, error } = await supabase.functions.invoke('send-whatsapp-template', {
+        body: { name, phone, message },
+    })
+    if (error) throw new Error(`startProactiveConversation: ${error.message}`)
+    return data
+}
+
+/**
  * Update the status of a conversation (bot | human | closed).
  */
 export async function updateConversationStatus(conversationId, status) {

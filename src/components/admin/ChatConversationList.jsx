@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { getConversations } from '../../data/admin/chat'
+import NewProactiveChatModal from './NewProactiveChatModal'
 
 function formatPhone(phone) {
     if (!phone) return '—'
@@ -27,14 +28,17 @@ const STATUS_META = {
 export default function ChatConversationList({ selectedId, onSelect, onConversationsLoad }) {
     const [conversations, setConversations] = useState([])
     const [loading, setLoading] = useState(true)
+    const [showNewChat, setShowNewChat] = useState(false)
 
     const load = useCallback(async () => {
         try {
             const data = await getConversations()
             setConversations(data)
             onConversationsLoad?.(data)
+            return data
         } catch (e) {
             console.error(e)
+            return null
         } finally {
             setLoading(false)
         }
@@ -46,12 +50,32 @@ export default function ChatConversationList({ selectedId, onSelect, onConversat
         return () => clearInterval(interval)
     }, [load])
 
+    // After a proactive template is sent (or when redirected to an already-active
+    // conversation), refresh the list and jump straight to that conversation.
+    async function handleAfterProactiveChat(conversationId) {
+        const data = await load()
+        if (conversationId && data) {
+            const conv = data.find(c => c.id === conversationId)
+            if (conv) onSelect(conv)
+        }
+    }
+
     return (
         <div className="w-72 shrink-0 border-r border-gray-200 bg-white flex flex-col min-h-0 flex-1">
             {/* Header */}
             <div className="px-4 py-3 border-b border-gray-200 shrink-0">
                 <h2 className="font-semibold text-gray-900 text-sm">Conversaciones</h2>
                 <p className="text-xs text-gray-400 mt-0.5">{conversations.length} total</p>
+                <button
+                    onClick={() => setShowNewChat(true)}
+                    className="mt-2 w-full py-2 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg transition-colors flex items-center justify-center gap-1.5"
+                >
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="12" y1="5" x2="12" y2="19" />
+                        <line x1="5" y1="12" x2="19" y2="12" />
+                    </svg>
+                    Iniciar conversación
+                </button>
             </div>
 
             {/* List */}
@@ -106,6 +130,13 @@ export default function ChatConversationList({ selectedId, onSelect, onConversat
                     })
                 )}
             </div>
+
+            <NewProactiveChatModal
+                isOpen={showNewChat}
+                onClose={() => setShowNewChat(false)}
+                onSent={handleAfterProactiveChat}
+                onGoToConversation={handleAfterProactiveChat}
+            />
         </div>
     )
 }
