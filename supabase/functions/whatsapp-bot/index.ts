@@ -26,6 +26,17 @@ const CLAUDE_MODEL    = 'claude-sonnet-4-5'
 const CLAUDE_API_URL  = 'https://api.anthropic.com/v1/messages'
 const TWILIO_WEBHOOK_URL = 'https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/whatsapp-bot'
 
+// ContentSid de la plantilla de WhatsApp 'derivacion_humano_v1' (aprobada por Meta),
+// requerida para notificar a Karina fuera de la ventana de 24h (mismo patrón que
+// TWILIO_CONTENT_SID_CONTACTO_HUESPED en send-whatsapp-template).
+const TWILIO_CONTENT_SID_DERIVACION_HUMANO =
+    Deno.env.get('TWILIO_CONTENT_SID_DERIVACION_HUMANO') || 'HX6d9b14d80e1fe6110a2541b0b7b4feda'
+
+// ContentSid de la plantilla de WhatsApp 'reserva_confirmada_v1' (aprobada por Meta),
+// mismo motivo y mismo patrón que TWILIO_CONTENT_SID_DERIVACION_HUMANO.
+const TWILIO_CONTENT_SID_RESERVA_CONFIRMADA =
+    Deno.env.get('TWILIO_CONTENT_SID_RESERVA_CONFIRMADA') || 'HXe160a61164be096a4847735f92de5fd4'
+
 // ── Contexto dinámico: unidades + tarifas ──────────────────────────────────
 
 type Unit = {
@@ -269,6 +280,56 @@ function parseEnviarFotos(text: string):
 }
 
 /**
+ * Todo lo que sigue a ##DERIVAR## hasta el final del texto se considera parte del
+ * marcador (JSON opcional, bien formado, truncado o inexistente) — nunca contenido
+ * para el huésped, porque el prompt siempre coloca este marcador al final de la
+ * respuesta (mismo patrón que ##RESERVA_LISTA## y <!--FECHA_MENCIONADA:...-->).
+ * Se comparte entre parseDerivar y la limpieza de assistantText en el handler para
+ * que ambos queden sincronizados por diseño: no pueden divergir aunque cambie el
+ * orden de las operaciones más adelante.
+ */
+const DERIVAR_MARKER_REGEX = /##DERIVAR##([\s\S]*)$/
+
+/**
+ * Parsea el JSON opcional que puede acompañar al marcador ##DERIVAR##{JSON}.
+ * A diferencia de los demás marcadores, ##DERIVAR## funciona SIN JSON — ese es el
+ * comportamiento histórico (solo el texto plano "##DERIVAR##") y debe seguir intacto.
+ * El JSON es un enriquecimiento opcional para adjuntar un resumen armado por el bot
+ * (nombre, teléfono, fechas, motivo) que reemplaza a `body` en las notificaciones a
+ * Karina. Si no viene JSON, no parsea, o queda truncado (sin llave de cierre), el
+ * llamador debe usar `body` como fallback, exactamente igual que siempre.
+ */
+function parseDerivar(text: string):
+    | { success: true; data: { resumen: string } }
+    | { success: false } {
+
+    const match = text.match(DERIVAR_MARKER_REGEX)
+    if (!match) {
+        return { success: false }
+    }
+
+    const candidate = match[1].trim()
+    if (!candidate.startsWith('{')) {
+        return { success: false }
+    }
+
+    try {
+        const data = JSON.parse(candidate)
+        const validShape = typeof data.resumen === 'string' && data.resumen.trim().length > 0
+
+        if (!validShape) {
+            console.error('[whatsapp-bot] parseDerivar: estructura inválida:', candidate)
+            return { success: false }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseDerivar: JSON inválido o truncado:', candidate, e)
+        return { success: false }
+    }
+}
+
+/**
  * Procesa una reserva confirmada desde WhatsApp.
  * Valida formato, disponibilidad, crea guest + reserva inquiry, dispara pago.
  *
@@ -498,14 +559,14 @@ async function processReservaLista(
             console.error('[whatsapp-bot] processReservaLista: error updating payment fields:', updateErr)
         }
 
-        // k. Notificar a Karina por WhatsApp (fire-and-forget)
+        // k. Notificar a Karina por WhatsApp (fire-and-forget) usando la plantilla aprobada
+        // 'reserva_confirmada_v1' — Karina normalmente no le escribió al bot en las últimas
+        // 24h, así que un mensaje de texto libre (Body) falla con Twilio error 63016.
         try {
             const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
             const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const check_outFormatted = new Date(parsed.check_out + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
             const priceFormatted = totalAmount.toLocaleString('es-CL')
-
-            const notificationMsg = `🔔 Nueva reserva WhatsApp\n👤 ${parsed.nombre}\n🏠 ${unit.name}\n📅 ${check_inFormatted} → ${check_outFormatted}\n👥 ${parsed.personas} personas\n💰 Total: $${priceFormatted}\n🔗 https://artebrisapatagonia.com/admin/reservas`
 
             const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
             const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
@@ -513,10 +574,21 @@ async function processReservaLista(
 
             if (accountSid && twilioAuthToken && fromNumber) {
                 const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const contentVariables = JSON.stringify({
+                    '1': parsed.nombre,
+                    '2': unit.name,
+                    '3': check_inFormatted,
+                    '4': check_outFormatted,
+                    '5': `$${priceFormatted}`,
+                })
+
+                // IMPORTANTE: Twilio exige que 'Body' esté COMPLETAMENTE AUSENTE del
+                // request cuando se usa ContentSid — no basta con dejarlo vacío o null.
                 const twilioBody = new URLSearchParams({
                     From: fromNumber,
                     To: `whatsapp:${karinasPhone}`,
-                    Body: notificationMsg,
+                    ContentSid: TWILIO_CONTENT_SID_RESERVA_CONFIRMADA,
+                    ContentVariables: contentVariables,
                 })
 
                 await fetch(twilioUrl, {
@@ -785,6 +857,33 @@ INSTRUCCIONES:
 8. Una vez que tengas los 5 datos confirmados (nombre, check-in, check-out, personas, unidad), NO envíes un mensaje de confirmación manual — en cambio, genera el marcador ##RESERVA_LISTA## según la instrucción 6. El sistema procesará el pago automáticamente.
 9. No confirmes reservas de forma definitiva ni garantices disponibilidad sin verificar
 10. Si hay queja, problema con reserva existente o necesitas tomar una decisión que no puedes: incluye ##DERIVAR## en tu respuesta
+10b. CONFIRMACIÓN DE RESERVA EXISTENTE SIN CÓDIGO DE UNIDAD (típicamente Booking/Airbnb):
+   Si el huésped dice que ya tiene una reserva (mencione o no que es de Booking o Airbnb) pero
+   no sabe o no recuerda el nombre/código de su unidad, y te pide que se la confirmes:
+   - Si todavía no te dio las fechas exactas de check-in y check-out en la conversación,
+     pídeselas primero.
+   - NO le digas que "no tienes acceso al sistema de reservas" — es impreciso, sí tienes
+     datos de reservas. En su lugar, explica la limitación real de forma precisa: no puedes
+     identificar con certeza CUÁL unidad específica tiene asignada sin que un compañero del
+     equipo lo confirme, porque las reservas que llegan desde Booking o Airbnb no siempre
+     traen todos los datos con nosotros.
+   - Revisa todo el historial de la conversación (no solo el mensaje actual) antes de pedir
+     nombre completo o número de contacto: si el huésped ya te los dio en cualquier mensaje
+     anterior, NO se los vuelvas a pedir — usa esos datos y deriva de inmediato. Solo pide el
+     dato que realmente te falte (nombre, teléfono, o ambos).
+   - Para derivar en este escenario, usa el marcador con el resumen estructurado en JSON, para
+     que el equipo reciba nombre, teléfono y fechas en vez de tu último mensaje literal:
+     ##DERIVAR##{"resumen":"texto con nombre completo, teléfono, fechas de check-in/check-out
+     y el motivo (reserva de Booking/Airbnb sin unidad identificada)"}
+     - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos, pegado
+       inmediatamente después de ##DERIVAR## (sin espacio entre el marcador y la llave)
+     - Podés incluir texto conversacional para el huésped antes del marcador en el mismo
+       turno (ej. avisarle que ya avisaste a tu equipo) — el marcador y su JSON se eliminan
+       automáticamente antes de que el huésped vea la respuesta
+     - Si por algún motivo no podés armar el resumen completo, dispara igual ##DERIVAR## sin
+       JSON — el sistema usará el último mensaje del huésped como respaldo
+   - Mantén un tono tranquilo y de servicio: no hagas sentir al huésped que perdimos su
+     reserva, es solo una confirmación pendiente de verificar.
 11. No inventes información. Si no sabes algo, dilo y ofrece derivar
 12. No menciones que eres IA a menos que te lo pregunten directamente`
 
@@ -1088,14 +1187,18 @@ Deno.serve(async (req: Request) => {
 
     // ── 7. Consultar disponibilidad ───────────────────────────────────────
     const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+    // Mismo horizonte que el máximo check_in permitido al crear una reserva (18 meses,
+    // ver validación en parsed.check_in > addMonthsToDateString(today, 18)): ningún
+    // huésped puede preguntar por una fecha más lejana, así que acota sin truncar filas.
+    const availabilityHorizon = addMonthsToDateString(getTodayInChile(), 18)
 
     const { data: allReservations } = await supabase
         .from('core_reservations')
         .select('unit_id, check_in, check_out, status, created_at')
         .in('status', ['inquiry', 'confirmed', 'blocked'])
         .gte('check_out', new Date().toISOString().split('T')[0])
+        .lte('check_in', availabilityHorizon)
         .order('check_in', { ascending: true })
-        .limit(50)
 
     // Filter in-memory: confirmed/blocked always count, inquiry only if created less than 4 hours ago
     const availability = (allReservations || []).filter(r => {
@@ -1539,7 +1642,7 @@ Deno.serve(async (req: Request) => {
     }
     // Si parseResult.reason === 'no_marker': no hacer nada especial, continuar
 
-    // ── 11. Detectar ##DERIVAR## (flujo normal, sin cambios) ──────────────────
+    // ── 11. Detectar ##DERIVAR## ────────────────────────────────────────────
     if (!assistantText || assistantText.trim() === '') {
         const fallbackMsg = 'Gracias por tu mensaje. En este momento estoy teniendo dificultades técnicas. Por favor escríbenos nuevamente en unos minutos.'
         assistantText = fallbackMsg
@@ -1547,7 +1650,12 @@ Deno.serve(async (req: Request) => {
 
     const shouldDerive = assistantText.includes('##DERIVAR##')
     if (shouldDerive) {
-        assistantText = assistantText.replace(/##DERIVAR##/g, '').trim()
+        // El JSON con "resumen" es opcional: si no viene (uso histórico del marcador —
+        // quejas, decisiones que el bot no puede tomar, etc.) se sigue usando body.
+        const derivarParsed = parseDerivar(assistantText)
+        const notificationText = derivarParsed.success ? derivarParsed.data.resumen : body
+
+        assistantText = assistantText.replace(DERIVAR_MARKER_REGEX, '').trim()
 
         await supabase
             .from('core_chat_conversations')
@@ -1568,16 +1676,17 @@ Deno.serve(async (req: Request) => {
                     from: SENDER_EMAIL,
                     to: [RECIPIENT_EMAIL],
                     subject: 'Chat requiere atención humana',
-                    text: `El chat con ${displayName} (${phone}) requiere atención humana.\n\nÚltimo mensaje: "${body}"`,
-                    html: `<p>El chat con <strong>${displayName}</strong> (${phone}) requiere atención humana.</p><p>Último mensaje: <em>${body}</em></p>`,
+                    text: `El chat con ${displayName} (${phone}) requiere atención humana.\n\nÚltimo mensaje: "${notificationText}"`,
+                    html: `<p>El chat con <strong>${displayName}</strong> (${phone}) requiere atención humana.</p><p>Último mensaje: <em>${notificationText}</em></p>`,
                 }),
             }).catch(e => console.error('Resend error:', e))
         }
 
-        // Notificar a Karina por WhatsApp (fire-and-forget), mismo patrón que reserva exitosa
+        // Notificar a Karina por WhatsApp (fire-and-forget) usando la plantilla aprobada
+        // 'derivacion_humano_v1' — Karina normalmente no le escribió al bot en las últimas
+        // 24h, así que un mensaje de texto libre (Body) falla con Twilio error 63016.
         try {
             const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
-            const notificationMsg = `⚠️ Un huésped necesita atención humana en el chat.\n👤 ${displayName} (${phone})\n💬 "${body}"`
 
             const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
             const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
@@ -1585,10 +1694,19 @@ Deno.serve(async (req: Request) => {
 
             if (accountSid && twilioAuthToken && fromNumber) {
                 const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+                const contentVariables = JSON.stringify({
+                    '1': displayName,
+                    '2': phone,
+                    '3': notificationText,
+                })
+
+                // IMPORTANTE: Twilio exige que 'Body' esté COMPLETAMENTE AUSENTE del
+                // request cuando se usa ContentSid — no basta con dejarlo vacío o null.
                 const twilioBody = new URLSearchParams({
                     From: fromNumber,
                     To: `whatsapp:${karinasPhone}`,
-                    Body: notificationMsg,
+                    ContentSid: TWILIO_CONTENT_SID_DERIVACION_HUMANO,
+                    ContentVariables: contentVariables,
                 })
 
                 await fetch(twilioUrl, {
