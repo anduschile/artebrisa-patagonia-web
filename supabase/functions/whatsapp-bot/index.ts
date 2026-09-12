@@ -280,6 +280,40 @@ function parseEnviarFotos(text: string):
 }
 
 /**
+ * Parsea el marcador ##VERIFICAR_DISPONIBILIDAD##{JSON} de la respuesta del bot.
+ * Igual que parseCotizar/parseListarPrecios/parseEnviarFotos: un fallo de parseo aquí
+ * no deriva a humano ni dispara email — simplemente no se activa la verificación
+ * determinista de disponibilidad para este turno.
+ */
+function parseVerificarDisponibilidad(text: string):
+    | { success: true; data: { unit_code: string; check_in: string; check_out: string } }
+    | { success: false } {
+
+    const match = text.match(/##VERIFICAR_DISPONIBILIDAD##(\{[^}]*\})/)
+    if (!match) {
+        return { success: false }
+    }
+
+    try {
+        const data = JSON.parse(match[1])
+        const validShape =
+            typeof data.unit_code === 'string' && data.unit_code.trim().length > 0 &&
+            typeof data.check_in === 'string' &&
+            typeof data.check_out === 'string'
+
+        if (!validShape) {
+            console.error('[whatsapp-bot] parseVerificarDisponibilidad: estructura inválida:', match[1])
+            return { success: false }
+        }
+
+        return { success: true, data }
+    } catch (e) {
+        console.error('[whatsapp-bot] parseVerificarDisponibilidad: JSON inválido:', match[1], e)
+        return { success: false }
+    }
+}
+
+/**
  * Todo lo que sigue a ##DERIVAR## hasta el final del texto se considera parte del
  * marcador (JSON opcional, bien formado, truncado o inexistente) — nunca contenido
  * para el huésped, porque el prompt siempre coloca este marcador al final de la
@@ -618,6 +652,50 @@ async function processReservaLista(
 }
 
 /**
+ * Verifica disponibilidad determinista de una unidad para un rango de fechas exacto,
+ * consultando core_reservations directamente — a diferencia del bloque DISPONIBILIDAD
+ * ACTUAL (texto que Claude debe interpretar), esto es la fuente de verdad ejecutada
+ * server-side, pensada para el momento de CONFIRMAR una unidad específica.
+ *
+ * Misma lógica de solapamiento ya probada en processReservaLista (paso "d. Re-verificar
+ * disponibilidad" más arriba): check_in < check_out_pedido AND check_out > check_in_pedido.
+ * Se duplica aquí (en vez de extraer un helper compartido) a propósito, para no tocar el
+ * flujo de creación de reserva ya probado en producción.
+ *
+ * Mismo criterio de "ocupado" que formatAvailabilityContext/DISPONIBILIDAD ACTUAL:
+ * confirmed/blocked siempre cuentan; inquiry solo si fue creada hace menos de 4 horas
+ * (una cotización a medio completar no debe bloquear la unidad indefinidamente, pero sí
+ * mientras el huésped puede estar completando el pago).
+ */
+async function checkUnitAvailability(
+    supabase: any,
+    unitId: string,
+    checkIn: string,
+    checkOut: string,
+): Promise<{ error: true } | { error: false; disponible: boolean }> {
+    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+
+    const { data: conflicts, error } = await supabase
+        .from('core_reservations')
+        .select('check_in, check_out, status, created_at')
+        .eq('unit_id', unitId)
+        .in('status', ['inquiry', 'confirmed', 'blocked'])
+        .lt('check_in', checkOut)
+
+    if (error) {
+        console.error('[whatsapp-bot] checkUnitAvailability: error consultando conflictos:', error)
+        return { error: true }
+    }
+
+    const activeConflicts = (conflicts || []).filter(r => {
+        const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+        return !isExpiredInquiry && r.check_out > checkIn
+    })
+
+    return { error: false, disponible: activeConflicts.length === 0 }
+}
+
+/**
  * Construye el bloque dinámico de unidades + tarifas BASE para inyectar en el system prompt.
  * Muestra siempre base_price (precio "desde"), NUNCA el precio de hoy: este bloque es
  * contexto general de referencia, no una cotización para fechas específicas del huésped.
@@ -794,16 +872,24 @@ INSTRUCCIONES:
      "mándame fotos de las cabañas" sin especificar cuál), NO dispares el marcador — primero
      pregúntale cuál unidad le interesa.
 5. VERIFICACIÓN DE DISPONIBILIDAD (sigue este procedimiento exacto):
-   Antes de confirmar que una unidad está disponible para fechas solicitadas por el turista,
-   revisa la sección DISPONIBILIDAD ACTUAL. Una unidad está OCUPADA para las fechas solicitadas
-   si se cumple esta condición:
+   El bloque DISPONIBILIDAD ACTUAL sirve para CONVERSAR y EXPLORAR opciones con el turista:
+   sugerir unidades alternativas, responder "¿qué tienen libre en julio?", comparar varias
+   unidades entre sí, decidir qué unidades incluir en ##LISTAR_PRECIOS##, etc. Para eso, una
+   unidad está OCUPADA para las fechas solicitadas si se cumple esta condición:
    (fecha_checkin_solicitada < fecha_fin_bloqueo) Y (fecha_checkout_solicitada > fecha_inicio_bloqueo)
    Es decir: si el rango solicitado se superpone EN CUALQUIER PARTE con un rango marcado como
-   'ocupado' para esa misma unidad, NO está disponible, sin excepciones, incluso si la
-   superposición es parcial. Si tienes cualquier duda sobre el cálculo, o las fechas son
-   ambiguas, NO confirmes disponibilidad — pide que te confirmen las fechas exactas o incluye
-   ##DERIVAR##. Nunca confirmes disponibilidad sin haber verificado explícitamente contra
-   el bloque de DISPONIBILIDAD ACTUAL para ese código de unidad específico.
+   'ocupado' para esa misma unidad, no está disponible, sin excepciones, incluso si la
+   superposición es parcial.
+
+   PERO esa lectura del bloque es solo para explorar — la CONFIRMACIÓN FINAL de disponibilidad
+   a un turista sobre UNA unidad ESPECÍFICA para fechas ESPECÍFICAS SIEMPRE debe pasar por el
+   marcador ##VERIFICAR_DISPONIBILIDAD## de la instrucción 5e antes de decirle en definitiva
+   "sí está disponible" o "no está disponible". Nunca bases una confirmación final únicamente
+   en tu propia lectura del bloque DISPONIBILIDAD ACTUAL — puede tener errores de interpretación
+   de tu parte; el marcador ejecuta la verificación real contra la base de datos.
+
+   Si tienes cualquier duda sobre el cálculo, o las fechas son ambiguas, NO confirmes
+   disponibilidad — pide que te confirmen las fechas exactas o incluye ##DERIVAR##.
 5b. PRIORIDAD DE DATOS: La sección DISPONIBILIDAD ACTUAL siempre refleja el estado
    MÁS RECIENTE y VERIFICADO del sistema, generado en este mismo momento. Si en el historial
    de la conversación ya confirmaste disponibilidad para una unidad/fecha en un mensaje
@@ -835,6 +921,29 @@ INSTRUCCIONES:
    - Este marcador es invisible para el huésped — el sistema lo elimina automáticamente antes
      de enviar la respuesta
    - No lo omitas: es la forma en que el sistema verifica que la fecha que usaste es correcta
+5e. CONFIRMACIÓN FINAL DE DISPONIBILIDAD (##VERIFICAR_DISPONIBILIDAD##):
+   Cuando estés a punto de confirmarle DEFINITIVAMENTE a un turista que una unidad
+   ESPECÍFICA está disponible (o no) para fechas ESPECÍFICAS — por ejemplo, justo antes de
+   cotizar con ##COTIZAR##, o justo antes de decirle "sí, tenemos [unidad] libre para esas
+   fechas" — responde ÚNICAMENTE con el siguiente marcador, sin ningún otro texto antes o
+   después en ese turno:
+   ##VERIFICAR_DISPONIBILIDAD##{"unit_code":"CODE","check_in":"YYYY-MM-DD","check_out":"YYYY-MM-DD"}
+   - Usa el CODE exacto de la unidad (mismos códigos de la instrucción 6)
+   - El JSON debe estar en UNA SOLA línea, sin espacios extra ni saltos
+   - Este marcador se procesa automáticamente servidor-side: el sistema corre la consulta
+     real a la base de datos (no una lectura de texto) y te devuelve el resultado verificado
+     antes de que redactes la respuesta final que el turista sí recibirá — el turista nunca
+     ve el marcador
+   - No mezcles este marcador con texto conversacional en el mismo turno
+   - No es necesario para explorar opciones o sugerir alternativas de forma general — para
+     eso sigue usando el bloque DISPONIBILIDAD ACTUAL (instrucción 5). Es solo para el momento
+     de la confirmación final sobre una unidad y fechas puntuales
+   - No lo dispares de nuevo si ya lo usaste en un turno anterior de esta misma conversación
+     para la misma unidad y las mismas fechas: confía en esa verificación reciente, salvo que
+     el turista cambie de unidad o de fechas
+   - Esto es independiente de la instrucción 6: aunque ya hayas verificado con este marcador,
+     ##RESERVA_LISTA## de todas formas vuelve a validar todo automáticamente del lado del
+     servidor antes de confirmar la reserva — no necesitas "verificar dos veces" a propósito
 6. GENERACIÓN DE RESERVA (##RESERVA_LISTA##):
    Si el turista ha confirmado EXPLÍCITAMENTE (mediante mensajes claros del cliente):
    - Su nombre completo
@@ -1547,6 +1656,94 @@ Deno.serve(async (req: Request) => {
         }
 
         console.log(`[whatsapp-bot] ##ENVIAR_FOTOS## disparado: unit_code=${unit_code} elapsed_ms=${Date.now() - fotosStart} media_enviado=${mediaAlreadySent}`)
+    }
+
+    // ── 9d. Detectar y procesar ##VERIFICAR_DISPONIBILIDAD## (verificación determinista
+    // de una unidad puntual antes de confirmar, 2da llamada) ──────────────────
+    const verificarDispoResult = parseVerificarDisponibilidad(assistantText)
+
+    if (verificarDispoResult.success) {
+        const { unit_code, check_in, check_out } = verificarDispoResult.data
+        const verificarStart = Date.now()
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/
+        const unit = activeUnits.find(u => u.code === unit_code)
+        let usedFallback = false
+
+        const genericFallbackText =
+            `Dame un momento para confirmarte la disponibilidad exacta para esas fechas 🙂 Ya te contacto con la información.`
+
+        if (!unit) {
+            // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## unit_code no encontrado: ${unit_code}`)
+            assistantText = genericFallbackText
+
+            await supabase
+                .from('core_chat_conversations')
+                .update({ status: 'human' })
+                .eq('id', conversation.id)
+        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
+            usedFallback = true
+            console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            assistantText = genericFallbackText
+        } else {
+            const availabilityCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
+
+            if (availabilityCheck.error) {
+                usedFallback = true
+                assistantText = genericFallbackText
+            } else {
+                // Sin tercera llamada: esta segunda respuesta debe quedar en texto natural,
+                // así que se prohíbe explícitamente CUALQUIER marcador (no solo el propio),
+                // mismo principio de seguridad que ya usan ##COTIZAR## y ##LISTAR_PRECIOS##.
+                const availNote = availabilityCheck.disponible
+                    ? `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} SÍ está disponible para el rango ${check_in} → ${check_out}. Confírmaselo al turista con naturalidad. NO uses ningún marcador (##COTIZAR##, ##LISTAR_PRECIOS##, ##RESERVA_LISTA##, ##VERIFICAR_DISPONIBILIDAD##, etc.) en esta respuesta bajo ninguna circunstancia, aunque otra instrucción diga lo contrario — responde solo en texto natural, y si te faltan datos para cotizar o completar la reserva, pídeselos en este mismo mensaje. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
+                    : `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} NO está disponible para el rango ${check_in} → ${check_out}: hay un conflicto real en el sistema. NO confirmes disponibilidad para esa unidad y esas fechas bajo ninguna circunstancia, aunque el bloque DISPONIBILIDAD ACTUAL te haya parecido ambiguo. Informa al turista con calidez que esas fechas específicas ya están ocupadas para esa unidad, y ofrécele alternativas (otra unidad disponible para esas fechas, u otras fechas para la misma unidad) usando el bloque DISPONIBILIDAD ACTUAL que ya tienes en tu contexto. NO uses ningún marcador en esta respuesta bajo ninguna circunstancia — responde solo en texto natural. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
+
+                const controller = new AbortController()
+                const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+                try {
+                    const secondResp = await fetch(CLAUDE_API_URL, {
+                        method: 'POST',
+                        headers: {
+                            'x-api-key': anthropicKey,
+                            'anthropic-version': '2023-06-01',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            model: CLAUDE_MODEL,
+                            max_tokens: 1024,
+                            system: `${systemPrompt}\n\n${availNote}`,
+                            messages: sanitizedMessages,
+                        }),
+                        signal: controller.signal,
+                    })
+
+                    if (!secondResp.ok) {
+                        throw new Error(`HTTP ${secondResp.status}`)
+                    }
+
+                    const secondData = await secondResp.json()
+                    const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+                    if (!secondText.trim()) {
+                        throw new Error('respuesta vacía')
+                    }
+
+                    assistantText = secondText
+                } catch (e) {
+                    usedFallback = true
+                    const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                    console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda llamada falló (${reason})`)
+                    assistantText = genericFallbackText
+                } finally {
+                    clearTimeout(timeoutId)
+                }
+            }
+        }
+
+        console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## disparado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - verificarStart} fallback=${usedFallback}`)
     }
 
     // ── 10. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
