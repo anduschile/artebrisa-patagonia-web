@@ -13,6 +13,11 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// ContentSid de la plantilla de WhatsApp 'reserva_confirmada_v1' (aprobada por Meta),
+// mismo patrón que TWILIO_CONTENT_SID_RESERVA_CONFIRMADA en whatsapp-bot/index.ts.
+const TWILIO_CONTENT_SID_RESERVA_CONFIRMADA =
+  Deno.env.get('TWILIO_CONTENT_SID_RESERVA_CONFIRMADA') || 'HXe160a61164be096a4847735f92de5fd4'
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': 'https://artebrisapatagonia.com',
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -100,9 +105,6 @@ Deno.serve(async (req: Request) => {
     // Format price
     const priceFormatted = quotedTotal.toLocaleString('es-CL')
 
-    // Build notification message
-    const notificationMsg = `🔔 Nueva reserva WEB\n👤 ${guestName}\n🏠 ${unitName}\n📅 ${checkInFormatted} → ${checkOutFormatted}\n👥 ${adults} personas\n💰 Seña: $${priceFormatted} (1ra noche estimada)\n🔗 https://artebrisapatagonia.com/admin/reservas`
-
     // Get Twilio credentials
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')
     const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN')
@@ -113,14 +115,26 @@ Deno.serve(async (req: Request) => {
       return jsonOk()
     }
 
-    // Send WhatsApp message to Karina
+    // Send WhatsApp message to Karina usando la plantilla aprobada 'reserva_confirmada_v1'
+    // — Karina normalmente no le escribió al bot en las últimas 24h, así que un mensaje de
+    // texto libre (Body) falla con Twilio error 63016.
     const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
     const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+    const contentVariables = JSON.stringify({
+      '1': guestName,
+      '2': unitName,
+      '3': checkInFormatted,
+      '4': checkOutFormatted,
+      '5': `$${priceFormatted}`,
+    })
 
+    // IMPORTANTE: Twilio exige que 'Body' esté COMPLETAMENTE AUSENTE del
+    // request cuando se usa ContentSid — no basta con dejarlo vacío o null.
     const twilioBody = new URLSearchParams({
       From: fromNumber,
       To: `whatsapp:${karinasPhone}`,
-      Body: notificationMsg,
+      ContentSid: TWILIO_CONTENT_SID_RESERVA_CONFIRMADA,
+      ContentVariables: contentVariables,
     })
 
     const twilioRes = await fetch(twilioUrl, {
