@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from '../../lib/supabaseClient'
 import { getUnreadCount } from '../../data/admin/chat'
@@ -30,8 +30,10 @@ function NavItem({ to, icon, label, badge }) {
 
 export default function AdminLayout() {
     const navigate = useNavigate()
+    const location = useLocation()
     const [humanCount, setHumanCount] = useState(0)
     const [showPasswordModal, setShowPasswordModal] = useState(false)
+    const [sidebarOpen, setSidebarOpen] = useState(false)
 
     useEffect(() => {
         async function fetchCount() {
@@ -45,6 +47,11 @@ export default function AdminLayout() {
         return () => supabase.removeChannel(channel)
     }, [])
 
+    // Cierra el drawer del sidebar automáticamente al navegar a otra sección (mobile)
+    useEffect(() => {
+        setSidebarOpen(false)
+    }, [location.pathname])
+
     async function handleLogout() {
         await supabase.auth.signOut()
         navigate('/admin')
@@ -52,8 +59,21 @@ export default function AdminLayout() {
 
     return (
         <div className="min-h-screen bg-[#f8f9fa] flex">
+            {/* ── Overlay del drawer (solo mobile) ── */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 bg-black/50 z-30 md:hidden"
+                    onClick={() => setSidebarOpen(false)}
+                    aria-hidden="true"
+                />
+            )}
+
             {/* ── Sidebar ── */}
-            <aside className="w-56 shrink-0 bg-[#f1f5f9] border-r border-gray-200 flex flex-col fixed top-0 left-0 h-screen z-20">
+            <aside
+                className={`w-56 shrink-0 bg-[#f1f5f9] border-r border-gray-200 flex flex-col fixed top-0 left-0 h-screen z-40 transition-transform duration-200 ease-in-out md:translate-x-0 ${
+                    sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}
+            >
                 {/* Brand */}
                 <div className="px-5 pt-5 pb-4 border-b border-gray-200">
                     <span className="font-black text-gray-900 text-sm tracking-tight">
@@ -138,7 +158,27 @@ export default function AdminLayout() {
             </aside>
 
             {/* ── Main content ── */}
-            <main className="flex-1 min-w-0 ml-56">
+            <main className="flex-1 min-w-0 md:ml-56">
+                {/* Barra superior mobile (solo <md): botón hamburguesa para abrir el drawer */}
+                <div className="md:hidden sticky top-0 z-20 bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Abrir menú de navegación"
+                        className="p-1.5 -ml-1.5 rounded-lg text-gray-600 hover:bg-gray-100 hover:text-gray-800 transition-colors"
+                    >
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="3" y1="6" x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </svg>
+                    </button>
+                    <span className="font-black text-gray-900 text-sm tracking-tight">
+                        Arte<span className="text-primary-600">Brisa</span>{' '}
+                        <span className="text-gray-400 font-semibold text-xs uppercase tracking-widest">Admin</span>
+                    </span>
+                </div>
+
                 <div className="px-6 py-8 max-w-screen-2xl mx-auto">
                     <Outlet />
                 </div>
