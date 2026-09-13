@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { supabase } from '../../lib/supabaseClient'
 import { getUnreadCount } from '../../data/admin/chat'
+import ChangePasswordModal from './ChangePasswordModal'
 
 function NavItem({ to, icon, label, badge }) {
     return (
@@ -30,6 +31,7 @@ function NavItem({ to, icon, label, badge }) {
 export default function AdminLayout() {
     const navigate = useNavigate()
     const [humanCount, setHumanCount] = useState(0)
+    const [showPasswordModal, setShowPasswordModal] = useState(false)
 
     useEffect(() => {
         async function fetchCount() {
@@ -115,6 +117,15 @@ export default function AdminLayout() {
                         Sitio público
                     </Link>
                     <button
+                        onClick={() => setShowPasswordModal(true)}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-gray-500 hover:bg-gray-200/70 hover:text-gray-700 transition-colors border-l-2 border-transparent text-left"
+                    >
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                        </svg>
+                        Cambiar contraseña
+                    </button>
+                    <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-red-500 hover:bg-red-50 transition-colors border-l-2 border-transparent text-left"
                     >
@@ -141,6 +152,10 @@ export default function AdminLayout() {
                     error: { iconTheme: { primary: '#ef4444', secondary: '#ffffff' } },
                 }}
             />
+
+            {showPasswordModal && (
+                <ChangePasswordModal onClose={() => setShowPasswordModal(false)} />
+            )}
         </div>
     )
 }
