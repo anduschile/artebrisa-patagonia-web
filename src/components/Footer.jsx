@@ -27,7 +27,7 @@ export default function Footer() {
 
     return (
         <footer className="bg-slate-900 text-slate-300">
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12">
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 pt-12 pb-32 md:pb-20">
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-10">
 
                     {/* ── Col 1: Brand + Socials ── */}
