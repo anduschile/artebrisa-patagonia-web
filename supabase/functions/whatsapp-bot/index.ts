@@ -87,6 +87,57 @@ function addMonthsToDateString(dateStr: string, months: number): string {
 }
 
 /**
+ * Suma 'days' días a una fecha 'YYYY-MM-DD' (string), sin librerías externas.
+ * Ancla al mediodía UTC para evitar corrimientos de día por husos horarios.
+ */
+function addDaysToDateString(dateStr: string, days: number): string {
+    const d = new Date(`${dateStr}T12:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + days)
+    const yyyy = String(d.getUTCFullYear()).padStart(4, '0')
+    const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
+    const dd = String(d.getUTCDate()).padStart(2, '0')
+    return `${yyyy}-${mm}-${dd}`
+}
+
+/**
+ * Reservas de ÚLTIMO MOMENTO: check-in hoy o mañana (sin importar la hora actual).
+ * Estas reservas se procesan con el flujo normal de ##RESERVA_LISTA## (instrucción 5c)
+ * pero quedan marcadas con el tag LAST_MINUTE_NOTES_TAG en 'notes' para aplicarles una
+ * ventana de expiración de pago de 2 horas en vez de las 4 horas estándar.
+ */
+function isLastMinuteReservation(checkIn: string, today: string): boolean {
+    return checkIn === today || checkIn === addDaysToDateString(today, 1)
+}
+
+/**
+ * Tag identificable dentro de 'notes' para marcar una reserva como de último momento
+ * (no hay columna dedicada; se reutiliza el campo de texto libre ya existente).
+ */
+const LAST_MINUTE_NOTES_TAG = '[ULTIMO_MOMENTO]'
+
+/**
+ * Ventana de expiración de una reserva 'inquiry': 2 horas si está marcada como de
+ * último momento (LAST_MINUTE_NOTES_TAG en notes), 4 horas para el resto (estándar).
+ */
+function inquiryExpiryMs(notes: string | null | undefined): number {
+    return notes?.includes(LAST_MINUTE_NOTES_TAG)
+        ? 2 * 60 * 60 * 1000
+        : 4 * 60 * 60 * 1000
+}
+
+/**
+ * Formatea un teléfono chileno para mostrárselo al huésped (ej: '+56958383166' ->
+ * '+56 9 5838 3166'). Mismo criterio de formato que ya usa el panel admin.
+ */
+function formatChileanPhoneForDisplay(phone: string): string {
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length === 11 && digits.startsWith('56')) {
+        return `+56 ${digits[2]} ${digits.slice(3, 7)} ${digits.slice(7)}`
+    }
+    return phone.startsWith('+') ? phone : `+${digits}`
+}
+
+/**
  * Carga las unidades activas desde core_units. Reutilizable por formatAvailabilityContext
  * y buildUnitsContext para mantener consistencia.
  */
@@ -382,7 +433,7 @@ async function processReservaLista(
     phone: string,
     conversationId: string,
     activeUnits: Unit[]
-): Promise<{ success: boolean; paymentUrl?: string; monto?: number; reason?: string }> {
+): Promise<{ success: boolean; paymentUrl?: string; monto?: number; isLastMinute?: boolean; reason?: string }> {
     try {
         // ── VALIDACIÓN DE FORMATO (antes de cualquier consulta a BD) ──────────
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
@@ -421,12 +472,15 @@ async function processReservaLista(
             return { success: false, reason: 'capacidad_insuficiente' }
         }
 
-        // d. Re-verificar disponibilidad (conflictos)
-        const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
+        // Reserva de ÚLTIMO MOMENTO (check-in hoy o mañana, instrucción 5c): se procesa
+        // igual que cualquier reserva, pero con ventana de expiración de pago de 2h en
+        // vez de 4h, y con avisos adicionales al huésped y a Karina (ver más abajo).
+        const isLastMinute = isLastMinuteReservation(parsed.check_in, today)
 
+        // d. Re-verificar disponibilidad (conflictos)
         const { data: conflicts, error: conflictsErr } = await supabase
             .from('core_reservations')
-            .select('check_in, check_out, status, created_at')
+            .select('check_in, check_out, status, created_at, notes')
             .eq('unit_id', unit.id)
             .in('status', ['inquiry', 'confirmed', 'blocked'])
             .lt('check_in', parsed.check_out)
@@ -437,7 +491,8 @@ async function processReservaLista(
         }
 
         const activeConflicts = (conflicts || []).filter(r => {
-            const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+            const isExpiredInquiry = r.status === 'inquiry' &&
+                new Date(r.created_at).getTime() < Date.now() - inquiryExpiryMs(r.notes)
             return !isExpiredInquiry && r.check_out > parsed.check_in
         })
 
@@ -520,7 +575,7 @@ async function processReservaLista(
                     quoted_total: totalPrice,
                     quoted_currency: 'CLP',
                     quoted_nights: nights,
-                    notes: `Reserva vía WhatsApp. Conversación: ${conversationId}. Cobro: total de la reserva.`,
+                    notes: `${isLastMinute ? LAST_MINUTE_NOTES_TAG + ' ' : ''}Reserva vía WhatsApp. Conversación: ${conversationId}. Cobro: total de la reserva.`,
                 })
                 .select('id')
                 .single()
@@ -596,6 +651,11 @@ async function processReservaLista(
         // k. Notificar a Karina por WhatsApp (fire-and-forget) usando la plantilla aprobada
         // 'reserva_confirmada_v1' — Karina normalmente no le escribió al bot en las últimas
         // 24h, así que un mensaje de texto libre (Body) falla con Twilio error 63016.
+        // Para reservas de ÚLTIMO MOMENTO, se antepone una marca visible a la variable de
+        // unidad (la plantilla ya está aprobada por Meta con 5 variables fijas, no admite
+        // una variable nueva) para que Karina sepa que puede necesitar acelerar preparación
+        // de la unidad o avisar de un posible retraso al huésped. Es informativa, no pide
+        // aprobación — la reserva ya está en curso de pago.
         try {
             const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
             const check_inFormatted = new Date(parsed.check_in + 'T00:00:00').toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
@@ -610,7 +670,7 @@ async function processReservaLista(
                 const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
                 const contentVariables = JSON.stringify({
                     '1': parsed.nombre,
-                    '2': unit.name,
+                    '2': isLastMinute ? `⚡ÚLTIMO MOMENTO⚡ ${unit.name}` : unit.name,
                     '3': check_inFormatted,
                     '4': check_outFormatted,
                     '5': `$${priceFormatted}`,
@@ -643,6 +703,7 @@ async function processReservaLista(
             success: true,
             paymentUrl: paymentData.url,
             monto: totalAmount,
+            isLastMinute,
         }
     } catch (e) {
         // Try/catch GLOBAL — SIEMPRE retorna { success, reason }, nunca exception
@@ -665,7 +726,8 @@ async function processReservaLista(
  * Mismo criterio de "ocupado" que formatAvailabilityContext/DISPONIBILIDAD ACTUAL:
  * confirmed/blocked siempre cuentan; inquiry solo si fue creada hace menos de 4 horas
  * (una cotización a medio completar no debe bloquear la unidad indefinidamente, pero sí
- * mientras el huésped puede estar completando el pago).
+ * mientras el huésped puede estar completando el pago) — o menos de 2 horas si la
+ * inquiry está marcada como de ÚLTIMO MOMENTO (LAST_MINUTE_NOTES_TAG en notes).
  */
 async function checkUnitAvailability(
     supabase: any,
@@ -673,11 +735,9 @@ async function checkUnitAvailability(
     checkIn: string,
     checkOut: string,
 ): Promise<{ error: true } | { error: false; disponible: boolean }> {
-    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
-
     const { data: conflicts, error } = await supabase
         .from('core_reservations')
-        .select('check_in, check_out, status, created_at')
+        .select('check_in, check_out, status, created_at, notes')
         .eq('unit_id', unitId)
         .in('status', ['inquiry', 'confirmed', 'blocked'])
         .lt('check_in', checkOut)
@@ -688,7 +748,8 @@ async function checkUnitAvailability(
     }
 
     const activeConflicts = (conflicts || []).filter(r => {
-        const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+        const isExpiredInquiry = r.status === 'inquiry' &&
+            new Date(r.created_at).getTime() < Date.now() - inquiryExpiryMs(r.notes)
         return !isExpiredInquiry && r.check_out > checkIn
     })
 
@@ -900,10 +961,13 @@ INSTRUCCIONES:
    DISPONIBILIDAD ACTUAL siempre tienen prioridad sobre cualquier afirmación previa tuya
    en la conversación.
 5c. CONSULTAS DE ÚLTIMO MOMENTO VS. CONSULTAS DE RANGO AMPLIO:
-   - Si el turista pregunta por disponibilidad para EL MISMO DÍA (hoy) o con menos de
-     24 horas de anticipación, deriva a humano con ##DERIVAR## — estas consultas requieren
-     confirmación humana inmediata porque pueden depender de información que cambia en
-     tiempo real.
+   - Si el turista pregunta por disponibilidad o quiere reservar para EL MISMO DÍA (hoy) o
+     con menos de 24 horas de anticipación, seguí el flujo normal de cotización y reserva
+     (instrucciones 4c, 5e y 6) exactamente igual que para cualquier otra fecha — NO derives
+     con ##DERIVAR## solo por ser una consulta de último momento. El sistema procesa el pago
+     automáticamente y aplica del lado del servidor una ventana de confirmación más corta
+     para este caso puntual; vos como modelo no necesitás hacer nada distinto, solo generar
+     ##RESERVA_LISTA## con los datos normales cuando el turista confirme.
    - Si el turista pregunta por un MES CALENDARIO COMPLETO o un rango amplio de fechas
      (ej. "¿hay algo en junio?", "¿qué tienen para julio?"), responde directamente usando
      el bloque DISPONIBILIDAD ACTUAL, sin derivar, salvo que genuinamente no tengas datos
@@ -1321,7 +1385,6 @@ Deno.serve(async (req: Request) => {
     const unitCodeMap = createUnitCodeMap(activeUnits)
 
     // ── 7. Consultar disponibilidad ───────────────────────────────────────
-    const fourHoursAgoMs = Date.now() - 4 * 60 * 60 * 1000
     // Mismo horizonte que el máximo check_in permitido al crear una reserva (18 meses,
     // ver validación en parsed.check_in > addMonthsToDateString(today, 18)): ningún
     // huésped puede preguntar por una fecha más lejana, así que acota sin truncar filas.
@@ -1329,15 +1392,17 @@ Deno.serve(async (req: Request) => {
 
     const { data: allReservations } = await supabase
         .from('core_reservations')
-        .select('unit_id, check_in, check_out, status, created_at')
+        .select('unit_id, check_in, check_out, status, created_at, notes')
         .in('status', ['inquiry', 'confirmed', 'blocked'])
         .gte('check_out', new Date().toISOString().split('T')[0])
         .lte('check_in', availabilityHorizon)
         .order('check_in', { ascending: true })
 
-    // Filter in-memory: confirmed/blocked always count, inquiry only if created less than 4 hours ago
+    // Filter in-memory: confirmed/blocked always count; inquiry only if created less than
+    // 4 horas (2 horas si está marcada como de ÚLTIMO MOMENTO en notes)
     const availability = (allReservations || []).filter(r => {
-        const isExpiredInquiry = r.status === 'inquiry' && new Date(r.created_at).getTime() < fourHoursAgoMs
+        const isExpiredInquiry = r.status === 'inquiry' &&
+            new Date(r.created_at).getTime() < Date.now() - inquiryExpiryMs(r.notes)
         return !isExpiredInquiry
     })
 
@@ -1796,6 +1861,16 @@ Deno.serve(async (req: Request) => {
                 maximumFractionDigits: 0,
             })
             assistantText += `\n\n✅ *Reserva confirmada*\n\nTotal a pagar: ${montoStr}\n\n🔗 [Completa tu pago aquí](${paymentResult.paymentUrl})\n\n(El código de acceso a la unidad te llegará 24 horas antes del check-in)`
+
+            // Reserva de ÚLTIMO MOMENTO (check-in hoy o mañana, instrucción 5c): agregar
+            // aviso de confirmación final pendiente + contacto directo de Karina, con el
+            // mismo tono cálido del resto del bot, sin generar alarma.
+            if (paymentResult.isLastMinute) {
+                const karinasPhoneDisplay = formatChileanPhoneForDisplay(
+                    Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
+                )
+                assistantText += `\n\nComo tu llegada es muy pronto, esta reserva queda sujeta a la confirmación final de nuestro equipo. Si tienes alguna duda o prefieres confirmar directamente antes, puedes escribirle a Karina al ${karinasPhoneDisplay}. 😊`
+            }
         } else if (paymentResult.reason === 'check_in_fecha_muy_lejana') {
             // ⚠️ Posible año mal inferido: pedir aclaración sin derivar a humano
             console.error(`[whatsapp-bot] Fecha muy lejana en ##RESERVA_LISTA## (posible año mal inferido): ${JSON.stringify(parseResult.data)}`)
