@@ -1,6 +1,7 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import ScrollToTop from './components/ScrollToTop'
+import { useAdminPwaTags } from './lib/useAdminPwaTags'
 import HomePage from './pages/HomePage'
 import CabanasPage from './pages/CabanasPage'
 import DepartamentosPage from './pages/DepartamentosPage'
@@ -17,6 +18,9 @@ import AdminRatesPage from './pages/admin/AdminRatesPage'
 import AdminChatPage from './pages/admin/AdminChatPage'
 
 export default function App() {
+    const location = useLocation()
+    useAdminPwaTags(location.pathname.startsWith('/admin'))
+
     return (
         <>
             <ScrollToTop />
