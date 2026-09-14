@@ -145,9 +145,17 @@ export default function ChatMessageView({ conversation, onStatusChange }) {
     const isClosed = conversation.status === 'closed'
 
     return (
-        <div className="flex-1 flex flex-col bg-white min-w-0 h-full">
+        // min-h-0 (no h-full): dentro del flex-col de AdminChatPage, este componente comparte
+        // altura con el boton "Volver" (mobile). h-full ignoraba ese espacio ya ocupado y forzaba
+        // el 100% del padre, desbordando el contenedor recortado exactamente el alto del boton
+        // Volver. min-h-0 deja que flex-1 reparta el espacio realmente disponible.
+        <div className="flex-1 flex flex-col bg-white min-w-0 min-h-0">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0 bg-white">
+            {/* sticky top-[96px] solo en mobile (md:static la desactiva desde el breakpoint md):
+                96px = 59px de la barra del hamburguesa (AdminLayout.jsx) + 37px del boton "Volver"
+                (AdminChatPage.jsx), ambos sticky y apilados justo arriba de este header. bg-white
+                ya presente evita que los mensajes se transparenten por detras al hacer scroll. */}
+            <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between shrink-0 bg-white sticky md:static top-[96px] z-10">
                 <div className="min-w-0">
                     <p className="font-semibold text-gray-900 text-sm truncate">
                         {conversation.contact_name || conversation.phone}
