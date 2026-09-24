@@ -147,7 +147,9 @@ function CardPaymentForm({
                                     payment_method_id: cardFormData.payment_method_id,
                                     issuer_id: cardFormData.issuer_id,
                                     installments: cardFormData.installments,
-                                    payer_email: guest.email
+                                    payer_email: guest.email,
+                                    identification_type: cardFormData.payer?.identification?.type || null,
+                                    identification_number: cardFormData.payer?.identification?.number || null
                                 })
                             })
 
