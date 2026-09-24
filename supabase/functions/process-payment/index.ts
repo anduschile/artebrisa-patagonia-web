@@ -71,6 +71,21 @@ function getAddressByUnitCode(unitCode: string | null): string {
   return 'Clodomiro Rosas 164D'
 }
 
+async function notifyKarinaConfirmed(supabaseUrl: string, serviceRoleKey: string, reservationId: string) {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/notify-reservation`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reservation_id: reservationId }),
+    })
+  } catch (e) {
+    console.error('[PROCESS-PAYMENT] Error notificando a Karina:', e)
+  }
+}
+
 async function sendGuestConfirmationEmail(
   supabase: any,
   reservationId: string,
@@ -344,6 +359,11 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[PROCESS-PAYMENT] Iniciando pago: reservation_id=${reservation_id}, amount=${quotedTotal}`)
 
+  // DIAGNÓSTICO: payload completo enviado a Mercado Pago. No incluye datos
+  // crudos de tarjeta — 'token' es el token de un solo uso generado por el
+  // Card Payment Brick en el cliente, nunca el número de tarjeta/CVV/vencimiento.
+  console.log('[PROCESS-PAYMENT] Payload MP:', JSON.stringify(paymentPayload))
+
   // ── 4. Call Mercado Pago API ───────────────────────────────────────────
   let mpResponse: Response
   try {
@@ -418,16 +438,34 @@ Deno.serve(async (req: Request) => {
     updatePayload.paid_amount = quotedTotal
   }
 
-  const { error: updateErr } = await supabase
+  // Guard atómico: solo actualiza si la reserva NO está ya 'confirmed'. Evita
+  // pisar/duplicar una confirmación que ya llegó por el webhook IPN de MP
+  // (confirm-payment) para este mismo pago — ver notifyKarinaConfirmed más abajo.
+  const { data: updatedRows, error: updateErr } = await supabase
     .from('core_reservations')
     .update(updatePayload)
     .eq('id', reservation_id)
+    .neq('status', 'confirmed')
+    .select('id')
+
+  const justConfirmed = dbStatus === 'confirmed' && (updatedRows?.length ?? 0) > 0
 
   // ── 8. Send guest confirmation email (fire-and-forget) ────────────────────
   if (mpStatus === 'approved') {
     // Non-blocking email send; errors are logged but don't affect payment response
     sendGuestConfirmationEmail(supabase, reservation_id, payer_email, paidAmount)
       .catch(err => console.error('[GUEST-EMAIL] Unhandled error:', err))
+  }
+
+  // ── 8b. Notify Karina by WhatsApp (fire-and-forget) — solo la primera vez
+  // que esta reserva pasa a 'confirmed'/'paid', para no duplicar el mensaje
+  // si el webhook IPN de confirm-payment ya la confirmó antes.
+  if (justConfirmed) {
+    notifyKarinaConfirmed(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      reservation_id,
+    ).catch(err => console.error('[PROCESS-PAYMENT] Unhandled notify error:', err))
   }
 
   if (updateErr) {

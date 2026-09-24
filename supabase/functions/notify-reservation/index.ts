@@ -77,7 +77,9 @@ Deno.serve(async (req: Request) => {
         check_in,
         check_out,
         adults,
-        quoted_total,
+        status,
+        payment_status,
+        paid_amount,
         guests:guest_id (full_name),
         units:unit_id (name)
       `)
@@ -89,12 +91,22 @@ Deno.serve(async (req: Request) => {
       return jsonOk()
     }
 
+    // Esta función solo debe avisar "reserva confirmada" cuando el pago
+    // realmente se confirmó — nunca al crear una inquiry/consulta.
+    if (reservation.status !== 'confirmed' || reservation.payment_status !== 'paid') {
+      console.warn(
+        '[notify-reservation] Reserva aún no confirmada/pagada, no se envía WhatsApp:',
+        reservation_id, reservation.status, reservation.payment_status,
+      )
+      return jsonOk()
+    }
+
     const guestName = reservation.guests?.full_name || 'Sin nombre'
     const unitName = reservation.units?.name || 'Unidad'
     const checkIn = reservation.check_in
     const checkOut = reservation.check_out
     const adults = reservation.adults || 1
-    const quotedTotal = reservation.quoted_total || 0
+    const paidAmount = reservation.paid_amount || 0
 
     // Format dates to dd/mm/yy
     const checkInDate = new Date(checkIn + 'T00:00:00')
@@ -103,7 +115,7 @@ Deno.serve(async (req: Request) => {
     const checkOutFormatted = checkOutDate.toLocaleDateString('es-CL', { year: '2-digit', month: '2-digit', day: '2-digit' })
 
     // Format price
-    const priceFormatted = quotedTotal.toLocaleString('es-CL')
+    const priceFormatted = paidAmount.toLocaleString('es-CL')
 
     // Get Twilio credentials
     const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID')

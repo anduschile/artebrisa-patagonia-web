@@ -34,6 +34,21 @@ function jsonOk(): Response {
   })
 }
 
+async function notifyKarinaConfirmed(supabaseUrl: string, serviceRoleKey: string, reservationId: string) {
+  try {
+    await fetch(`${supabaseUrl}/functions/v1/notify-reservation`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${serviceRoleKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ reservation_id: reservationId }),
+    })
+  } catch (e) {
+    console.error('[CONFIRM-PAYMENT] Error notificando a Karina:', e)
+  }
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method !== 'POST' && req.method !== 'GET') {
     return new Response('Method not allowed', { status: 405 })
@@ -248,14 +263,30 @@ async function handleWebhook(req: Request, supabase: any, mpAccessToken: string)
       updatePayload.paid_amount = paidAmount
     }
 
-    const { error: updateErr } = await supabase
+    // Guard atómico: solo actualiza si la reserva NO está ya 'confirmed'. MP
+    // puede reintentar este webhook, y process-payment puede haber confirmado
+    // el mismo pago de forma síncrona antes de que este IPN llegue — sin este
+    // guard, Karina recibiría el WhatsApp de confirmación duplicado.
+    const { data: updatedRows, error: updateErr } = await supabase
       .from('core_reservations')
       .update(updatePayload)
       .eq('id', externalRef)
+      .neq('status', 'confirmed')
+      .select('id')
 
     if (updateErr) {
       console.error(`[CONFIRM-PAYMENT] Failed to update reservation ${externalRef}: ${updateErr}`)
       // Pero seguimos respondiendo 200 porque el pago fue procesado
+    }
+
+    // Notificar a Karina por WhatsApp (fire-and-forget) — solo la primera vez
+    // que esta reserva pasa a 'confirmed'/'paid' (ver comentario del guard arriba).
+    if (dbStatus === 'confirmed' && (updatedRows?.length ?? 0) > 0) {
+      notifyKarinaConfirmed(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+        externalRef,
+      ).catch(err => console.error('[CONFIRM-PAYMENT] Unhandled notify error:', err))
     }
 
     console.log(`[CONFIRM-PAYMENT] Webhook processed: reservation_id=${externalRef}, status=${dbStatus}`)

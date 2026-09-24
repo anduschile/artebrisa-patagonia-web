@@ -486,18 +486,6 @@ export default function ReservationWidget({ unit }) {
             setReservationId(reservation.id)
             setPriceFirstNight(priceFirstNight)
             setStep(3)
-
-            // Notify Karina about new reservation (fire-and-forget)
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
-            const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
-            fetch(`${supabaseUrl}/functions/v1/notify-reservation`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${anonKey}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ reservation_id: reservation.id }),
-            }).catch(e => console.error('Error notifying reservation:', e))
         } catch (e) {
             setError('Error al crear la reserva: ' + e.message)
         } finally {
