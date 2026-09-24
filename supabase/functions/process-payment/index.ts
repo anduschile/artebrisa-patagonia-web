@@ -383,10 +383,23 @@ Deno.serve(async (req: Request) => {
 
   // ── 5. Handle Mercado Pago response ────────────────────────────────────
   const statusCode = mpResponse.status
+
+  // DIAGNÓSTICO TEMPORAL: leemos el body como texto crudo ANTES de intentar
+  // parsearlo, y logueamos también los headers — así no perdemos nada si el
+  // body no es JSON válido, o si trae campos que nuestro código no lee hoy.
+  // statusCode de arriba YA es el status HTTP real que devolvió Mercado Pago
+  // (mpResponse.status), no un 500 inventado por nosotros — pero antes nunca
+  // lo estábamos viendo por separado del texto que armamos para el cliente.
+  const rawBodyText = await mpResponse.text()
+  const rawHeaders = Object.fromEntries(mpResponse.headers.entries())
+  console.log(`[PROCESS-PAYMENT][DIAG] MP http_status real=${statusCode}`)
+  console.log('[PROCESS-PAYMENT][DIAG] MP headers:', JSON.stringify(rawHeaders))
+  console.log('[PROCESS-PAYMENT][DIAG] MP body crudo (sin parsear):', rawBodyText)
+
   let responseData: any
 
   try {
-    responseData = await mpResponse.json()
+    responseData = JSON.parse(rawBodyText)
   } catch (e) {
     console.error('Mercado Pago response parse error (status=' + statusCode + '):', e)
     return jsonError('Invalid response from payment provider', 502)
