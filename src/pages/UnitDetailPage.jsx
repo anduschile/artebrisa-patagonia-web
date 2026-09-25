@@ -234,7 +234,7 @@ export default function UnitDetailPage() {
     const capacity = unit.capacidad_total ?? unit.capacity_total ?? unit.capacity
     const galleryBase = getGalleryBase(unit)
     const galleryImages = galleryBase
-        ? Array.from({ length: 8 }, (_, i) => `${galleryBase}/${i + 1}.jpg`)
+        ? Array.from({ length: 11 }, (_, i) => `${galleryBase}/${i + 1}.jpg`)
         : [getUnitImage(unit)] // fallback: just hero
 
     const waMsg = encodeURIComponent(
