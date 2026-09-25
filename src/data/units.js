@@ -29,7 +29,7 @@ export async function getUnitsByType(type) {
 export async function getFeaturedUnits(limit = 4) {
     const { data, error } = await supabase
         .from('core_units')
-        .select('id, name, code, unit_type, capacity_total, base_price, is_active')
+        .select('id, name, code, unit_type, capacity_total, description, base_price, is_active')
         .eq('is_active', true)
         .order('name', { ascending: true })
         .limit(limit)
