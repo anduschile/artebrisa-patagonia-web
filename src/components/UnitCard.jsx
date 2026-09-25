@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { getUnitImage } from '../data/unitImages'
 import { unitSlug } from '../data/unitSlug'
 import { SERVICES_BY_TYPE, formatCLP } from '../data/unitDefaults'
@@ -97,14 +98,21 @@ function ServiceStrip({ unitType }) {
 export default function UnitCard({ unit }) {
     const navigate = useNavigate()
     const lang = useLang()
+    const { t } = useTranslation()
     const imageUrl = getUnitImage(unit)
     const capacity = unit.capacidad_total ?? unit.capacity_total ?? unit.capacity
-    const typeLabel = unit.unit_type === 'cabana' ? 'Cabaña' : 'Departamento'
+    const typeLabel = unit.unit_type === 'cabana' ? t('common.typeCabana') : t('common.typeDepartamento')
     const typeColor = unit.unit_type === 'cabana'
         ? 'bg-amber-100 text-amber-700'
         : 'bg-primary-100 text-primary-700'
 
-    const excerpt = truncate(unit.description, 130)
+    // description_en solo existe para inglés; si viene vacía, cae a la
+    // descripción en español en vez del placeholder — no queremos que una
+    // unidad sin traducir todavía se vea rota en /en/*.
+    const displayDescription = lang === 'en'
+        ? (unit.description_en?.trim() || unit.description)
+        : unit.description
+    const excerpt = truncate(displayDescription, 130)
     const priceNum = unit.base_price ?? null
     const href = withLang(lang, `/unidad/${unitSlug(unit)}`)
 
@@ -156,14 +164,14 @@ export default function UnitCard({ unit }) {
                             <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
                             <path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
                         </svg>
-                        Hasta {capacity} personas
+                        {t('common.capacity', { count: capacity })}
                         {unit.bed_config && <><span className="text-slate-200">·</span>{unit.bed_config}</>}
                     </div>
                 )}
 
                 {/* Description excerpt — grows to fill space */}
                 <p className="text-slate-500 text-xs leading-relaxed mb-3 flex-1">
-                    {excerpt || <span className="italic text-slate-300">Descripción próximamente</span>}
+                    {excerpt || <span className="italic text-slate-300">{t('unitCard.descriptionFallback')}</span>}
                 </p>
 
                 {/* Service icons */}
@@ -171,10 +179,10 @@ export default function UnitCard({ unit }) {
 
                 {/* Price */}
                 <div className="mb-3">
-                    <span className="text-xs text-slate-400">Desde </span>
+                    <span className="text-xs text-slate-400">{t('common.from')} </span>
                     {priceNum > 0
-                        ? <span className="text-primary-600 font-bold text-base">{formatCLP(priceNum)} <span className="text-xs text-slate-400 font-normal">(aprox.)</span> <span className="text-xs font-normal text-slate-400">/ noche</span></span>
-                        : <span className="text-slate-400 font-semibold text-sm">— / noche</span>
+                        ? <span className="text-primary-600 font-bold text-base">{formatCLP(priceNum)} <span className="text-xs text-slate-400 font-normal">{t('common.approx')}</span> <span className="text-xs font-normal text-slate-400">{t('common.perNight')}</span></span>
+                        : <span className="text-slate-400 font-semibold text-sm">— {t('common.perNight')}</span>
                     }
                 </div>
 
@@ -187,7 +195,7 @@ export default function UnitCard({ unit }) {
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" /><circle cx="12" cy="12" r="3" />
                     </svg>
-                    Ver detalles y reservar
+                    {t('unitCard.viewDetails')}
                 </Link>
             </div>
         </motion.div>

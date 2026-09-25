@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabaseClient'
 export async function getUnitsByType(type) {
     const { data, error } = await supabase
         .from('core_units')
-        .select('id, name, code, unit_type, capacity_total, description, base_price, is_active')
+        .select('id, name, code, unit_type, capacity_total, description, description_en, base_price, is_active')
         .eq('is_active', true)
         .eq('unit_type', type)
         .order('name', { ascending: true })
@@ -29,7 +29,7 @@ export async function getUnitsByType(type) {
 export async function getFeaturedUnits(limit = 4) {
     const { data, error } = await supabase
         .from('core_units')
-        .select('id, name, code, unit_type, capacity_total, description, base_price, is_active')
+        .select('id, name, code, unit_type, capacity_total, description, description_en, base_price, is_active')
         .eq('is_active', true)
         .order('name', { ascending: true })
         .limit(limit)
@@ -143,7 +143,7 @@ export async function getAvailableUnits({ check_in, check_out, guests }) {
     const [unitsRes, conflictsRes] = await Promise.all([
         supabase
             .from('core_units')
-            .select('id, name, code, unit_type, capacity_total, bed_config, description, base_price, is_active')
+            .select('id, name, code, unit_type, capacity_total, bed_config, description, description_en, base_price, is_active')
             .eq('is_active', true),
         supabase
             .from('core_reservations')

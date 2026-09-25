@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { getUnitByCode } from '../data/units'
 import { getUnitImage, unitImages } from '../data/unitImages'
 import { SERVICES_BY_TYPE, POLICIES, PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
@@ -117,9 +118,10 @@ function Section({ title, children }) {
 
 // ─── Servicios ───────────────────────────────────────────────
 function ServicesBlock({ unitType }) {
+    const { t } = useTranslation()
     const services = SERVICES_BY_TYPE[unitType] ?? SERVICES_BY_TYPE.departamento
     return (
-        <Section title="Servicios incluidos">
+        <Section title={t('unitDetail.servicesTitle')}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {services.map(({ icon, label }) => (
                     <div key={label} className="flex items-center gap-2 text-sm text-slate-600">
@@ -135,31 +137,37 @@ function ServicesBlock({ unitType }) {
 }
 
 // ─── Políticas ───────────────────────────────────────────────
+// Keys estables (no el label ya traducido) para no perder el ícono en inglés.
 const POLICY_ICONS = {
-    'Check-in': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
-    'Check-out': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
-    'Cancelación': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>,
-    'Mascotas': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" /><path d="M9 10a5 5 0 015 5v3.5a3.5 3.5 0 01-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 018 13.5V13a5 5 0 011-3" /></svg>,
-    'Niños': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>,
-    'Mínimo': <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
+    checkin: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+    checkout: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><polyline points="12 6 12 12 16 14" /></svg>,
+    cancellation: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z" /></svg>,
+    pets: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="4" r="2" /><circle cx="18" cy="8" r="2" /><circle cx="20" cy="16" r="2" /><path d="M9 10a5 5 0 015 5v3.5a3.5 3.5 0 01-6.84 1.045Q6.52 17.48 4.46 16.84A3.5 3.5 0 018 13.5V13a5 5 0 011-3" /></svg>,
+    children: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" /></svg>,
+    minimum: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2" /><line x1="16" y1="2" x2="16" y2="6" /><line x1="8" y1="2" x2="8" y2="6" /><line x1="3" y1="10" x2="21" y2="10" /></svg>,
 }
 
 function PoliciesBlock() {
+    const { t } = useTranslation()
+    // Los VALORES (POLICIES.*) son contenido de datos en español (horarios,
+    // condiciones) — no se tradujeron acá, solo las etiquetas de la UI. Es
+    // contenido análogo a las descripciones de unidad, fuera del alcance de
+    // este prompt (ver TAREA C/D). Traducir POLICIES es un paso futuro.
     const items = [
-        { label: 'Check-in', value: POLICIES.check_in },
-        { label: 'Check-out', value: POLICIES.check_out },
-        { label: 'Cancelación', value: POLICIES.cancelacion },
-        { label: 'Mascotas', value: POLICIES.mascotas },
-        { label: 'Niños', value: POLICIES.ninos },
-        { label: 'Mínimo', value: POLICIES.minimo },
+        { key: 'checkin', label: t('unitDetail.policyCheckin'), value: POLICIES.check_in },
+        { key: 'checkout', label: t('unitDetail.policyCheckout'), value: POLICIES.check_out },
+        { key: 'cancellation', label: t('unitDetail.policyCancellation'), value: POLICIES.cancelacion },
+        { key: 'pets', label: t('unitDetail.policyPets'), value: POLICIES.mascotas },
+        { key: 'children', label: t('unitDetail.policyChildren'), value: POLICIES.ninos },
+        { key: 'minimum', label: t('unitDetail.policyMinimum'), value: POLICIES.minimo },
     ]
     return (
-        <Section title="Políticas de la estadía">
+        <Section title={t('unitDetail.policiesTitle')}>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {items.map(({ label, value }) => (
-                    <div key={label} className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5">
+                {items.map(({ key, label, value }) => (
+                    <div key={key} className="flex items-start gap-2.5 bg-slate-50 rounded-xl px-3 py-2.5">
                         <span className="text-primary-400 mt-0.5 flex-shrink-0">
-                            {POLICY_ICONS[label]}
+                            {POLICY_ICONS[key]}
                         </span>
                         <div>
                             <span className="text-xs text-slate-400 block">{label}</span>
@@ -174,24 +182,25 @@ function PoliciesBlock() {
 
 // ─── Información de Precios ────────────────────────────────────
 function PricesBlock({ unit }) {
+    const { t } = useTranslation()
     if (!unit.base_price) return null
     return (
-        <Section title="Información de Tarifa">
+        <Section title={t('unitDetail.pricingTitle')}>
             <div className="bg-primary-50 border border-primary-100 rounded-2xl p-6">
-                <div className="text-slate-500 text-xs uppercase font-black tracking-widest mb-1">Tarifa base</div>
+                <div className="text-slate-500 text-xs uppercase font-black tracking-widest mb-1">{t('unitDetail.baseRate')}</div>
                 <div className="flex items-baseline gap-2">
                     <span className="text-3xl font-black text-primary-700">{formatCLP(unit.base_price)}</span>
-                    <span className="text-slate-500 font-bold">/ noche</span>
+                    <span className="text-slate-500 font-bold">{t('common.perNight')}</span>
                 </div>
                 <p className="text-slate-500 text-sm mt-3 leading-relaxed">
-                    Esta es nuestra tarifa base referencial. El precio puede variar según la fecha seleccionada en fechas especiales o festivos.
+                    {t('unitDetail.pricingDisclaimer')}
                 </p>
                 <div className="mt-6 pt-6 border-t border-primary-100 flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full bg-primary-100 flex items-center justify-center text-primary-600">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 16v-4" /><path d="M12 8h.01" /></svg>
                     </div>
                     <div className="text-xs text-primary-800 font-medium">
-                        Consulta disponibilidad y tarifas finales para tus fechas vía WhatsApp.
+                        {t('unitDetail.pricingConsult')}
                     </div>
                 </div>
             </div>
@@ -204,6 +213,7 @@ export default function UnitDetailPage() {
     const { slug } = useParams()
     const navigate = useNavigate()
     const lang = useLang()
+    const { t } = useTranslation()
     const [unit, setUnit] = useState(null)
     const [loading, setLoading] = useState(true)
     const [notFound, setNotFound] = useState(false)
@@ -224,10 +234,10 @@ export default function UnitDetailPage() {
             <div className="min-h-[60vh] flex items-center justify-center px-4 pt-20">
                 <div className="text-center">
                     <div className="text-5xl mb-4">🔍</div>
-                    <h1 className="text-xl font-black text-slate-900 mb-2">Unidad no encontrada</h1>
-                    <p className="text-slate-500 mb-5">La unidad "{slug}" no existe o no está disponible.</p>
+                    <h1 className="text-xl font-black text-slate-900 mb-2">{t('unitDetail.notFoundTitle')}</h1>
+                    <p className="text-slate-500 mb-5">{t('unitDetail.notFoundText', { slug })}</p>
                     <Link to={withLang(lang, '/')} className="px-5 py-2 bg-primary-500 text-white rounded-xl font-semibold text-sm hover:bg-primary-600 transition-colors">
-                        ← Volver al inicio
+                        {t('common.backToHome')}
                     </Link>
                 </div>
             </div>
@@ -235,13 +245,20 @@ export default function UnitDetailPage() {
     }
 
     // ── Derived data ──
-    const typeLabel = unit.unit_type === 'cabana' ? 'Cabaña' : 'Departamento'
+    const typeLabel = unit.unit_type === 'cabana' ? t('common.typeCabana') : t('common.typeDepartamento')
     const unitType = unit.unit_type === 'cabana' ? 'cabana' : 'departamento'
     const capacity = unit.capacidad_total ?? unit.capacity_total ?? unit.capacity
     const galleryBase = getGalleryBase(unit)
     const galleryImages = galleryBase
         ? Array.from({ length: 11 }, (_, i) => `${galleryBase}/${i + 1}.jpg`)
         : [getUnitImage(unit)] // fallback: just hero
+
+    // description_en solo existe para inglés; si viene vacía, cae a la
+    // descripción en español en vez de mostrar el placeholder de "sin
+    // traducir" — no queremos que una unidad sin description_en se vea rota.
+    const displayDescription = lang === 'en'
+        ? (unit.description_en?.trim() || unit.description?.trim())
+        : unit.description?.trim()
 
     const waMsg = encodeURIComponent(
         `Hola, quiero consultar disponibilidad para ${typeLabel.toLowerCase()} *${unit.name || unit.code}* en Arte Brisa Patagonia.`
@@ -263,13 +280,13 @@ export default function UnitDetailPage() {
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                             <polyline points="15 18 9 12 15 6" />
                         </svg>
-                        Volver
+                        {t('common.back')}
                     </button>
                     <span className="text-slate-300">/</span>
                     <Link to={withLang(lang, unitType === 'cabana' ? '/cabanas' : '/departamentos')}
                         className="hover:text-primary-600 transition-colors capitalize"
                     >
-                        {unitType === 'cabana' ? 'Cabañas' : 'Departamentos'}
+                        {unitType === 'cabana' ? t('nav.cabanas') : t('nav.departamentos')}
                     </Link>
                     <span className="text-slate-300">/</span>
                     <span className="text-slate-800 font-medium truncate max-w-[180px]">{unit.name || unit.code}</span>
@@ -297,10 +314,10 @@ export default function UnitDetailPage() {
                                 <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" /><circle cx="9" cy="7" r="4" />
                                 <path d="M23 21v-2a4 4 0 00-3-3.87" /><path d="M16 3.13a4 4 0 010 7.75" />
                             </svg>
-                            Hasta {capacity} personas
+                            {t('common.capacity', { count: capacity })}
                             {unit.base_price > 0 && (
                                 <span className="ml-2 text-primary-600 font-bold">
-                                    · Desde {formatCLP(unit.base_price)} (aprox.)
+                                    · {t('common.from')} {formatCLP(unit.base_price)} {t('common.approx')}
                                 </span>
                             )}
                         </div>
@@ -326,9 +343,9 @@ export default function UnitDetailPage() {
                         </div>
 
                         {/* ── Descripción ── */}
-                        <Section title="Descripción">
+                        <Section title={t('unitDetail.descriptionTitle')}>
                             <p className="text-slate-600 leading-relaxed text-sm sm:text-base whitespace-pre-line">
-                                {unit.description?.trim() || 'Descripción próximamente. Consultá por WhatsApp para más detalles.'}
+                                {displayDescription || t('unitDetail.descriptionFallback')}
                             </p>
                         </Section>
 
@@ -344,8 +361,8 @@ export default function UnitDetailPage() {
                         {/* ── WhatsApp fallback ── */}
                         <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center gap-3">
                             <div className="flex-1">
-                                <p className="text-sm font-semibold text-slate-700">¿Tienes preguntas?</p>
-                                <p className="text-xs text-slate-500">Te respondemos por WhatsApp en minutos.</p>
+                                <p className="text-sm font-semibold text-slate-700">{t('unitDetail.questionsTitle')}</p>
+                                <p className="text-xs text-slate-500">{t('unitDetail.questionsText')}</p>
                             </div>
                             <a
                                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
@@ -356,7 +373,7 @@ export default function UnitDetailPage() {
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
                                     <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" />
                                 </svg>
-                                Consultar por WhatsApp
+                                {t('common.consultWhatsappText')}
                             </a>
                         </div>
                     </motion.div>

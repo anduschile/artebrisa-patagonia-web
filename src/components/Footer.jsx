@@ -1,5 +1,8 @@
 import { Link, useLocation } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import { CONTACT, LOCATIONS } from '../data/subsiteSections'
+import { useLang } from '../i18n/LangContext'
+import { withLang } from '../i18n/languages'
 
 const FACEBOOK_URL = 'https://www.facebook.com/p/Caba%C3%B1as-Arte-Brisa-Patagonia-100033325578398/'
 const INSTAGRAM_URL = 'https://www.instagram.com/cabanas_artebrisa_patagonia/'
@@ -22,8 +25,10 @@ function IconInstagram() {
 
 export default function Footer() {
     const { pathname } = useLocation()
-    const isHome = pathname === '/'
-    const isDepto = pathname.startsWith('/departamentos')
+    const { t } = useTranslation()
+    const lang = useLang()
+    const isHome = pathname === withLang(lang, '/')
+    const isDepto = pathname.startsWith(withLang(lang, '/departamentos'))
 
     return (
         <footer className="bg-slate-900 text-slate-300">
@@ -42,7 +47,7 @@ export default function Footer() {
                             <span className="font-black text-white text-lg">Arte<span className="text-primary-400">Brisa</span> Patagonia</span>
                         </div>
                         <p className="text-sm text-slate-400 leading-relaxed mb-5">
-                            Puerto Natales, Chile
+                            {t('footer.tagline')}
                         </p>
                         <div className="flex items-center gap-3">
                             <a
@@ -68,7 +73,7 @@ export default function Footer() {
 
                     {/* ── Col 2: Contact ── */}
                     <div>
-                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Contacto</h3>
+                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">{t('footer.contact')}</h3>
                         <ul className="space-y-3 text-sm">
                             <li>
                                 <a href={CONTACT.telHref} className="flex items-start gap-2 hover:text-primary-400 transition-colors">
@@ -93,11 +98,11 @@ export default function Footer() {
                                 {isHome ? (
                                     <div className="space-y-2">
                                         <div>
-                                            <span className="font-bold text-white block mb-0.5">Cabañas:</span>
+                                            <span className="font-bold text-white block mb-0.5">{t('footer.cabanasLabel')}</span>
                                             <span className="text-slate-400">{LOCATIONS.cabana.address}</span>
                                         </div>
                                         <div>
-                                            <span className="font-bold text-white block mb-0.5">Departamentos:</span>
+                                            <span className="font-bold text-white block mb-0.5">{t('footer.deptosLabel')}</span>
                                             <span className="text-slate-400">{LOCATIONS.departamento.address}</span>
                                         </div>
                                     </div>
@@ -110,16 +115,16 @@ export default function Footer() {
 
                     {/* ── Col 3: Links ── */}
                     <div>
-                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">Enlaces</h3>
+                        <h3 className="font-semibold text-white mb-4 text-sm uppercase tracking-wide">{t('footer.links')}</h3>
                         <ul className="space-y-2.5 text-sm">
                             <li>
-                                <Link to="/" className="hover:text-primary-400 transition-colors">Inicio</Link>
+                                <Link to={withLang(lang, '/')} className="hover:text-primary-400 transition-colors">{t('nav.home')}</Link>
                             </li>
                             <li>
-                                <Link to="/cabanas" className="hover:text-primary-400 transition-colors">Cabañas</Link>
+                                <Link to={withLang(lang, '/cabanas')} className="hover:text-primary-400 transition-colors">{t('nav.cabanas')}</Link>
                             </li>
                             <li>
-                                <Link to="/departamentos" className="hover:text-primary-400 transition-colors">Departamentos</Link>
+                                <Link to={withLang(lang, '/departamentos')} className="hover:text-primary-400 transition-colors">{t('nav.departamentos')}</Link>
                             </li>
                         </ul>
                     </div>
@@ -127,12 +132,12 @@ export default function Footer() {
 
                 {/* ── Bottom bar ── */}
                 <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
-                    <span>© 2026 Arte Brisa Patagonia. Todos los derechos reservados.</span>
+                    <span>{t('footer.copyright')}</span>
                     <Link to="/admin" className="flex items-center gap-1 text-slate-700 hover:text-slate-500 transition-colors">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                             <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
                         </svg>
-                        Acceso administrador
+                        {t('footer.adminAccess')}
                     </Link>
                 </div>
             </div>

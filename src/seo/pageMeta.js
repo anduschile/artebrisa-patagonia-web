@@ -1,12 +1,10 @@
 /**
  * Título y meta description por página y por idioma.
  *
- * IMPORTANTE: 'en' y 'de' están en español a propósito por ahora — es
- * contenido placeholder mientras no se hace la traducción real (fase
- * posterior). Lo que sí es real ya es la infraestructura: cada página
- * recibe su propio <title>/<meta description> en vez del genérico
- * compartido de index.html, y cada idioma tiene su propia entrada acá
- * lista para traducirse sin tocar el mecanismo de head dinámico.
+ * 'en' ya tiene traducción real (fase 2 de i18n). 'de' sigue en español a
+ * propósito — es contenido placeholder mientras no se hace la traducción
+ * real de alemán (fase posterior). Cada página recibe su propio
+ * <title>/<meta description> en vez del genérico compartido de index.html.
  */
 export const SITE_URL = 'https://artebrisapatagonia.com'
 
@@ -25,8 +23,20 @@ const ES = {
     },
 }
 
-// TODO(i18n-fase-2): traducir estos títulos/descripciones al inglés real.
-const EN = ES
+const EN = {
+    home: {
+        title: 'Arte Brisa Patagonia — Cabins and Apartments in Puerto Natales',
+        description: 'Cabins with mountain views and fully equipped apartments in downtown Puerto Natales. Book your stay in Patagonia with Arte Brisa.',
+    },
+    cabanas: {
+        title: 'Cabins in Puerto Natales — Arte Brisa Patagonia',
+        description: 'Family cabins with mountain views, minutes from downtown Puerto Natales. Wifi, equipped kitchen and heating included.',
+    },
+    departamentos: {
+        title: 'Apartments in Downtown Puerto Natales — Arte Brisa Patagonia',
+        description: 'Fully equipped apartments right in downtown Puerto Natales, steps from everything. Ideal for short and long stays.',
+    },
+}
 
 // TODO(i18n-fase-2): traducir estos títulos/descripciones al alemán real.
 const DE = ES

@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import HeroSection from '../components/HeroSection'
 import UnitCard from '../components/UnitCard'
 import FilterBar from '../components/FilterBar'
@@ -47,13 +48,14 @@ export default function DepartamentosPage() {
     const [filters, setFilters] = useState(EMPTY_FILTERS)
     const lang = useLang()
     const meta = PAGE_META[lang].departamentos
+    const { t } = useTranslation()
 
     function load() {
         setLoading(true)
         setError(null)
         getUnitsByType('departamento')
             .then(data => { setUnits(data); setLoading(false) })
-            .catch(() => { setError('No se pudo cargar la información. Inténtalo más tarde.'); setLoading(false) })
+            .catch(() => { setError(t('common.errorLoad')); setLoading(false) })
     }
 
     useEffect(() => { load() }, [])
@@ -74,18 +76,18 @@ export default function DepartamentosPage() {
             <SeoHead path="/departamentos" title={meta.title} description={meta.description} />
             <HeroSection
                 type="departamentos"
-                title="Departamentos en Patagonia"
-                subtitle="Ubicación estratégica en el centro de Puerto Natales. Comodidad urbana con acceso directo a la aventura."
+                title={t('departamentos.heroTitle')}
+                subtitle={t('departamentos.heroSubtitle')}
             />
 
             {/* Trust strip */}
             <div className="bg-primary-50 border-b border-primary-100">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3">
                     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1.5 text-xs text-primary-700 font-medium">
-                        <span>✅ Wi-Fi incluido</span>
-                        <span>✅ Cocina equipada</span>
-                        <span>✅ Calefacción</span>
-                        <span>✅ Centro de Natales</span>
+                        <span>{t('departamentos.trustWifi')}</span>
+                        <span>{t('departamentos.trustKitchen')}</span>
+                        <span>{t('departamentos.trustHeat')}</span>
+                        <span>{t('departamentos.trustCenter')}</span>
                     </div>
                 </div>
             </div>
@@ -96,11 +98,11 @@ export default function DepartamentosPage() {
                 <div className="mb-6">
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                         {loading
-                            ? 'Cargando departamentos…'
-                            : `${total} departamento${total !== 1 ? 's' : ''} disponible${total !== 1 ? 's' : ''}`
+                            ? t('departamentos.loading')
+                            : t('departamentos.countAvailable', { count: total })
                         }
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Totalmente equipados · Acceso 24h · A pasos de todo</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('departamentos.tagline')}</p>
                 </div>
 
                 {/* Filters */}
@@ -122,7 +124,7 @@ export default function DepartamentosPage() {
                         <div className="text-4xl mb-3">⚠️</div>
                         <p className="text-slate-600 mb-4">{error}</p>
                         <button onClick={load} className="px-5 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors">
-                            Reintentar
+                            {t('common.retry')}
                         </button>
                     </div>
                 )}
@@ -156,9 +158,9 @@ export default function DepartamentosPage() {
                 {showing && units.length > 0 && filtered.length === 0 && (
                     <div className="text-center py-16">
                         <div className="text-5xl mb-3">🔍</div>
-                        <p className="text-slate-600 mb-4">Ningún departamento cumple los filtros seleccionados.</p>
+                        <p className="text-slate-600 mb-4">{t('departamentos.noFilterResults')}</p>
                         <button onClick={() => setFilters(EMPTY_FILTERS)} className="px-5 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors">
-                            Limpiar filtros
+                            {t('common.clearFilters')}
                         </button>
                     </div>
                 )}
@@ -167,16 +169,16 @@ export default function DepartamentosPage() {
                 {showing && units.length === 0 && (
                     <div className="text-center py-20">
                         <div className="text-6xl mb-4">🏙️</div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">Próximamente</h3>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">{t('common.comingSoon')}</h3>
                         <p className="text-slate-500 mb-6 max-w-sm mx-auto">
-                            Los departamentos se están preparando. Contáctanos directamente para consultar disponibilidad.
+                            {t('departamentos.emptyText')}
                         </p>
                         <a
                             href={buildWaUrl('Hola, quiero consultar disponibilidad de departamentos en Arte Brisa Patagonia')}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
                         >
-                            💬 Consultar por WhatsApp
+                            {t('common.consultWhatsapp')}
                         </a>
                     </div>
                 )}

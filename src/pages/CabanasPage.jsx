@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import HeroSection from '../components/HeroSection'
 import UnitCard from '../components/UnitCard'
 import FilterBar from '../components/FilterBar'
@@ -48,13 +49,14 @@ export default function CabanasPage() {
     const [filters, setFilters] = useState(EMPTY_FILTERS)
     const lang = useLang()
     const meta = PAGE_META[lang].cabanas
+    const { t } = useTranslation()
 
     function load() {
         setLoading(true)
         setError(null)
         getUnitsByType('cabana')
             .then(data => { setUnits(data); setLoading(false) })
-            .catch(() => { setError('No se pudo cargar la información. Inténtalo más tarde.'); setLoading(false) })
+            .catch(() => { setError(t('common.errorLoad')); setLoading(false) })
     }
 
     useEffect(() => { load() }, [])
@@ -78,8 +80,8 @@ export default function CabanasPage() {
             <SeoHead path="/cabanas" title={meta.title} description={meta.description} />
             <HeroSection
                 type="cabanas"
-                title="Cabañas en la Patagonia"
-                subtitle="Naturaleza, silencio y vistas a la cordillera. La experiencia auténtica de Puerto Natales."
+                title={t('cabanas.heroTitle')}
+                subtitle={t('cabanas.heroSubtitle')}
             />
 
             <section id="alojamientos" className="py-10 px-4 sm:px-6 max-w-6xl mx-auto">
@@ -88,11 +90,11 @@ export default function CabanasPage() {
                 <div className="mb-6">
                     <h2 className="text-xl sm:text-2xl font-black text-slate-900">
                         {loading
-                            ? 'Cargando cabañas…'
-                            : `${total} cabaña${total !== 1 ? 's' : ''} disponible${total !== 1 ? 's' : ''}`
+                            ? t('cabanas.loading')
+                            : t('cabanas.countAvailable', { count: total })
                         }
                     </h2>
-                    <p className="text-slate-500 text-sm mt-1">Todas con equipamiento completo · A minutos del centro</p>
+                    <p className="text-slate-500 text-sm mt-1">{t('cabanas.tagline')}</p>
                 </div>
 
                 {/* Filters */}
@@ -114,7 +116,7 @@ export default function CabanasPage() {
                         <div className="text-4xl mb-3">⚠️</div>
                         <p className="text-slate-600 mb-4">{error}</p>
                         <button onClick={load} className="px-5 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors">
-                            Reintentar
+                            {t('common.retry')}
                         </button>
                     </div>
                 )}
@@ -148,9 +150,9 @@ export default function CabanasPage() {
                 {showing && units.length > 0 && filtered.length === 0 && (
                     <div className="text-center py-16">
                         <div className="text-5xl mb-3">🔍</div>
-                        <p className="text-slate-600 mb-4">Ninguna cabaña cumple los filtros seleccionados.</p>
+                        <p className="text-slate-600 mb-4">{t('cabanas.noFilterResults')}</p>
                         <button onClick={() => setFilters(EMPTY_FILTERS)} className="px-5 py-2 bg-primary-500 text-white rounded-lg text-sm font-semibold hover:bg-primary-600 transition-colors">
-                            Limpiar filtros
+                            {t('common.clearFilters')}
                         </button>
                     </div>
                 )}
@@ -159,16 +161,16 @@ export default function CabanasPage() {
                 {showing && units.length === 0 && (
                     <div className="text-center py-20">
                         <div className="text-6xl mb-4">🏡</div>
-                        <h3 className="text-xl font-bold text-slate-800 mb-2">Próximamente</h3>
+                        <h3 className="text-xl font-bold text-slate-800 mb-2">{t('common.comingSoon')}</h3>
                         <p className="text-slate-500 mb-6 max-w-sm mx-auto">
-                            Las cabañas se están preparando. Contáctanos directamente para consultar disponibilidad.
+                            {t('cabanas.emptyText')}
                         </p>
                         <a
                             href={buildWaUrl('Hola, quiero consultar disponibilidad de cabañas en Arte Brisa Patagonia')}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
                         >
-                            💬 Consultar por WhatsApp
+                            {t('common.consultWhatsapp')}
                         </a>
                     </div>
                 )}
