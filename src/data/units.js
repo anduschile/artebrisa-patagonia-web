@@ -63,6 +63,27 @@ export async function getUnitById(id) {
 }
 
 /**
+ * Obtiene una unidad por su slug de URL (derivado de `code`, ej. 'cab-chilco').
+ * Usado por /unidad/:slug — reemplaza la búsqueda por UUID crudo.
+ * @param {string} slug
+ * @returns {Promise<Object|null>}
+ */
+export async function getUnitByCode(slug) {
+    const { data, error } = await supabase
+        .from('core_units')
+        .select('*')
+        .eq('code', slug.toUpperCase())
+        .maybeSingle()
+
+    if (error) {
+        console.error('Error fetching unit by code:', error)
+        return null
+    }
+
+    return data
+}
+
+/**
  * Obtiene tarifa override para una unidad y fecha específica.
  * @param {string} unitId
  * @param {string} date YYYY-MM-DD

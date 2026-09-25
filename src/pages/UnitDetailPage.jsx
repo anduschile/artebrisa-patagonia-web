@@ -1,11 +1,16 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { getUnitById } from '../data/units'
+import { getUnitByCode } from '../data/units'
 import { getUnitImage, unitImages } from '../data/unitImages'
 import { SERVICES_BY_TYPE, POLICIES, PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
 import ImageCarousel from '../components/ImageCarousel'
 import ReservationWidget from '../components/ReservationWidget'
+import SeoHead from '../components/SeoHead'
+import { unitPageMeta } from '../seo/pageMeta'
+import { useLang } from '../i18n/LangContext'
+import { withLang } from '../i18n/languages'
+import { unitSlug } from '../data/unitSlug'
 import { WHATSAPP_NUMBER } from '../config/contact'
 
 // ─── Derive gallery folder from mapping ─────────────────────
@@ -196,20 +201,21 @@ function PricesBlock({ unit }) {
 
 // ─── Main page ────────────────────────────────────────────────
 export default function UnitDetailPage() {
-    const { id } = useParams()
+    const { slug } = useParams()
     const navigate = useNavigate()
+    const lang = useLang()
     const [unit, setUnit] = useState(null)
     const [loading, setLoading] = useState(true)
     const [notFound, setNotFound] = useState(false)
 
     useEffect(() => {
-        if (!id) { setNotFound(true); setLoading(false); return }
-        getUnitById(id).then(data => {
+        if (!slug) { setNotFound(true); setLoading(false); return }
+        getUnitByCode(slug).then(data => {
             if (!data) setNotFound(true)
             else setUnit(data)
             setLoading(false)
         })
-    }, [id])
+    }, [slug])
 
     if (loading) return <Skeleton />
 
@@ -219,8 +225,8 @@ export default function UnitDetailPage() {
                 <div className="text-center">
                     <div className="text-5xl mb-4">🔍</div>
                     <h1 className="text-xl font-black text-slate-900 mb-2">Unidad no encontrada</h1>
-                    <p className="text-slate-500 mb-5">La unidad con ID #{id} no existe o no está disponible.</p>
-                    <Link to="/" className="px-5 py-2 bg-primary-500 text-white rounded-xl font-semibold text-sm hover:bg-primary-600 transition-colors">
+                    <p className="text-slate-500 mb-5">La unidad "{slug}" no existe o no está disponible.</p>
+                    <Link to={withLang(lang, '/')} className="px-5 py-2 bg-primary-500 text-white rounded-xl font-semibold text-sm hover:bg-primary-600 transition-colors">
                         ← Volver al inicio
                     </Link>
                 </div>
@@ -241,8 +247,11 @@ export default function UnitDetailPage() {
         `Hola, quiero consultar disponibilidad para ${typeLabel.toLowerCase()} *${unit.name || unit.code}* en Arte Brisa Patagonia.`
     )
 
+    const { title, description } = unitPageMeta(unit)
+
     return (
         <div className="pb-16 md:pb-0">
+            <SeoHead path={`/unidad/${unitSlug(unit)}`} title={title} description={description} />
 
             {/* ── Narrow top bar (breadcrumb / back) ── */}
             <div className="bg-white border-b border-slate-100 pt-16">
@@ -257,7 +266,7 @@ export default function UnitDetailPage() {
                         Volver
                     </button>
                     <span className="text-slate-300">/</span>
-                    <Link to={unitType === 'cabana' ? '/cabanas' : '/departamentos'}
+                    <Link to={withLang(lang, unitType === 'cabana' ? '/cabanas' : '/departamentos')}
                         className="hover:text-primary-600 transition-colors capitalize"
                     >
                         {unitType === 'cabana' ? 'Cabañas' : 'Departamentos'}

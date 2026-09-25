@@ -11,7 +11,19 @@
       "has": [{ "type": "host", "value": "www.artebrisapatagonia.com" }],
       "destination": "https://artebrisapatagonia.com/$1",
       "permanent": true
-    }
+    },
+    { "source": "/unidad/9a95daab-f318-4835-b701-f6ea88bc114d", "destination": "/unidad/cab-chilco", "permanent": false },
+    { "source": "/unidad/f3fb1be8-cd83-4a5d-b340-8fd83421bd58", "destination": "/unidad/cab-ciruelillo", "permanent": false },
+    { "source": "/unidad/13a700ab-f974-46ac-b39b-edbec4c5484d", "destination": "/unidad/cab-flor-de-notro", "permanent": false },
+    { "source": "/unidad/4703fcf0-4788-421a-8ad7-a800fb99f9c6", "destination": "/unidad/cab-lupino", "permanent": false },
+    { "source": "/unidad/44f79162-6c35-47bb-83ef-36d988ebb83f", "destination": "/unidad/dep-1", "permanent": false },
+    { "source": "/unidad/0cb4ab96-08e8-4337-b3c2-10717cf68e77", "destination": "/unidad/dep-2", "permanent": false },
+    { "source": "/unidad/128ca3e0-99a8-4d9c-becb-99edbb93acec", "destination": "/unidad/dep-3", "permanent": false },
+    { "source": "/unidad/32babfdf-5c5f-4a1f-a23b-61ac6da56798", "destination": "/unidad/dep-4", "permanent": false },
+    { "source": "/unidad/e72e822f-cc4a-48b6-9f76-f8485eac68aa", "destination": "/unidad/tiny-calafate", "permanent": false },
+    { "source": "/unidad/e5b784ee-e87f-497c-abd1-cda1352d6806", "destination": "/unidad/tiny-margarita", "permanent": false },
+    { "source": "/unidad/2e4145b0-6cbe-42fb-9bbf-f49f286ec1d1", "destination": "/unidad/tiny-nirre", "permanent": false },
+    { "source": "/unidad/f3177f46-35cd-4d47-85ae-f7ca98d24a7b", "destination": "/unidad/tiny-violeta", "permanent": false }
   ],
   "rewrites": [
     {

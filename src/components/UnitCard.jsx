@@ -1,7 +1,10 @@
 import { motion } from 'framer-motion'
 import { Link, useNavigate } from 'react-router-dom'
 import { getUnitImage } from '../data/unitImages'
+import { unitSlug } from '../data/unitSlug'
 import { SERVICES_BY_TYPE, formatCLP } from '../data/unitDefaults'
+import { useLang } from '../i18n/LangContext'
+import { withLang } from '../i18n/languages'
 
 // ─── Helpers ─────────────────────────────────────────────────
 function truncate(str, max = 130) {
@@ -93,6 +96,7 @@ function ServiceStrip({ unitType }) {
 // ─── Card ─────────────────────────────────────────────────────
 export default function UnitCard({ unit }) {
     const navigate = useNavigate()
+    const lang = useLang()
     const imageUrl = getUnitImage(unit)
     const capacity = unit.capacidad_total ?? unit.capacity_total ?? unit.capacity
     const typeLabel = unit.unit_type === 'cabana' ? 'Cabaña' : 'Departamento'
@@ -102,7 +106,7 @@ export default function UnitCard({ unit }) {
 
     const excerpt = truncate(unit.description, 130)
     const priceNum = unit.base_price ?? null
-    const href = `/unidad/${unit.id}`
+    const href = withLang(lang, `/unidad/${unitSlug(unit)}`)
 
     function handleCardClick(e) {
         // don't navigate twice if user clicked the Link button itself

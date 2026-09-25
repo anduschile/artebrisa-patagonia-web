@@ -6,6 +6,9 @@ import UnitCard from '../components/UnitCard'
 import { getFeaturedUnits } from '../data/units'
 import { buildWaUrl } from '../config/contact'
 import SearchWidget from '../components/SearchWidget'
+import SeoHead from '../components/SeoHead'
+import { useLang } from '../i18n/LangContext'
+import { PAGE_META } from '../seo/pageMeta'
 
 function CategoryCard({ to, title, description, imageClass, color }) {
     return (
@@ -57,6 +60,8 @@ function TrustBar() {
 export default function HomePage() {
     const [featured, setFeatured] = useState([])
     const [loading, setLoading] = useState(true)
+    const lang = useLang()
+    const meta = PAGE_META[lang].home
 
     useEffect(() => {
         getFeaturedUnits(4).then(data => {
@@ -67,6 +72,7 @@ export default function HomePage() {
 
     return (
         <div className="pb-16 md:pb-0">
+            <SeoHead path="/" title={meta.title} description={meta.description} />
             {/* Hero */}
             <HeroSection
                 type="home"

@@ -12,6 +12,9 @@ import ContactSection from '../components/sections/ContactSection'
 import { getUnitsByType } from '../data/units'
 import { SERVICES_BY_TYPE } from '../data/unitDefaults'
 import { buildWaUrl } from '../config/contact'
+import SeoHead from '../components/SeoHead'
+import { useLang } from '../i18n/LangContext'
+import { PAGE_META } from '../seo/pageMeta'
 
 const FILTER_SERVICES = SERVICES_BY_TYPE.departamento
     .filter(s => ['wifi', 'kitchen', 'heat', 'location', 'tv'].includes(s.icon))
@@ -42,6 +45,8 @@ export default function DepartamentosPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [filters, setFilters] = useState(EMPTY_FILTERS)
+    const lang = useLang()
+    const meta = PAGE_META[lang].departamentos
 
     function load() {
         setLoading(true)
@@ -66,6 +71,7 @@ export default function DepartamentosPage() {
 
     return (
         <div className="pb-16 md:pb-0">
+            <SeoHead path="/departamentos" title={meta.title} description={meta.description} />
             <HeroSection
                 type="departamentos"
                 title="Departamentos en Patagonia"

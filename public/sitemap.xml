@@ -1,18 +1,408 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">
   <url>
     <loc>https://artebrisapatagonia.com/</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/" />
+    <changefreq>weekly</changefreq>
+    <priority>1.0</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/" />
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://artebrisapatagonia.com/cabanas</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/cabanas" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/cabanas" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/cabanas" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/cabanas" />
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/cabanas</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/cabanas" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/cabanas" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/cabanas" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/cabanas" />
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/cabanas</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/cabanas" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/cabanas" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/cabanas" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/cabanas" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://artebrisapatagonia.com/departamentos</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/departamentos" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/departamentos" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/departamentos" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/departamentos" />
     <changefreq>weekly</changefreq>
     <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/departamentos</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/departamentos" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/departamentos" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/departamentos" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/departamentos" />
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/departamentos</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/departamentos" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/departamentos" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/departamentos" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/departamentos" />
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/cab-chilco</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/cab-chilco</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/cab-chilco</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-chilco" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-chilco" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/cab-ciruelillo</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/cab-ciruelillo</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/cab-ciruelillo</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-ciruelillo" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-ciruelillo" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/cab-flor-de-notro</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/cab-flor-de-notro</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/cab-flor-de-notro</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-flor-de-notro" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-flor-de-notro" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/cab-lupino</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/cab-lupino</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/cab-lupino</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/cab-lupino" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/cab-lupino" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/dep-1</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/dep-1</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/dep-1</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-1" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-1" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/dep-2</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/dep-2</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/dep-2</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-2" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-2" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/dep-3</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/dep-3</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/dep-3</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-3" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-3" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/dep-4</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/dep-4</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/dep-4</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/dep-4" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/dep-4" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/tiny-calafate</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/tiny-calafate</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/tiny-calafate</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-calafate" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-calafate" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/tiny-margarita</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/tiny-margarita</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/tiny-margarita</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-margarita" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-margarita" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/tiny-nirre</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/tiny-nirre</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/tiny-nirre</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-nirre" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-nirre" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/unidad/tiny-violeta</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/en/unidad/tiny-violeta</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+  <url>
+    <loc>https://artebrisapatagonia.com/de/unidad/tiny-violeta</loc>
+    <xhtml:link rel="alternate" hreflang="es" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="en" href="https://artebrisapatagonia.com/en/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="de" href="https://artebrisapatagonia.com/de/unidad/tiny-violeta" />
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://artebrisapatagonia.com/unidad/tiny-violeta" />
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
   </url>
 </urlset>

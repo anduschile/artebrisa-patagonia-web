@@ -12,6 +12,9 @@ import ContactSection from '../components/sections/ContactSection'
 import { getUnitsByType } from '../data/units'
 import { SERVICES_BY_TYPE } from '../data/unitDefaults'
 import { buildWaUrl } from '../config/contact'
+import SeoHead from '../components/SeoHead'
+import { useLang } from '../i18n/LangContext'
+import { PAGE_META } from '../seo/pageMeta'
 
 // Service labels available for the filter bar (subset most relevant for cabañas)
 const FILTER_SERVICES = SERVICES_BY_TYPE.cabana
@@ -43,6 +46,8 @@ export default function CabanasPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [filters, setFilters] = useState(EMPTY_FILTERS)
+    const lang = useLang()
+    const meta = PAGE_META[lang].cabanas
 
     function load() {
         setLoading(true)
@@ -70,6 +75,7 @@ export default function CabanasPage() {
 
     return (
         <div className="pb-16 md:pb-0">
+            <SeoHead path="/cabanas" title={meta.title} description={meta.description} />
             <HeroSection
                 type="cabanas"
                 title="Cabañas en la Patagonia"

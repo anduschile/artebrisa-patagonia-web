@@ -2,7 +2,10 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getAvailableUnits } from '../data/units'
 import { getUnitImage } from '../data/unitImages'
+import { unitSlug } from '../data/unitSlug'
 import { PRICES_BY_CODE } from '../data/unitDefaults'
+import { useLang } from '../i18n/LangContext'
+import { withLang } from '../i18n/languages'
 
 function formatDate(isoDate) {
     return new Date(isoDate + 'T00:00:00').toLocaleDateString('es-CL', {
@@ -11,6 +14,7 @@ function formatDate(isoDate) {
 }
 
 function ResultCard({ unit }) {
+    const lang = useLang()
     const imageUrl = getUnitImage(unit)
     const capacity = unit.capacity_total ?? 0
     const typeLabel = unit.unit_type === 'cabana' ? 'Cabaña' : 'Departamento'
@@ -71,7 +75,7 @@ function ResultCard({ unit }) {
                         }
                     </div>
                     <Link
-                        to={`/unidad/${unit.id}`}
+                        to={withLang(lang, `/unidad/${unitSlug(unit)}`)}
                         className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold text-sm rounded-xl transition-colors"
                     >
                         Ver y reservar
