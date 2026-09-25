@@ -350,6 +350,7 @@ export default function ReservationWidget({ unit }) {
     const [error, setError] = useState(null)
     const [conflictMsg, setConflictMsg] = useState(null)
     const [quote, setQuote] = useState({ total: 0, avg: 0, loading: false, nights: 0 })
+    const [fieldErrors, setFieldErrors] = useState({ phone: null, email: null })
     const [done, setDone] = useState(null) // { reservation, guest }
     const [reservationId, setReservationId] = useState(null)
     const [priceFirstNight, setPriceFirstNight] = useState(null)
@@ -441,6 +442,18 @@ export default function ReservationWidget({ unit }) {
         e.preventDefault()
         if (!unit?.id) { setError('No se pudo identificar la unidad de reserva.'); return }
         if (!fullName.trim()) { setError('El nombre es obligatorio'); return }
+
+        // Teléfono y email son obligatorios: sin al menos uno de los dos no hay
+        // forma de contactar al huésped para coordinar check-in/pago (caso real
+        // que ya ocurrió). Se valida acá, junto al campo, antes de intentar nada.
+        const phoneErr = !phone.trim() ? 'El teléfono es obligatorio, lo necesitamos para coordinar tu check-in' : null
+        const emailErr = !email.trim() ? 'El email es obligatorio, lo necesitamos para coordinar tu check-in' : null
+        if (phoneErr || emailErr) {
+            setFieldErrors({ phone: phoneErr, email: emailErr })
+            setError('Completa teléfono y email para continuar')
+            return
+        }
+        setFieldErrors({ phone: null, email: null })
         setError(null)
         setLoading(true)
         try {
@@ -660,25 +673,29 @@ export default function ReservationWidget({ unit }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono / WhatsApp</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono / WhatsApp *</label>
                         <input
                             type="tel"
                             value={phone}
-                            onChange={e => setPhone(e.target.value)}
+                            onChange={e => { setPhone(e.target.value); setFieldErrors(fe => ({ ...fe, phone: null })) }}
                             placeholder="+56 9 XXXX XXXX"
-                            className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                            aria-invalid={!!fieldErrors.phone}
+                            className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent ${fieldErrors.phone ? 'border-red-400' : 'border-slate-300'}`}
                         />
+                        {fieldErrors.phone && <p className="text-xs text-red-600 mt-1">{fieldErrors.phone}</p>}
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Email</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
                         <input
                             type="email"
                             value={email}
-                            onChange={e => setEmail(e.target.value)}
+                            onChange={e => { setEmail(e.target.value); setFieldErrors(fe => ({ ...fe, email: null })) }}
                             placeholder="tu@email.com"
-                            className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
+                            aria-invalid={!!fieldErrors.email}
+                            className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent ${fieldErrors.email ? 'border-red-400' : 'border-slate-300'}`}
                         />
+                        {fieldErrors.email && <p className="text-xs text-red-600 mt-1">{fieldErrors.email}</p>}
                     </div>
 
                     <div>
