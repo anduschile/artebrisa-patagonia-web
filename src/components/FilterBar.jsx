@@ -29,8 +29,13 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
     return (
         <div className="bg-white border border-slate-100 rounded-2xl shadow-sm p-4 mb-8 flex flex-wrap gap-4 items-end">
 
-            {/* Capacidad */}
-            <div className="flex-shrink-0">
+            {/* Capacidad — w-full en mobile (min-w-0 evita que un flex item se
+                niegue a encogerse por debajo del ancho de su contenido) para
+                que las pills de abajo puedan envolver dentro del viewport en
+                vez de forzar overflow horizontal de todo el body; en sm+
+                vuelve al comportamiento original (ancho de contenido, sin
+                encogerse) para no romper el layout de escritorio. */}
+            <div className="w-full min-w-0 sm:w-auto sm:flex-shrink-0">
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
                     Capacidad
                 </label>
