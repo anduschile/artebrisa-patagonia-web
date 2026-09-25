@@ -1,14 +1,18 @@
+import { useTranslation } from 'react-i18next'
+
 /**
  * FilterBar — Capacidad + Servicios
  * Shared by CabanasPage and DepartamentosPage.
  *
  * Props:
  *   capacities: number[]   — available capacity options to show (e.g. [2,3,4,5,6])
- *   services:   string[]   — service labels available to filter by (from SERVICES_BY_TYPE)
+ *   services:   string[]   — service labels (ya traducidos) para filtrar, ver
+ *                            FILTER_SERVICES en Cabanas/DepartamentosPage
  *   filters:    { capacity: number|null, services: string[] }
  *   onChange:   (filters) => void
  */
 export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [], filters, onChange }) {
+    const { t } = useTranslation()
     function setCapacity(val) {
         onChange({ ...filters, capacity: val })
     }
@@ -37,7 +41,7 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
                 encogerse) para no romper el layout de escritorio. */}
             <div className="w-full min-w-0 sm:w-auto sm:flex-shrink-0">
                 <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                    Capacidad
+                    {t('filterBar.capacityLabel')}
                 </label>
                 <div className="flex flex-wrap gap-1.5">
                     <button
@@ -47,7 +51,7 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'
                             }`}
                     >
-                        Todas
+                        {t('filterBar.all')}
                     </button>
                     {capacities.map(n => (
                         <button
@@ -58,7 +62,7 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
                                     : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'
                                 }`}
                         >
-                            {n}+ personas
+                            {t('filterBar.capacityOption', { count: n })}
                         </button>
                     ))}
                 </div>
@@ -68,7 +72,7 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
             {services.length > 0 && (
                 <div className="flex-1 min-w-[200px]">
                     <label className="block text-xs font-semibold text-slate-500 mb-1.5 uppercase tracking-wide">
-                        Servicios
+                        {t('filterBar.servicesLabel')}
                     </label>
                     <div className="flex flex-wrap gap-1.5">
                         {services.map(label => {
@@ -96,7 +100,7 @@ export default function FilterBar({ capacities = [2, 3, 4, 5, 6], services = [],
                     onClick={clear}
                     className="flex-shrink-0 text-xs text-slate-400 hover:text-red-500 transition-colors underline underline-offset-2 self-center ml-auto"
                 >
-                    Limpiar filtros
+                    {t('common.clearFilters')}
                 </button>
             )}
         </div>

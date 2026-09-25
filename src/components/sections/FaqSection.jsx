@@ -1,16 +1,23 @@
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { FAQS } from '../../data/subsiteSections'
+import { useTranslation } from 'react-i18next'
+import { FAQS, FAQ_COMMON_KEYS } from '../../data/subsiteSections'
 
 export default function FaqSection({ variant = 'cabana' }) {
-    const faqs = FAQS[variant] ?? FAQS.cabana
+    const { t } = useTranslation()
+    const variantKeys = FAQS[variant] ?? FAQS.cabana
+    // Propias de la variante primero, comunes después — mismo orden que antes.
+    const faqs = [
+        ...variantKeys.map(key => ({ q: t(`faq.${variant}.${key}.q`), a: t(`faq.${variant}.${key}.a`) })),
+        ...FAQ_COMMON_KEYS.map(key => ({ q: t(`faq.common.${key}.q`), a: t(`faq.common.${key}.a`) })),
+    ]
     const [open, setOpen] = useState(null)
     return (
         <section id="faq" className="py-16 bg-white">
             <div className="max-w-4xl mx-auto px-4 sm:px-6">
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Preguntas Frecuentes</h2>
-                    <p className="text-slate-500">Respuestas a las preguntas más comunes</p>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">{t('faq.title')}</h2>
+                    <p className="text-slate-500">{t('faq.subtitle')}</p>
                 </motion.div>
 
                 <div className="space-y-3">

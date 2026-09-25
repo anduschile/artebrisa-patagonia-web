@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { LOCATIONS, NEARBY } from '../../data/subsiteSections'
 
 function getOsmSrc(lat, lng) {
@@ -7,18 +8,18 @@ function getOsmSrc(lat, lng) {
 }
 
 export default function LocationSection({ variant = 'cabana' }) {
+    const { t } = useTranslation()
     const loc = LOCATIONS[variant] ?? LOCATIONS.cabana
     const osmSrc = getOsmSrc(loc.lat, loc.lng)
+    const variantKey = variant === 'cabana' ? 'Cabana' : 'Depto'
 
     return (
         <section id="ubicacion" className="py-16 bg-white">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Ubicación</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">{t('location.title')}</h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">
-                        {variant === 'cabana'
-                            ? 'Cabañas en el sector Huertos Familiares, a minutos del centro de Puerto Natales'
-                            : 'Departamentos en el corazón de Puerto Natales, a pasos de todo'}
+                        {variant === 'cabana' ? t('location.subtitleCabana') : t('location.subtitleDepto')}
                     </p>
                 </motion.div>
 
@@ -28,7 +29,7 @@ export default function LocationSection({ variant = 'cabana' }) {
 
                         {/* Address block */}
                         <div>
-                            <h3 className="font-bold text-slate-800 mb-2">Dirección</h3>
+                            <h3 className="font-bold text-slate-800 mb-2">{t('location.addressLabel')}</h3>
                             <div className="bg-white border border-slate-200 rounded-xl px-4 py-3 flex items-start gap-3">
                                 <svg className="flex-shrink-0 mt-0.5 text-primary-500" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
@@ -39,14 +40,14 @@ export default function LocationSection({ variant = 'cabana' }) {
 
                         {/* How to get there */}
                         <div>
-                            <h3 className="font-bold text-slate-800 mb-1.5">Cómo llegar</h3>
-                            <p className="text-slate-600 text-sm leading-relaxed">{loc.howToGet}</p>
+                            <h3 className="font-bold text-slate-800 mb-1.5">{t('location.howToGetLabel')}</h3>
+                            <p className="text-slate-600 text-sm leading-relaxed">{t(`location.howToGet${variantKey}`)}</p>
                         </div>
 
                         {/* Airport note */}
                         <div>
-                            <h3 className="font-bold text-slate-800 mb-1.5">Desde el aeropuerto</h3>
-                            {loc.airportNote.split('\n').map((line, i) => (
+                            <h3 className="font-bold text-slate-800 mb-1.5">{t('location.airportLabel')}</h3>
+                            {t(`location.airportNote${variantKey}`).split('\n').map((line, i) => (
                                 <p key={i} className="text-slate-600 text-sm">{line}</p>
                             ))}
                         </div>
@@ -61,7 +62,7 @@ export default function LocationSection({ variant = 'cabana' }) {
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                                 <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
                             </svg>
-                            Abrir en Google Maps
+                            {t('location.openMaps')}
                             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" y1="14" x2="21" y2="3" />
                             </svg>
@@ -83,7 +84,7 @@ export default function LocationSection({ variant = 'cabana' }) {
                             referrerPolicy="no-referrer-when-downgrade"
                             allowFullScreen
                             loading="lazy"
-                            title={`Mapa ${variant === 'cabana' ? 'Cabañas' : 'Departamentos'} Arte Brisa Patagonia`}
+                            title={t(`location.mapTitle${variantKey}`)}
                         />
                         {/* Overlay caption */}
                         <a
@@ -102,17 +103,17 @@ export default function LocationSection({ variant = 'cabana' }) {
 
                 {/* Nearby */}
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="bg-slate-50 rounded-2xl p-8">
-                    <h3 className="font-bold text-slate-800 text-lg mb-5">Lugares de interés cercanos</h3>
+                    <h3 className="font-bold text-slate-800 text-lg mb-5">{t('location.nearbyTitle')}</h3>
                     <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                         {NEARBY.map(p => (
-                            <div key={p.name} className="flex items-start gap-3 bg-white rounded-xl p-4 shadow-sm">
+                            <div key={p.key} className="flex items-start gap-3 bg-white rounded-xl p-4 shadow-sm">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-500 flex-shrink-0 mt-0.5">
                                     <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" />
                                 </svg>
                                 <div>
-                                    <p className="font-semibold text-slate-800 text-sm">{p.name}</p>
+                                    <p className="font-semibold text-slate-800 text-sm">{t(`location.nearby.${p.key}.name`)}</p>
                                     <p className="text-xs text-slate-500">{p.distance}</p>
-                                    <p className="text-xs text-primary-500">{p.time}</p>
+                                    <p className="text-xs text-primary-500">{t(`location.nearby.${p.key}.time`)}</p>
                                 </div>
                             </div>
                         ))}

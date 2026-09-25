@@ -1,4 +1,5 @@
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { SERVICES } from '../../data/subsiteSections'
 
 // Inline SVG icon set (no external deps)
@@ -19,21 +20,22 @@ function Icon({ name, size = 28 }) {
 }
 
 export default function ServicesSection({ variant = 'cabana' }) {
-    const services = SERVICES[variant] ?? SERVICES.cabana
+    const { t } = useTranslation()
+    const icons = SERVICES[variant] ?? SERVICES.cabana
     return (
         <section id="servicios" className="py-16 bg-white">
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-12">
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">Servicios incluidos</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-3">{t('services.title')}</h2>
                     <p className="text-slate-500 max-w-2xl mx-auto">
-                        Todas las comodidades que necesitas para una estadía perfecta en la Patagonia
+                        {t('services.subtitle')}
                     </p>
                 </motion.div>
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
-                    {services.map((svc, i) => (
+                    {icons.map((icon, i) => (
                         <motion.div
-                            key={svc.title}
+                            key={icon}
                             initial={{ opacity: 0, y: 20 }}
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
@@ -41,10 +43,10 @@ export default function ServicesSection({ variant = 'cabana' }) {
                             className="bg-slate-50 rounded-2xl p-5 hover:shadow-md transition-shadow text-center"
                         >
                             <div className="text-primary-500 flex justify-center mb-3">
-                                <Icon name={svc.icon} size={30} />
+                                <Icon name={icon} size={30} />
                             </div>
-                            <h3 className="font-bold text-slate-800 text-sm mb-1">{svc.title}</h3>
-                            <p className="text-xs text-slate-500 leading-snug">{svc.desc}</p>
+                            <h3 className="font-bold text-slate-800 text-sm mb-1">{t(`services.items.${variant}.${icon}.title`)}</h3>
+                            <p className="text-xs text-slate-500 leading-snug">{t(`services.items.${variant}.${icon}.desc`)}</p>
                         </motion.div>
                     ))}
                 </div>

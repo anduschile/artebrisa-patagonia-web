@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { unitImages, FALLBACK_IMAGE_CABANA, FALLBACK_IMAGE_DEPTO } from '../data/unitImages'
 
 const PAGE_SIZE = 24
@@ -45,6 +46,7 @@ function SafeImg({ src, alt, className, onClick, fallback }) {
 }
 
 export default function GalleryGlobal({ units = [], variant = 'cabana' }) {
+    const { t } = useTranslation()
     const fallback = variant === 'cabana' ? FALLBACK_IMAGE_CABANA : FALLBACK_IMAGE_DEPTO
     const allPhotos = useMemo(() => buildPhotos(units), [units])
 
@@ -82,8 +84,8 @@ export default function GalleryGlobal({ units = [], variant = 'cabana' }) {
         return (
             <section id="galeria" className="py-16 bg-slate-50">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 text-center">
-                    <h2 className="text-2xl font-black text-slate-900 mb-3">Galería</h2>
-                    <p className="text-slate-400">Las fotos se cargarán pronto.</p>
+                    <h2 className="text-2xl font-black text-slate-900 mb-3">{t('gallery.title')}</h2>
+                    <p className="text-slate-400">{t('gallery.comingSoon')}</p>
                 </div>
             </section>
         )
@@ -94,8 +96,8 @@ export default function GalleryGlobal({ units = [], variant = 'cabana' }) {
             <div className="max-w-6xl mx-auto px-4 sm:px-6">
                 {/* Heading */}
                 <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="text-center mb-8">
-                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">Galería</h2>
-                    <p className="text-slate-500">Conocé nuestros espacios en detalle</p>
+                    <h2 className="text-2xl sm:text-3xl font-black text-slate-900 mb-2">{t('gallery.title')}</h2>
+                    <p className="text-slate-500">{t('gallery.subtitle')}</p>
                 </motion.div>
 
                 {/* Unit filter chips */}
@@ -107,7 +109,7 @@ export default function GalleryGlobal({ units = [], variant = 'cabana' }) {
                                 : 'bg-white text-slate-600 border-slate-200 hover:border-primary-300'
                             }`}
                     >
-                        Todas ({allPhotos.length})
+                        {t('gallery.allChip', { count: allPhotos.length })}
                     </button>
                     {unitOptions.map(u => (
                         <button
@@ -156,7 +158,7 @@ export default function GalleryGlobal({ units = [], variant = 'cabana' }) {
                             onClick={() => setShown(s => s + PAGE_SIZE)}
                             className="px-6 py-2.5 border border-primary-400 text-primary-600 font-semibold text-sm rounded-xl hover:bg-primary-50 transition-colors"
                         >
-                            Ver más fotos ({filtered.length - shown} restantes)
+                            {t('gallery.loadMore', { count: filtered.length - shown })}
                         </button>
                     </div>
                 )}

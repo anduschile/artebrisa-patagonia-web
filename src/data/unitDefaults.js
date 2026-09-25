@@ -5,37 +5,35 @@
  */
 
 // ─── Servicios por tipo de unidad ────────────────────────────
+// Solo íconos — el label de cada uno vive en i18n
+// (namespace "unitServices.<type>.<icon>"), consultado por los
+// consumidores (UnitDetailPage, UnitCard, Cabanas/DepartamentosPage).
 export const SERVICES_BY_TYPE = {
     cabana: [
-        { icon: 'wifi', label: 'Wi-Fi gratuito' },
-        { icon: 'kitchen', label: 'Cocina equipada' },
-        { icon: 'heat', label: 'Calefacción leña/eléctrica' },
-        { icon: 'parking', label: 'Estacionamiento' },
-        { icon: 'tv', label: 'TV cable/streaming' },
-        { icon: 'washer', label: 'Lavadora' },
-        { icon: 'bed', label: 'Ropa de cama' },
-        { icon: 'bbq', label: 'Parrilla / fogón' },
+        { icon: 'wifi' },
+        { icon: 'kitchen' },
+        { icon: 'heat' },
+        { icon: 'parking' },
+        { icon: 'tv' },
+        { icon: 'washer' },
+        { icon: 'bed' },
+        { icon: 'bbq' },
     ],
     departamento: [
-        { icon: 'wifi', label: 'Wi-Fi gratuito' },
-        { icon: 'kitchen', label: 'Cocina equipada' },
-        { icon: 'heat', label: 'Calefacción eléctrica' },
-        { icon: 'tv', label: 'TV cable/streaming' },
-        { icon: 'location', label: 'Ubicación céntrica' },
-        { icon: 'bed', label: 'Ropa de cama' },
-        { icon: 'towel', label: 'Toallas incluidas' },
+        { icon: 'wifi' },
+        { icon: 'kitchen' },
+        { icon: 'heat' },
+        { icon: 'tv' },
+        { icon: 'location' },
+        { icon: 'bed' },
+        { icon: 'towel' },
     ],
 }
 
-// ─── Políticas globales ───────────────────────────────────────
-export const POLICIES = {
-    check_in: '14:00 hs',
-    check_out: '11:00 hs',
-    cancelacion: 'Cancelación gratuita hasta 48 horas antes del check-in',
-    mascotas: 'Consultar disponibilidad',
-    ninos: 'Aceptamos niños',
-    minimo: '2 noches mínimo en temporada alta',
-}
+// Las políticas (check-in/out, cancelación, mascotas, niños, mínimo) viven
+// en i18n (namespace "unitPolicies"), consultado directo por
+// UnitDetailPage.jsx — no queda export acá porque no hay valores que no
+// dependan del idioma.
 
 // ─── Precios por temporada y código de unidad ─────────────────
 // Valores en CLP. Fuente: artebrisapatagonia.com

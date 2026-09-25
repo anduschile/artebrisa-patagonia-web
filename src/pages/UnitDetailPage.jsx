@@ -4,7 +4,7 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { getUnitByCode } from '../data/units'
 import { getUnitImage, unitImages } from '../data/unitImages'
-import { SERVICES_BY_TYPE, POLICIES, PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
+import { SERVICES_BY_TYPE, PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
 import ImageCarousel from '../components/ImageCarousel'
 import ReservationWidget from '../components/ReservationWidget'
 import SeoHead from '../components/SeoHead'
@@ -123,12 +123,12 @@ function ServicesBlock({ unitType }) {
     return (
         <Section title={t('unitDetail.servicesTitle')}>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                {services.map(({ icon, label }) => (
-                    <div key={label} className="flex items-center gap-2 text-sm text-slate-600">
+                {services.map(({ icon }) => (
+                    <div key={icon} className="flex items-center gap-2 text-sm text-slate-600">
                         <span className="text-primary-500 flex-shrink-0">
                             {SERVICE_ICONS[icon] ?? SERVICE_ICONS.bed}
                         </span>
-                        {label}
+                        {t(`unitServices.${unitType}.${icon}`)}
                     </div>
                 ))}
             </div>
@@ -149,17 +149,16 @@ const POLICY_ICONS = {
 
 function PoliciesBlock() {
     const { t } = useTranslation()
-    // Los VALORES (POLICIES.*) son contenido de datos en español (horarios,
-    // condiciones) — no se tradujeron acá, solo las etiquetas de la UI. Es
-    // contenido análogo a las descripciones de unidad, fuera del alcance de
-    // este prompt (ver TAREA C/D). Traducir POLICIES es un paso futuro.
+    // Los valores (unitPolicies.*) ya viven en el diccionario i18n — la
+    // traducción a inglés de estos textos (cancelación, mascotas, etc.)
+    // quedó marcada como borrador a revisar, ver informe de la tarea.
     const items = [
-        { key: 'checkin', label: t('unitDetail.policyCheckin'), value: POLICIES.check_in },
-        { key: 'checkout', label: t('unitDetail.policyCheckout'), value: POLICIES.check_out },
-        { key: 'cancellation', label: t('unitDetail.policyCancellation'), value: POLICIES.cancelacion },
-        { key: 'pets', label: t('unitDetail.policyPets'), value: POLICIES.mascotas },
-        { key: 'children', label: t('unitDetail.policyChildren'), value: POLICIES.ninos },
-        { key: 'minimum', label: t('unitDetail.policyMinimum'), value: POLICIES.minimo },
+        { key: 'checkin', label: t('unitDetail.policyCheckin'), value: t('unitPolicies.checkIn') },
+        { key: 'checkout', label: t('unitDetail.policyCheckout'), value: t('unitPolicies.checkOut') },
+        { key: 'cancellation', label: t('unitDetail.policyCancellation'), value: t('unitPolicies.cancellation') },
+        { key: 'pets', label: t('unitDetail.policyPets'), value: t('unitPolicies.pets') },
+        { key: 'children', label: t('unitDetail.policyChildren'), value: t('unitPolicies.children') },
+        { key: 'minimum', label: t('unitDetail.policyMinimum'), value: t('unitPolicies.minimum') },
     ]
     return (
         <Section title={t('unitDetail.policiesTitle')}>

@@ -136,6 +136,171 @@
     },
     "unitCard": {
         "descriptionFallback": "Description coming soon",
-        "viewDetails": "View details and book"
+        "viewDetails": "View details and book",
+        "moreServices": "more"
+    },
+    "filterBar": {
+        "capacityLabel": "Capacity",
+        "all": "All",
+        "capacityOption": "{{count}}+ guests",
+        "servicesLabel": "Amenities"
+    },
+    "services": {
+        "title": "Included amenities",
+        "subtitle": "Everything you need for a perfect stay in Patagonia",
+        "items": {
+            "cabana": {
+                "wifi": { "title": "Free Wi-Fi", "desc": "High-speed internet in all cabins" },
+                "heat": { "title": "Efficient Heating", "desc": "Heating system to keep you warm in winter" },
+                "kitchen": { "title": "Equipped Kitchen", "desc": "Full kitchen with utensils and appliances" },
+                "parking": { "title": "Parking", "desc": "Private parking space included" },
+                "tv": { "title": "Cable TV", "desc": "TV with cable channels" },
+                "bed": { "title": "Bed Linens", "desc": "Sheets, blankets, and towels included" },
+                "host": { "title": "Personalized Attention", "desc": "Owners on-site to help throughout your stay" },
+                "view": { "title": "Panoramic Views", "desc": "Spectacular views of the Patagonian mountains" }
+            },
+            "departamento": {
+                "wifi": { "title": "Free Wi-Fi", "desc": "High-speed internet in all apartments" },
+                "heat": { "title": "Heating", "desc": "Heating system for the Patagonian climate" },
+                "kitchen": { "title": "Equipped Kitchen", "desc": "Full kitchen with utensils and appliances" },
+                "location": { "title": "Central Location", "desc": "Steps from downtown Puerto Natales" },
+                "tv": { "title": "Cable TV", "desc": "TV with cable channels" },
+                "bed": { "title": "Bed Linens", "desc": "Sheets, blankets, and towels included" },
+                "host": { "title": "Personalized Attention", "desc": "Direct attention from the owners" },
+                "key": { "title": "24-hour Access", "desc": "Come and go at any time" }
+            }
+        }
+    },
+    "unitServices": {
+        "cabana": {
+            "wifi": "Free Wi-Fi",
+            "kitchen": "Equipped kitchen",
+            "heat": "Wood/electric heating",
+            "parking": "Parking",
+            "tv": "Cable/streaming TV",
+            "washer": "Washing machine",
+            "bed": "Bed linens",
+            "bbq": "BBQ / fire pit"
+        },
+        "departamento": {
+            "wifi": "Free Wi-Fi",
+            "kitchen": "Equipped kitchen",
+            "heat": "Electric heating",
+            "tv": "Cable/streaming TV",
+            "location": "Central location",
+            "bed": "Bed linens",
+            "towel": "Towels included"
+        }
+    },
+    "rates": {
+        "title": "Our Rates",
+        "subtitle": "Prices per night (approx.) · Contact us via WhatsApp for special offers and extended stays",
+        "tableUnit": "Unit",
+        "tableCapacity": "Capacity",
+        "tableRate": "Base rate / night (approx.)",
+        "capacitySuffix_one": "{{count}} guest",
+        "capacitySuffix_other": "{{count}} guests",
+        "loading": "Loading rates...",
+        "includedTitle": "Included in all units",
+        "included": {
+            "wifi": "Free Wi-Fi",
+            "heating": "Heating",
+            "linens": "Bed linens and towels",
+            "kitchen": "Equipped kitchen",
+            "parking": "Private parking*",
+            "location": "Central location",
+            "tv": "Cable TV",
+            "cleaning": "Final cleaning",
+            "hostAttention": "Personalized attention"
+        }
+    },
+    "location": {
+        "title": "Location",
+        "subtitleCabana": "Cabins in the Huertos Familiares area, minutes from downtown Puerto Natales",
+        "subtitleDepto": "Apartments in the heart of Puerto Natales, steps from everything",
+        "addressLabel": "Address",
+        "howToGetLabel": "How to get there",
+        "howToGetCabana": "From downtown Puerto Natales, take the southern route toward the Huertos Familiares area. Our cabins are clearly signposted.",
+        "howToGetDepto": "Easily reachable on foot from the bus terminal and from the main points of the city.",
+        "airportLabel": "From the airport",
+        "airportNoteCabana": "Teniente Julio Gallardo Airport (Puerto Natales): 15 min by car.\nPresidente Carlos Ibáñez Airport (Punta Arenas): ~3 hrs by car.",
+        "airportNoteDepto": "Teniente Julio Gallardo Airport (Puerto Natales): 10 min by car.\nPresidente Carlos Ibáñez Airport (Punta Arenas): ~3 hrs by car.",
+        "openMaps": "Open in Google Maps",
+        "mapTitleCabana": "Cabins Map Arte Brisa Patagonia",
+        "mapTitleDepto": "Apartments Map Arte Brisa Patagonia",
+        "nearbyTitle": "Nearby places of interest",
+        "nearby": {
+            "plaza": { "name": "Plaza de Armas", "time": "5 min by car" },
+            "costanera": { "name": "Puerto Natales Waterfront", "time": "3 min by car" },
+            "terminal": { "name": "Bus Terminal", "time": "7 min by car" },
+            "supermercados": { "name": "Supermarkets", "time": "2 min by car" },
+            "restaurantes": { "name": "Restaurants and cafés", "time": "3 min by car" },
+            "torresDelPaine": { "name": "Torres del Paine National Park", "time": "1.5 hrs by car" }
+        }
+    },
+    "gallery": {
+        "title": "Gallery",
+        "comingSoon": "Photos will be available soon.",
+        "subtitle": "Get to know our spaces in detail",
+        "allChip": "All ({{count}})",
+        "loadMore": "Show more photos ({{count}} remaining)"
+    },
+    "faq": {
+        "title": "Frequently Asked Questions",
+        "subtitle": "Answers to the most common questions",
+        "common": {
+            "checkinCheckout": { "q": "What are the check-in and check-out times?", "a": "Check-in is from 2:00 PM and check-out is until 11:00 AM. Please contact us in advance if you need special arrangements." },
+            "cancellation": { "q": "What is the cancellation policy?", "a": "Free cancellation up to 48 hours before arrival. Cancellations made after that are charged 50% of the first night." },
+            "payment": { "q": "What payment methods do you accept?", "a": "Cash, bank transfers, and credit/debit cards. You can also book through Booking.com." },
+            "breakfast": { "q": "Is breakfast included?", "a": "No, breakfast is not included in the rates. The equipped kitchen lets you prepare your own meals, and there are cafés and bakeries nearby." },
+            "distanceTorres": { "q": "How far are you from Torres del Paine?", "a": "We're about 112 km (a 1.5-hour drive) from the entrance to Torres del Paine National Park." },
+            "supermarkets": { "q": "Are there supermarkets nearby?", "a": "Yes, there are supermarkets less than 1 km away, just a 2-minute drive." },
+            "airportTransfer": { "q": "Do you offer airport transfers?", "a": "We can arrange airport transfers for an additional charge. Contact us for more information." }
+        },
+        "cabana": {
+            "pets": { "q": "Do you accept pets?", "a": "Yes, we accept small pets in some cabins for an additional charge. Please let us know when booking." },
+            "parking": { "q": "Is there parking?", "a": "Yes, all cabins include free private parking." },
+            "heating": { "q": "Do the cabins have heating?", "a": "All our cabins have efficient heating systems to keep you comfortable year-round." },
+            "kitchen": { "q": "Do the cabins have an equipped kitchen?", "a": "Yes, all of them have a full kitchen: utensils, refrigerator, stove, and microwave." },
+            "wifi": { "q": "Is Wi-Fi available?", "a": "Yes, we offer free high-speed Wi-Fi in all our cabins." }
+        },
+        "departamento": {
+            "pets": { "q": "Do you accept pets?", "a": "Unfortunately, pets are not allowed, to keep a hypoallergenic environment for all our guests." },
+            "kitchen": { "q": "Do the apartments have an equipped kitchen?", "a": "Yes, all of them have a full kitchen: utensils, refrigerator, stove, and microwave." },
+            "wifi": { "q": "Is Wi-Fi available?", "a": "Yes, free high-speed Wi-Fi in all apartments." },
+            "parking": { "q": "Is parking available?", "a": "Yes, we have parking included for our guests." },
+            "access24": { "q": "Does the building have 24-hour access?", "a": "Yes, access is free 24 hours a day." }
+        }
+    },
+    "contact": {
+        "title": "Contact",
+        "subtitle": "We're here to help you plan your perfect stay in Patagonia",
+        "phoneLabel": "Phone",
+        "emailLabel": "Email",
+        "hours": "Monday to Sunday: 9:00 AM – 9:00 PM",
+        "hoursNote": "We answer WhatsApp inquiries 24/7",
+        "hoursTitle": "Business hours",
+        "sentTitle": "Inquiry sent via WhatsApp!",
+        "sentText": "We'll get back to you shortly.",
+        "sendAnother": "Send another inquiry",
+        "formTitle": "Send us a message",
+        "namePlaceholder": "Full name *",
+        "emailPlaceholder": "Email *",
+        "phonePlaceholder": "Phone",
+        "guestsPlaceholder": "Number of guests",
+        "guestSingular": "guest",
+        "guestPlural": "guests",
+        "messagePlaceholder": "Tell us about your ideal stay in a {{type}}...",
+        "unitTypeCabana": "cabin",
+        "unitTypeDepto": "apartment",
+        "submitButton": "Send via WhatsApp"
+    },
+    "unitPolicies": {
+        "checkIn": "2:00 PM",
+        "checkOut": "11:00 AM",
+        "cancellation": "Free cancellation up to 48 hours before check-in",
+        "pets": "Please contact us to check availability",
+        "children": "Children are welcome",
+        "minimum": "2-night minimum stay in high season"
     }
 }

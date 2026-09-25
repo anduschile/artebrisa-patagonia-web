@@ -17,9 +17,11 @@ import SeoHead from '../components/SeoHead'
 import { useLang } from '../i18n/LangContext'
 import { PAGE_META } from '../seo/pageMeta'
 
-const FILTER_SERVICES = SERVICES_BY_TYPE.departamento
+// Íconos disponibles para el filtro (labels traducidos se resuelven dentro
+// del componente con t(), igual que en CabanasPage — ver comentario ahí).
+const FILTER_SERVICE_ICONS = SERVICES_BY_TYPE.departamento
     .filter(s => ['wifi', 'kitchen', 'heat', 'location', 'tv'].includes(s.icon))
-    .map(s => s.label)
+    .map(s => s.icon)
 
 const EMPTY_FILTERS = { capacity: null, services: [] }
 
@@ -49,6 +51,7 @@ export default function DepartamentosPage() {
     const lang = useLang()
     const meta = PAGE_META[lang].departamentos
     const { t } = useTranslation()
+    const FILTER_SERVICES = FILTER_SERVICE_ICONS.map(icon => t(`unitServices.departamento.${icon}`))
 
     function load() {
         setLoading(true)

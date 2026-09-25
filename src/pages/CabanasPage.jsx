@@ -17,10 +17,13 @@ import SeoHead from '../components/SeoHead'
 import { useLang } from '../i18n/LangContext'
 import { PAGE_META } from '../seo/pageMeta'
 
-// Service labels available for the filter bar (subset most relevant for cabañas)
-const FILTER_SERVICES = SERVICES_BY_TYPE.cabana
+// Íconos disponibles para el filtro de servicios (subset más relevante para
+// cabañas). Los labels traducidos se resuelven dentro del componente (con
+// t()) porque dependen del idioma activo — no pueden quedar fijos a nivel
+// de módulo.
+const FILTER_SERVICE_ICONS = SERVICES_BY_TYPE.cabana
     .filter(s => ['wifi', 'kitchen', 'heat', 'parking', 'washer'].includes(s.icon))
-    .map(s => s.label)
+    .map(s => s.icon)
 
 const EMPTY_FILTERS = { capacity: null, services: [] }
 
@@ -50,6 +53,7 @@ export default function CabanasPage() {
     const lang = useLang()
     const meta = PAGE_META[lang].cabanas
     const { t } = useTranslation()
+    const FILTER_SERVICES = FILTER_SERVICE_ICONS.map(icon => t(`unitServices.cabana.${icon}`))
 
     function load() {
         setLoading(true)

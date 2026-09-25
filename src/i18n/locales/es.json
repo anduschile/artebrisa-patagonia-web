@@ -136,6 +136,171 @@
     },
     "unitCard": {
         "descriptionFallback": "Descripción próximamente",
-        "viewDetails": "Ver detalles y reservar"
+        "viewDetails": "Ver detalles y reservar",
+        "moreServices": "más"
+    },
+    "filterBar": {
+        "capacityLabel": "Capacidad",
+        "all": "Todas",
+        "capacityOption": "{{count}}+ personas",
+        "servicesLabel": "Servicios"
+    },
+    "services": {
+        "title": "Servicios incluidos",
+        "subtitle": "Todas las comodidades que necesitas para una estadía perfecta en la Patagonia",
+        "items": {
+            "cabana": {
+                "wifi": { "title": "Wi-Fi Gratuito", "desc": "Internet de alta velocidad en todas las cabañas" },
+                "heat": { "title": "Calefacción Eficiente", "desc": "Sistema de calefacción para tu comodidad en invierno" },
+                "kitchen": { "title": "Cocina Equipada", "desc": "Cocina completa con utensilios y electrodomésticos" },
+                "parking": { "title": "Estacionamiento", "desc": "Espacio privado de estacionamiento incluido" },
+                "tv": { "title": "TV Cable", "desc": "Televisión con canales por cable" },
+                "bed": { "title": "Ropa de Cama", "desc": "Sábanas, frazadas y toallas incluidas" },
+                "host": { "title": "Atención Personalizada", "desc": "Dueños en el lugar para ayudarte toda tu estadía" },
+                "view": { "title": "Vista Panorámica", "desc": "Vistas espectaculares de la cordillera patagónica" }
+            },
+            "departamento": {
+                "wifi": { "title": "Wi-Fi Gratuito", "desc": "Internet de alta velocidad en todos los deptos" },
+                "heat": { "title": "Calefacción", "desc": "Sistema de calefacción para el clima patagónico" },
+                "kitchen": { "title": "Cocina Equipada", "desc": "Cocina completa con utensilios y electrodomésticos" },
+                "location": { "title": "Ubicación Céntrica", "desc": "A pasos del centro de Puerto Natales" },
+                "tv": { "title": "TV Cable", "desc": "Televisión con canales por cable" },
+                "bed": { "title": "Ropa de Cama", "desc": "Sábanas, frazadas y toallas incluidas" },
+                "host": { "title": "Atención Personalizada", "desc": "Atención directa de los dueños" },
+                "key": { "title": "Acceso 24 horas", "desc": "Ingresa y sal a cualquier hora" }
+            }
+        }
+    },
+    "unitServices": {
+        "cabana": {
+            "wifi": "Wi-Fi gratuito",
+            "kitchen": "Cocina equipada",
+            "heat": "Calefacción leña/eléctrica",
+            "parking": "Estacionamiento",
+            "tv": "TV cable/streaming",
+            "washer": "Lavadora",
+            "bed": "Ropa de cama",
+            "bbq": "Parrilla / fogón"
+        },
+        "departamento": {
+            "wifi": "Wi-Fi gratuito",
+            "kitchen": "Cocina equipada",
+            "heat": "Calefacción eléctrica",
+            "tv": "TV cable/streaming",
+            "location": "Ubicación céntrica",
+            "bed": "Ropa de cama",
+            "towel": "Toallas incluidas"
+        }
+    },
+    "rates": {
+        "title": "Nuestras Tarifas",
+        "subtitle": "Precios por noche (aprox.) · Consulta por WhatsApp para ofertas especiales y estadías prolongadas",
+        "tableUnit": "Unidad",
+        "tableCapacity": "Capacidad",
+        "tableRate": "Tarifa base / noche (aprox.)",
+        "capacitySuffix_one": "{{count}} persona",
+        "capacitySuffix_other": "{{count}} personas",
+        "loading": "Cargando tarifas...",
+        "includedTitle": "Incluido en todas las unidades",
+        "included": {
+            "wifi": "Wi-Fi gratuito",
+            "heating": "Calefacción",
+            "linens": "Ropa de cama y toallas",
+            "kitchen": "Cocina equipada",
+            "parking": "Estacionamiento privado*",
+            "location": "Ubicación céntrica",
+            "tv": "TV por cable",
+            "cleaning": "Limpieza final",
+            "hostAttention": "Atención personalizada"
+        }
+    },
+    "location": {
+        "title": "Ubicación",
+        "subtitleCabana": "Cabañas en el sector Huertos Familiares, a minutos del centro de Puerto Natales",
+        "subtitleDepto": "Departamentos en el corazón de Puerto Natales, a pasos de todo",
+        "addressLabel": "Dirección",
+        "howToGetLabel": "Cómo llegar",
+        "howToGetCabana": "Desde el centro de Puerto Natales, toma la ruta Sur, hacia el sector de Huertos Familiares. Nuestras cabañas están claramente señalizadas.",
+        "howToGetDepto": "Fácilmente accesibles a pie desde el terminal de buses y desde los principales puntos de la ciudad.",
+        "airportLabel": "Desde el aeropuerto",
+        "airportNoteCabana": "Aeropuerto Teniente Julio Gallardo (Puerto Natales): 15 min en auto.\nAeropuerto Presidente Carlos Ibáñez (Punta Arenas): ~3 hs en auto.",
+        "airportNoteDepto": "Aeropuerto Teniente Julio Gallardo (Puerto Natales): 10 min en auto.\nAeropuerto Presidente Carlos Ibáñez (Punta Arenas): ~3 hs en auto.",
+        "openMaps": "Abrir en Google Maps",
+        "mapTitleCabana": "Mapa Cabañas Arte Brisa Patagonia",
+        "mapTitleDepto": "Mapa Departamentos Arte Brisa Patagonia",
+        "nearbyTitle": "Lugares de interés cercanos",
+        "nearby": {
+            "plaza": { "name": "Plaza de Armas", "time": "5 min en auto" },
+            "costanera": { "name": "Costanera de Puerto Natales", "time": "3 min en auto" },
+            "terminal": { "name": "Terminal de Buses", "time": "7 min en auto" },
+            "supermercados": { "name": "Supermercados", "time": "2 min en auto" },
+            "restaurantes": { "name": "Restaurantes y cafeterías", "time": "3 min en auto" },
+            "torresDelPaine": { "name": "Parque Nacional Torres del Paine", "time": "1,5 hrs en auto" }
+        }
+    },
+    "gallery": {
+        "title": "Galería",
+        "comingSoon": "Las fotos se cargarán pronto.",
+        "subtitle": "Conocé nuestros espacios en detalle",
+        "allChip": "Todas ({{count}})",
+        "loadMore": "Ver más fotos ({{count}} restantes)"
+    },
+    "faq": {
+        "title": "Preguntas Frecuentes",
+        "subtitle": "Respuestas a las preguntas más comunes",
+        "common": {
+            "checkinCheckout": { "q": "¿Cuál es el horario de check-in y check-out?", "a": "El check-in es a partir de las 14:00 hrs y el check-out hasta las 11:00 hrs. Contacta con anticipación si necesitas horarios especiales." },
+            "cancellation": { "q": "¿Cuál es la política de cancelación?", "a": "Cancelación gratuita hasta 48 horas antes de la llegada. Cancelaciones posteriores tienen un cargo del 50% de la primera noche." },
+            "payment": { "q": "¿Qué formas de pago aceptan?", "a": "Efectivo, transferencias bancarias y tarjetas de crédito/débito. También puedes reservar a través de Booking.com." },
+            "breakfast": { "q": "¿El desayuno está incluido?", "a": "No, las tarifas no incluyen desayuno. La cocina equipada te permite preparar tus alimentos; en los alrededores hay cafeterías y panaderías." },
+            "distanceTorres": { "q": "¿Qué tan lejos están de Torres del Paine?", "a": "Estamos a aprox. 112 km (1,5 horas en auto) de la entrada del Parque Nacional Torres del Paine." },
+            "supermarkets": { "q": "¿Hay supermercados cerca?", "a": "Sí, hay supermercados a menos de 1 km de distancia, a solo 2 minutos en auto." },
+            "airportTransfer": { "q": "¿Ofrecen traslado desde el aeropuerto?", "a": "Podemos coordinar traslados desde el aeropuerto con cargo adicional. Contáctanos para más información." }
+        },
+        "cabana": {
+            "pets": { "q": "¿Aceptan mascotas?", "a": "Sí, aceptamos mascotas pequeñas en algunas cabañas con un cargo adicional. Por favor, infórmanos al momento de reservar." },
+            "parking": { "q": "¿Hay estacionamiento?", "a": "Sí, todas las cabañas incluyen estacionamiento privado gratuito." },
+            "heating": { "q": "¿Las cabañas tienen calefacción?", "a": "Todas nuestras cabañas cuentan con sistemas de calefacción eficientes para garantizar tu comodidad durante todo el año." },
+            "kitchen": { "q": "¿Las cabañas tienen cocina equipada?", "a": "Sí, todas cuentan con cocina completa: utensilios, refrigerador, cocina y microondas." },
+            "wifi": { "q": "¿Hay Wi-Fi disponible?", "a": "Sí, ofrecemos Wi-Fi gratuito de alta velocidad en todas nuestras cabañas." }
+        },
+        "departamento": {
+            "pets": { "q": "¿Aceptan mascotas?", "a": "Lamentablemente, no se admiten mascotas para garantizar un ambiente hipoalergénico para todos nuestros huéspedes." },
+            "kitchen": { "q": "¿Los departamentos tienen cocina equipada?", "a": "Sí, todos cuentan con cocina completa: utensilios, refrigerador, cocina y microondas." },
+            "wifi": { "q": "¿Hay Wi-Fi disponible?", "a": "Sí, Wi-Fi gratuito de alta velocidad en todos los departamentos." },
+            "parking": { "q": "¿Hay estacionamiento disponible?", "a": "Sí, contamos con estacionamiento incluido para nuestros huéspedes." },
+            "access24": { "q": "¿El edificio tiene acceso 24 horas?", "a": "Sí, el acceso es libre las 24 horas." }
+        }
+    },
+    "contact": {
+        "title": "Contacto",
+        "subtitle": "Estamos aquí para ayudarte a planificar tu estadía perfecta en la Patagonia",
+        "phoneLabel": "Teléfono",
+        "emailLabel": "Email",
+        "hours": "Lunes a Domingo: 9:00 – 21:00 hrs",
+        "hoursNote": "Respondemos consultas por WhatsApp 24/7",
+        "hoursTitle": "Horario de atención",
+        "sentTitle": "¡Consulta enviada por WhatsApp!",
+        "sentText": "Te responderemos en breve.",
+        "sendAnother": "Enviar otra consulta",
+        "formTitle": "Envíanos un mensaje",
+        "namePlaceholder": "Nombre completo *",
+        "emailPlaceholder": "Email *",
+        "phonePlaceholder": "Teléfono",
+        "guestsPlaceholder": "Número de huéspedes",
+        "guestSingular": "persona",
+        "guestPlural": "personas",
+        "messagePlaceholder": "Cuéntanos sobre tu estadía ideal en {{type}}...",
+        "unitTypeCabana": "cabaña",
+        "unitTypeDepto": "departamento",
+        "submitButton": "Enviar por WhatsApp"
+    },
+    "unitPolicies": {
+        "checkIn": "14:00 hs",
+        "checkOut": "11:00 hs",
+        "cancellation": "Cancelación gratuita hasta 48 horas antes del check-in",
+        "pets": "Consultar disponibilidad",
+        "children": "Aceptamos niños",
+        "minimum": "2 noches mínimo en temporada alta"
     }
 }

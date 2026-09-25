@@ -75,19 +75,20 @@ const ICONS = {
 }
 
 function ServiceStrip({ unitType }) {
+    const { t } = useTranslation()
     const type = unitType === 'cabana' ? 'cabana' : 'departamento'
     const services = (SERVICES_BY_TYPE[type] ?? []).slice(0, 4)
     if (!services.length) return null
     return (
         <div className="flex items-center gap-3 mb-3">
-            {services.map(({ icon, label }) => (
-                <span key={label} title={label} className="text-slate-400 hover:text-primary-500 transition-colors">
+            {services.map(({ icon }) => (
+                <span key={icon} title={t(`unitServices.${type}.${icon}`)} className="text-slate-400 hover:text-primary-500 transition-colors">
                     {ICONS[icon] ?? ICONS.bed}
                 </span>
             ))}
-            {(SERVICES_BY_TYPE[unitType === 'cabana' ? 'cabana' : 'departamento']?.length ?? 0) > 4 && (
+            {(SERVICES_BY_TYPE[type]?.length ?? 0) > 4 && (
                 <span className="text-xs text-slate-400">
-                    +{(SERVICES_BY_TYPE[unitType === 'cabana' ? 'cabana' : 'departamento']?.length ?? 0) - 4} más
+                    +{(SERVICES_BY_TYPE[type]?.length ?? 0) - 4} {t('unitCard.moreServices')}
                 </span>
             )}
         </div>
