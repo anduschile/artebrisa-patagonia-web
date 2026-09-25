@@ -9,6 +9,7 @@ import { buildWaUrl } from '../config/contact'
 import SearchWidget from '../components/SearchWidget'
 import SeoHead from '../components/SeoHead'
 import { useLang } from '../i18n/LangContext'
+import { withLang } from '../i18n/languages'
 import { PAGE_META } from '../seo/pageMeta'
 
 function CategoryCard({ to, title, description, imageClass, color }) {
@@ -85,13 +86,13 @@ export default function HomePage() {
             >
                 <div className="flex flex-wrap gap-3 mt-6">
                     <Link
-                        to="/cabanas"
+                        to={withLang(lang, '/cabanas')}
                         className="px-6 py-3 bg-white text-slate-900 font-bold rounded-xl hover:bg-slate-100 transition-colors shadow-lg text-sm"
                     >
                         {t('home.ctaCabanas')}
                     </Link>
                     <Link
-                        to="/departamentos"
+                        to={withLang(lang, '/departamentos')}
                         className="px-6 py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors shadow-lg text-sm"
                     >
                         {t('home.ctaDepartamentos')}
@@ -113,14 +114,14 @@ export default function HomePage() {
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <CategoryCard
-                        to="/cabanas"
+                        to={withLang(lang, '/cabanas')}
                         title={t('home.cabanasCardTitle')}
                         description={t('home.cabanasCardDesc')}
                         imageClass="hero-cabanas"
                         color="bg-amber-400/90 text-amber-900"
                     />
                     <CategoryCard
-                        to="/departamentos"
+                        to={withLang(lang, '/departamentos')}
                         title={t('home.deptosCardTitle')}
                         description={t('home.deptosCardDesc')}
                         imageClass="hero-departamentos"
