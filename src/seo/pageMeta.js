@@ -1,7 +1,7 @@
 /**
  * Título y meta description por página y por idioma.
  *
- * 'en' y 'de' tienen traducción real. Cada página recibe su propio
+ * 'en', 'de' y 'pt' tienen traducción real. Cada página recibe su propio
  * <title>/<meta description> en vez del genérico compartido de index.html.
  */
 export const SITE_URL = 'https://artebrisapatagonia.com'
@@ -51,7 +51,22 @@ const DE = {
     },
 }
 
-export const PAGE_META = { es: ES, en: EN, de: DE }
+const PT = {
+    home: {
+        title: 'Arte Brisa Patagonia — Cabanas e Apartamentos em Puerto Natales',
+        description: 'Cabanas com vista para as montanhas e apartamentos totalmente equipados no centro de Puerto Natales. Reserve sua estadia na Patagônia com a Arte Brisa.',
+    },
+    cabanas: {
+        title: 'Cabanas em Puerto Natales — Arte Brisa Patagonia',
+        description: 'Cabanas para toda a família com vista para as montanhas, a poucos minutos do centro de Puerto Natales. Wi-Fi, cozinha equipada e aquecimento incluídos.',
+    },
+    departamentos: {
+        title: 'Apartamentos no centro de Puerto Natales — Arte Brisa Patagonia',
+        description: 'Apartamentos totalmente equipados no coração de Puerto Natales, a poucos passos de tudo. Ideais para estadias curtas e longas.',
+    },
+}
+
+export const PAGE_META = { es: ES, en: EN, de: DE, pt: PT }
 
 /** Título/description para /unidad/:slug — dinámico según los datos de la unidad. */
 export function unitPageMeta(unit) {

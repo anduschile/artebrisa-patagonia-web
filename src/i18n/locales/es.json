@@ -389,5 +389,8 @@
         "next": "Siguiente",
         "viewPhoto": "Ver foto {{n}} de {{total}}",
         "close": "Cerrar"
+    },
+    "stickyCta": {
+        "label": "Consultar disponibilidad"
     }
 }

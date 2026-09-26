@@ -9,7 +9,7 @@ import { PRICES_BY_CODE } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
 
-const DATE_LOCALES = { en: 'en-US', de: 'de-DE' }
+const DATE_LOCALES = { en: 'en-US', de: 'de-DE', pt: 'pt-BR' }
 
 function formatDate(isoDate, lang) {
     return new Date(isoDate + 'T00:00:00').toLocaleDateString(DATE_LOCALES[lang] || 'es-CL', {

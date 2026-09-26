@@ -7,7 +7,7 @@
  * se traduzca en una fase posterior.
  */
 export const DEFAULT_LANG = 'es'
-export const SUPPORTED_LANGS = ['es', 'en', 'de']
+export const SUPPORTED_LANGS = ['es', 'en', 'de', 'pt']
 // Idiomas que sí llevan prefijo de ruta (todos menos el default)
 export const PREFIXED_LANGS = SUPPORTED_LANGS.filter(l => l !== DEFAULT_LANG)
 
@@ -15,6 +15,7 @@ export const LANG_LABELS = {
     es: 'Español',
     en: 'English',
     de: 'Deutsch',
+    pt: 'Português',
 }
 
 /** Antepone el prefijo de idioma a una ruta absoluta ('/cabanas' -> '/en/cabanas'). */

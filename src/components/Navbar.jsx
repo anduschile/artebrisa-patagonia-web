@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
-import { CL, GB, DE } from 'country-flag-icons/react/3x2'
+import { CL, GB, DE, BR } from 'country-flag-icons/react/3x2'
 import { buildWaUrl } from '../config/contact'
 import { useLang } from '../i18n/LangContext'
 import { SUPPORTED_LANGS, LANG_LABELS, withLang, switchLangPath } from '../i18n/languages'
@@ -12,9 +12,9 @@ import { SUPPORTED_LANGS, LANG_LABELS, withLang, switchLangPath } from '../i18n/
 // (ej. "GB") porque el sistema no trae los glifos de bandera en su fuente
 // de emojis — no es un problema del navegador, pasa en Chrome/Edge/Firefox
 // por igual ahí. country-flag-icons da un componente SVG chico por país
-// (tree-shakeable, solo se importan los 3 que se usan) que se ve igual en
+// (tree-shakeable, solo se importan los 4 que se usan) que se ve igual en
 // cualquier SO.
-const FLAG_COMPONENTS = { es: CL, en: GB, de: DE }
+const FLAG_COMPONENTS = { es: CL, en: GB, de: DE, pt: BR }
 
 function FlagIcon({ lang, className = '' }) {
     const Flag = FLAG_COMPONENTS[lang]

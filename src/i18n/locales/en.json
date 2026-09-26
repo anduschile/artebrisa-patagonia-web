@@ -389,5 +389,8 @@
         "next": "Next",
         "viewPhoto": "View photo {{n}} of {{total}}",
         "close": "Close"
+    },
+    "stickyCta": {
+        "label": "Check availability"
     }
 }

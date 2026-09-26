@@ -31,15 +31,15 @@ function formatDate(str) {
 }
 // Fecha para mostrar al huésped, en el idioma de la página. El mensaje de
 // WhatsApp (buildWhatsAppMsg) sigue usando formatDate: es para Karina.
-const DATE_LOCALES = { en: 'en-US', de: 'de-DE' }
+const DATE_LOCALES = { en: 'en-US', de: 'de-DE', pt: 'pt-BR' }
 function formatDateLocal(str, lang) {
     if (!str) return ''
     const locale = DATE_LOCALES[lang]
     if (!locale) return formatDate(str)
     return new Date(str + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
 }
-// Idioma del Brick de Mercado Pago (no soporta alemán -> inglés).
-const MP_LOCALES = { es: 'es-CL', en: 'en-US', de: 'en-US' }
+// Idioma del Brick de Mercado Pago (no soporta alemán -> inglés; pt -> pt-BR).
+const MP_LOCALES = { es: 'es-CL', en: 'en-US', de: 'en-US', pt: 'pt-BR' }
 
 // Mensaje para Karina (hispanohablante): SIEMPRE en español, sin importar el
 // idioma de la página. No pasar por t().
