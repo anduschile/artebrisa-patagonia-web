@@ -1,9 +1,7 @@
 /**
  * Título y meta description por página y por idioma.
  *
- * 'en' ya tiene traducción real (fase 2 de i18n). 'de' sigue en español a
- * propósito — es contenido placeholder mientras no se hace la traducción
- * real de alemán (fase posterior). Cada página recibe su propio
+ * 'en' y 'de' tienen traducción real. Cada página recibe su propio
  * <title>/<meta description> en vez del genérico compartido de index.html.
  */
 export const SITE_URL = 'https://artebrisapatagonia.com'
@@ -38,8 +36,20 @@ const EN = {
     },
 }
 
-// TODO(i18n-fase-2): traducir estos títulos/descripciones al alemán real.
-const DE = ES
+const DE = {
+    home: {
+        title: 'Arte Brisa Patagonia — Hütten und Apartments in Puerto Natales',
+        description: 'Hütten mit Bergblick und voll ausgestattete Apartments im Zentrum von Puerto Natales. Buchen Sie Ihren Aufenthalt in Patagonien bei Arte Brisa.',
+    },
+    cabanas: {
+        title: 'Hütten in Puerto Natales — Arte Brisa Patagonia',
+        description: 'Familienfreundliche Hütten mit Bergblick, nur wenige Minuten vom Zentrum von Puerto Natales. WLAN, voll ausgestattete Küche und Heizung inklusive.',
+    },
+    departamentos: {
+        title: 'Apartments im Zentrum von Puerto Natales — Arte Brisa Patagonia',
+        description: 'Voll ausgestattete Apartments mitten in Puerto Natales, alles in Laufweite. Ideal für kurze und lange Aufenthalte.',
+    },
+}
 
 export const PAGE_META = { es: ES, en: EN, de: DE }
 

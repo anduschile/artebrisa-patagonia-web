@@ -12,10 +12,8 @@ export default function Layout() {
     const location = useLocation()
     const lang = useLangFromPath()
 
-    // Solo 'es'/'en' tienen diccionario real — '/de/*' mantiene español
-    // (fallbackLng) a propósito, ver i18n/i18n.js.
     useEffect(() => {
-        i18n.changeLanguage(lang === 'en' ? 'en' : 'es')
+        i18n.changeLanguage(lang)
     }, [lang])
 
     return (

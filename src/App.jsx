@@ -36,7 +36,7 @@ export default function App() {
                     <Route path="/reserva/confirmar" element={<PaymentConfirmPage />} />
 
                     {/* ── Mismas páginas en inglés/alemán (/en/*, /de/*) ──
-                        Contenido aún en español (placeholder) — ver src/seo/pageMeta.js */}
+                        Textos en src/i18n/locales, meta en src/seo/pageMeta.js */}
                     <Route path=":lang" element={<LangLayout />}>
                         <Route index element={<HomePage />} />
                         <Route path="cabanas" element={<CabanasPage />} />

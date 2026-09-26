@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getUnitImage } from '../data/unitImages'
 import { unitSlug } from '../data/unitSlug'
+import { localizedDescription } from '../data/unitDescription'
 import { SERVICES_BY_TYPE, formatCLP } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
@@ -107,12 +108,8 @@ export default function UnitCard({ unit }) {
         ? 'bg-amber-100 text-amber-700'
         : 'bg-primary-100 text-primary-700'
 
-    // description_en solo existe para inglés; si viene vacía, cae a la
-    // descripción en español en vez del placeholder — no queremos que una
-    // unidad sin traducir todavía se vea rota en /en/*.
-    const displayDescription = lang === 'en'
-        ? (unit.description_en?.trim() || unit.description)
-        : unit.description
+    // Si la traducción viene vacía cae a español (ver localizedDescription).
+    const displayDescription = localizedDescription(unit, lang)
     const excerpt = truncate(displayDescription, 130)
     const priceNum = unit.base_price ?? null
     const href = withLang(lang, `/unidad/${unitSlug(unit)}`)

@@ -4,12 +4,15 @@ import { useTranslation } from 'react-i18next'
 import { getAvailableUnits } from '../data/units'
 import { getUnitImage } from '../data/unitImages'
 import { unitSlug } from '../data/unitSlug'
+import { localizedDescription } from '../data/unitDescription'
 import { PRICES_BY_CODE } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
 
+const DATE_LOCALES = { en: 'en-US', de: 'de-DE' }
+
 function formatDate(isoDate, lang) {
-    return new Date(isoDate + 'T00:00:00').toLocaleDateString(lang === 'en' ? 'en-US' : 'es-CL', {
+    return new Date(isoDate + 'T00:00:00').toLocaleDateString(DATE_LOCALES[lang] || 'es-CL', {
         day: 'numeric', month: 'long',
     })
 }
@@ -24,9 +27,7 @@ function ResultCard({ unit }) {
         ? 'bg-amber-100 text-amber-700'
         : 'bg-primary-100 text-primary-700'
     const priceNum = unit.base_price || PRICES_BY_CODE[unit.code]?.alta || null
-    const displayDescription = lang === 'en'
-        ? (unit.description_en?.trim() || unit.description)
-        : unit.description
+    const displayDescription = localizedDescription(unit, lang)
 
     return (
         <div className="bg-white rounded-2xl overflow-hidden shadow-md hover:shadow-xl transition-shadow flex flex-col sm:flex-row">
