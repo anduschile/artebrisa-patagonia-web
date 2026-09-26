@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useTranslation } from 'react-i18next'
 import { motion, AnimatePresence } from 'framer-motion'
 import { supabase } from '../lib/supabaseClient'
 import { getWebChannelId } from '../data/channels'
@@ -7,6 +8,7 @@ import { getConflicts, createInquiryReservation } from '../data/reservations'
 import { getDailyRatesForRange } from '../data/units'
 import { formatCLP } from '../data/unitDefaults'
 import { WHATSAPP_NUMBER } from '../config/contact'
+import { useLang } from '../i18n/LangContext'
 
 // ─── helpers ────────────────────────────────────────────────
 function todayStr() {
@@ -27,6 +29,20 @@ function formatDate(str) {
     const [y, m, d] = str.split('-')
     return `${d}/${m}/${y}`
 }
+// Fecha para mostrar al huésped, en el idioma de la página. El mensaje de
+// WhatsApp (buildWhatsAppMsg) sigue usando formatDate: es para Karina.
+const DATE_LOCALES = { en: 'en-US', de: 'de-DE' }
+function formatDateLocal(str, lang) {
+    if (!str) return ''
+    const locale = DATE_LOCALES[lang]
+    if (!locale) return formatDate(str)
+    return new Date(str + 'T12:00:00').toLocaleDateString(locale, { day: 'numeric', month: 'short', year: 'numeric' })
+}
+// Idioma del Brick de Mercado Pago (no soporta alemán -> inglés).
+const MP_LOCALES = { es: 'es-CL', en: 'en-US', de: 'en-US' }
+
+// Mensaje para Karina (hispanohablante): SIEMPRE en español, sin importar el
+// idioma de la página. No pasar por t().
 function buildWhatsAppMsg({ unit, reservation, guest }) {
     const lines = [
         `Hola, acabo de solicitar una reserva en *Arte Brisa Patagonia*:`,
@@ -46,6 +62,11 @@ function buildWhatsAppMsg({ unit, reservation, guest }) {
         `🔑 *ID reserva:* #${reservation.id}`,
     ]
     return encodeURIComponent(lines.join('\n'))
+}
+
+function guestsLabel(t, adults, children) {
+    const a = t('booking.adultsCount', { count: adults })
+    return children > 0 ? `${a}, ${t('booking.childrenCount', { count: children })}` : a
 }
 
 // ─── Get price for a specific date (with override fallback) ───
@@ -87,6 +108,8 @@ function CardPaymentForm({
     reservation_id, priceFirstNight, quotedTotal, unit, guest, checkIn, checkOut,
     adults, children, onPaymentResult, onError, onBack
 }) {
+    const { t } = useTranslation()
+    const lang = useLang()
     const [processing, setProcessing] = useState(false)
 
     useEffect(() => {
@@ -109,11 +132,11 @@ function CardPaymentForm({
         try {
             const mpPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY
             if (!mpPublicKey) {
-                onError('Configuración de Mercado Pago no disponible')
+                onError(t('booking.errors.mpUnavailable'))
                 return
             }
 
-            window.mp = new window.MercadoPago(mpPublicKey, { locale: 'es-CL' })
+            window.mp = new window.MercadoPago(mpPublicKey, { locale: MP_LOCALES[lang] || 'es-CL' })
 
             const bricksBuilder = window.mp.bricks()
             const brickController = await bricksBuilder.create('cardPayment', 'cardPaymentBrick_container', {
@@ -155,7 +178,7 @@ function CardPaymentForm({
 
                             if (!res.ok) {
                                 const errData = await res.json()
-                                onError(`Error: ${errData.error || 'error desconocido'}`)
+                                onError(t('booking.errors.paymentServer', { message: errData.error || t('booking.errors.paymentUnknown') }))
                                 setProcessing(false)
                                 return
                             }
@@ -163,7 +186,7 @@ function CardPaymentForm({
                             const result = await res.json()
                             onPaymentResult(result.status)
                         } catch (e) {
-                            onError('Error al procesar el pago: ' + e.message)
+                            onError(t('booking.errors.paymentProcess', { message: e.message }))
                             setProcessing(false)
                         }
                     }
@@ -173,7 +196,7 @@ function CardPaymentForm({
             window.cardPaymentBrickController = brickController
         } catch (e) {
             console.error('Error initializing Brick:', e)
-            onError('Error inicializando formulario de pago: ' + e.message)
+            onError(t('booking.errors.paymentInit', { message: e.message }))
         }
     }
 
@@ -188,24 +211,24 @@ function CardPaymentForm({
                 <div className="font-semibold text-slate-900 mb-3">{guest.fullName}</div>
                 <div className="grid grid-cols-2 gap-3 text-xs text-slate-600">
                     <div>
-                        <span className="text-slate-500">Unidad</span>
+                        <span className="text-slate-500">{t('booking.payment.unit')}</span>
                         <div className="font-semibold text-slate-900">{unit.name || unit.code}</div>
                     </div>
                     <div>
-                        <span className="text-slate-500">Noches</span>
+                        <span className="text-slate-500">{t('booking.payment.nights')}</span>
                         <div className="font-semibold text-slate-900">{nightCount(checkIn, checkOut)}</div>
                     </div>
                     <div>
-                        <span className="text-slate-500">Check-in</span>
-                        <div className="font-semibold text-slate-900">{formatDate(checkIn)}</div>
+                        <span className="text-slate-500">{t('booking.checkIn')}</span>
+                        <div className="font-semibold text-slate-900">{formatDateLocal(checkIn, lang)}</div>
                     </div>
                     <div>
-                        <span className="text-slate-500">Check-out</span>
-                        <div className="font-semibold text-slate-900">{formatDate(checkOut)}</div>
+                        <span className="text-slate-500">{t('booking.checkOut')}</span>
+                        <div className="font-semibold text-slate-900">{formatDateLocal(checkOut, lang)}</div>
                     </div>
                 </div>
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-end">
-                    <span className="text-slate-500">Total a pagar:</span>
+                    <span className="text-slate-500">{t('booking.payment.totalToPay')}</span>
                     <span className="text-2xl font-black text-primary-700">{formatCLP(quotedTotal)}</span>
                 </div>
             </div>
@@ -220,7 +243,7 @@ function CardPaymentForm({
                 disabled={processing}
                 className="w-full px-4 py-2.5 border border-slate-300 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors disabled:opacity-50"
             >
-                ← Atrás
+                {t('booking.back')}
             </button>
         </motion.div>
     )
@@ -228,6 +251,7 @@ function CardPaymentForm({
 
 // ─── Payment Result (Step 3 after payment) ──────────────────
 function PaymentResult({ status, onRetry }) {
+    const { t } = useTranslation()
     const [emoji, setEmoji] = useState('✓')
     const [title, setTitle] = useState('')
     const [message, setMessage] = useState('')
@@ -236,26 +260,26 @@ function PaymentResult({ status, onRetry }) {
     useEffect(() => {
         if (status === 'approved') {
             setEmoji('✓')
-            setTitle('¡Reserva confirmada!')
-            setMessage('Recibirás un WhatsApp con los detalles de acceso.')
+            setTitle(t('booking.payment.approvedTitle'))
+            setMessage(t('booking.payment.approvedText'))
             setShowRetry(false)
         } else if (status === 'pending') {
             setEmoji('⏱')
-            setTitle('Pago en proceso')
-            setMessage('Tu pago está siendo procesado. Te avisaremos por WhatsApp cuando se confirme.')
+            setTitle(t('booking.payment.pendingTitle'))
+            setMessage(t('booking.payment.pendingText'))
             setShowRetry(false)
         } else if (status === 'rejected') {
             setEmoji('✕')
-            setTitle('Pago rechazado')
-            setMessage('Podés intentar con otra tarjeta o contactarnos por WhatsApp.')
+            setTitle(t('booking.payment.rejectedTitle'))
+            setMessage(t('booking.payment.rejectedText'))
             setShowRetry(true)
         } else {
             setEmoji('⚠')
-            setTitle('Error')
-            setMessage('Ocurrió un error procesando el pago.')
+            setTitle(t('booking.payment.errorTitle'))
+            setMessage(t('booking.payment.errorText'))
             setShowRetry(true)
         }
-    }, [status])
+    }, [status, t])
 
     const bgColor = status === 'approved' ? 'bg-green-100' : status === 'pending' ? 'bg-blue-100' : 'bg-red-100'
     const textColor = status === 'approved' ? 'text-green-600' : status === 'pending' ? 'text-blue-600' : 'text-red-600'
@@ -277,7 +301,7 @@ function PaymentResult({ status, onRetry }) {
                     onClick={onRetry}
                     className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors text-sm"
                 >
-                    Intentar de nuevo
+                    {t('booking.payment.retry')}
                 </button>
             )}
         </motion.div>
@@ -286,6 +310,8 @@ function PaymentResult({ status, onRetry }) {
 
 // ─── Confirmation screen ─────────────────────────────────────
 function ConfirmationScreen({ reservation, unit, guest }) {
+    const { t } = useTranslation()
+    const lang = useLang()
     const waMsg = buildWhatsAppMsg({ unit, reservation, guest })
 
     return (
@@ -299,28 +325,28 @@ function ConfirmationScreen({ reservation, unit, guest }) {
                     <polyline points="20 6 9 17 4 12" />
                 </svg>
             </div>
-            <h3 className="text-lg font-black text-slate-900 mb-1">¡Solicitud enviada!</h3>
+            <h3 className="text-lg font-black text-slate-900 mb-1">{t('booking.confirmation.title')}</h3>
             <p className="text-slate-500 text-sm mb-1">
-                Tu consulta fue registrada con el ID:
+                {t('booking.confirmation.idIntro')}
             </p>
             <p className="font-mono text-primary-600 font-bold text-base mb-4">#{reservation.id}</p>
 
             <div className="bg-slate-50 rounded-xl p-4 text-left text-sm space-y-1.5 mb-5 border border-slate-200">
-                <div className="flex justify-between"><span className="text-slate-500">Unidad</span><span className="font-semibold text-slate-800">{unit.name || unit.code}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Check-in</span><span className="font-semibold">{formatDate(reservation.check_in)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Check-out</span><span className="font-semibold">{formatDate(reservation.check_out)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Noches</span><span className="font-semibold">{nightCount(reservation.check_in, reservation.check_out)}</span></div>
-                <div className="flex justify-between"><span className="text-slate-500">Huéspedes</span><span className="font-semibold text-slate-800">{reservation.adults}a {reservation.children > 0 ? `+ ${reservation.children}n` : ''}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t('booking.confirmation.unit')}</span><span className="font-semibold text-slate-800">{unit.name || unit.code}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t('booking.checkIn')}</span><span className="font-semibold">{formatDateLocal(reservation.check_in, lang)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t('booking.checkOut')}</span><span className="font-semibold">{formatDateLocal(reservation.check_out, lang)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t('booking.payment.nights')}</span><span className="font-semibold">{nightCount(reservation.check_in, reservation.check_out)}</span></div>
+                <div className="flex justify-between"><span className="text-slate-500">{t('booking.confirmation.guests')}</span><span className="font-semibold text-slate-800">{guestsLabel(t, reservation.adults, reservation.children)}</span></div>
                 {reservation.quoted_total > 0 && (
                     <div className="flex justify-between pt-2 border-t border-slate-200 mt-1">
-                        <span className="text-slate-900 font-bold">Total estimado</span>
+                        <span className="text-slate-900 font-bold">{t('booking.estimatedTotal')}</span>
                         <span className="font-black text-primary-700 text-lg">{formatCLP(reservation.quoted_total)}</span>
                     </div>
                 )}
             </div>
 
             <p className="text-xs text-slate-500 mb-4">
-                Te contactaremos para confirmar. Para agilizar, escríbenos por WhatsApp:
+                {t('booking.confirmation.contactNote')}
             </p>
             <a
                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
@@ -329,7 +355,7 @@ function ConfirmationScreen({ reservation, unit, guest }) {
                 className="flex items-center justify-center gap-2 w-full py-3 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors"
             >
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z" /></svg>
-                Confirmar por WhatsApp
+                {t('booking.confirmation.whatsappCta')}
             </a>
         </motion.div>
     )
@@ -337,6 +363,8 @@ function ConfirmationScreen({ reservation, unit, guest }) {
 
 // ─── Main widget ─────────────────────────────────────────────
 export default function ReservationWidget({ unit }) {
+    const { t } = useTranslation()
+    const lang = useLang()
     const [step, setStep] = useState(1) // 1=dates, 2=guest, 3=payment
     const [checkIn, setCheckIn] = useState(tomorrowStr())
     const [checkOut, setCheckOut] = useState('')
@@ -410,10 +438,10 @@ export default function ReservationWidget({ unit }) {
 
     // Step 1 validation
     function validateDates() {
-        if (!checkIn) return 'Selecciona fecha de check-in'
-        if (!checkOut) return 'Selecciona fecha de check-out'
-        if (checkOut <= checkIn) return 'Check-out debe ser posterior al check-in'
-        if (adults < 1) return 'Al menos 1 adulto requerido'
+        if (!checkIn) return t('booking.errors.checkInRequired')
+        if (!checkOut) return t('booking.errors.checkOutRequired')
+        if (checkOut <= checkIn) return t('booking.errors.dateOrder')
+        if (adults < 1) return t('booking.errors.adultsMin')
         return null
     }
 
@@ -427,12 +455,12 @@ export default function ReservationWidget({ unit }) {
         try {
             const conflicts = await getConflicts({ unit_id: unit.id, check_in: checkIn, check_out: checkOut })
             if (conflicts.length > 0) {
-                setConflictMsg('Lo sentimos, esas fechas no están disponibles. Por favor elige otras.')
+                setConflictMsg(t('booking.errors.unavailable'))
             } else {
                 setStep(2)
             }
         } catch (e) {
-            setError('Error verificando disponibilidad: ' + e.message)
+            setError(t('booking.errors.availability', { message: e.message }))
         } finally {
             setLoading(false)
         }
@@ -440,17 +468,17 @@ export default function ReservationWidget({ unit }) {
 
     async function handleSubmit(e) {
         e.preventDefault()
-        if (!unit?.id) { setError('No se pudo identificar la unidad de reserva.'); return }
-        if (!fullName.trim()) { setError('El nombre es obligatorio'); return }
+        if (!unit?.id) { setError(t('booking.errors.noUnit')); return }
+        if (!fullName.trim()) { setError(t('booking.errors.nameRequired')); return }
 
         // Teléfono y email son obligatorios: sin al menos uno de los dos no hay
         // forma de contactar al huésped para coordinar check-in/pago (caso real
         // que ya ocurrió). Se valida acá, junto al campo, antes de intentar nada.
-        const phoneErr = !phone.trim() ? 'El teléfono es obligatorio, lo necesitamos para coordinar tu check-in' : null
-        const emailErr = !email.trim() ? 'El email es obligatorio, lo necesitamos para coordinar tu check-in' : null
+        const phoneErr = !phone.trim() ? t('booking.errors.phoneRequired') : null
+        const emailErr = !email.trim() ? t('booking.errors.emailRequired') : null
         if (phoneErr || emailErr) {
             setFieldErrors({ phone: phoneErr, email: emailErr })
-            setError('Completa teléfono y email para continuar')
+            setError(t('booking.errors.completeContact'))
             return
         }
         setFieldErrors({ phone: null, email: null })
@@ -465,7 +493,7 @@ export default function ReservationWidget({ unit }) {
             // Double-check availability before inserting
             const conflicts = await getConflicts({ unit_id: unit.id, check_in: checkIn, check_out: checkOut })
             if (conflicts.length > 0) {
-                setConflictMsg('Esas fechas acaban de quedar ocupadas. Elige otras.')
+                setConflictMsg(t('booking.errors.justTaken'))
                 setStep(1)
                 setLoading(false)
                 return
@@ -493,7 +521,7 @@ export default function ReservationWidget({ unit }) {
             )
 
             if (priceFirstNight <= 0) {
-                setError('No se pudo determinar el monto. Contáctanos por WhatsApp.')
+                setError(t('booking.errors.noAmount'))
                 return
             }
 
@@ -502,7 +530,7 @@ export default function ReservationWidget({ unit }) {
             setPriceFirstNight(priceFirstNight)
             setStep(3)
         } catch (e) {
-            setError('Error al crear la reserva: ' + e.message)
+            setError(t('booking.errors.createReservation', { message: e.message }))
         } finally {
             setLoading(false)
         }
@@ -520,7 +548,7 @@ export default function ReservationWidget({ unit }) {
         <div className="bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-primary-600 to-primary-500 px-6 py-4">
-                <p className="text-primary-100 text-xs font-semibold uppercase tracking-wider mb-0.5">Reserva directa</p>
+                <p className="text-primary-100 text-xs font-semibold uppercase tracking-wider mb-0.5">{t('booking.eyebrow')}</p>
                 <h3 className="text-white font-black text-lg leading-tight">{unit.name || unit.code}</h3>
             </div>
 
@@ -537,9 +565,9 @@ export default function ReservationWidget({ unit }) {
                 <StepDot n={3} active={step === 3} done={false} />
             </div>
             <div className="flex justify-between px-6 pb-3 text-[11px] text-slate-400 font-medium">
-                <span>Fechas y huéspedes</span>
-                <span>Tus datos</span>
-                <span>Pago</span>
+                <span>{t('booking.stepDates')}</span>
+                <span>{t('booking.stepGuest')}</span>
+                <span>{t('booking.stepPayment')}</span>
             </div>
 
             {/* Error / conflict banner */}
@@ -561,7 +589,7 @@ export default function ReservationWidget({ unit }) {
                 <form onSubmit={handleCheckAvailability} className="px-6 pb-6 space-y-4">
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Check-in</label>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.checkIn')}</label>
                             <input
                                 type="date"
                                 value={checkIn}
@@ -572,7 +600,7 @@ export default function ReservationWidget({ unit }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Check-out</label>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.checkOut')}</label>
                             <input
                                 type="date"
                                 value={checkOut}
@@ -587,22 +615,22 @@ export default function ReservationWidget({ unit }) {
                     {nights > 0 && (
                         <div className="space-y-2">
                             <p className="text-xs text-primary-600 font-semibold text-center bg-primary-50 rounded-lg py-1.5 line-clamp-1">
-                                {nights} noche{nights !== 1 ? 's' : ''}
+                                {t('booking.nights', { count: nights })}
                             </p>
 
                             <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 flex justify-between items-center">
-                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total estimado</span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">{t('booking.estimatedTotal')}</span>
                                 {quote.loading ? (
-                                    <span className="text-xs text-slate-400 animate-pulse">Calculando...</span>
+                                    <span className="text-xs text-slate-400 animate-pulse">{t('booking.calculating')}</span>
                                 ) : quote.total > 0 ? (
                                     <div className="text-right">
                                         <div className="text-lg font-black text-primary-700 leading-none">{formatCLP(quote.total)}</div>
                                         <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                                            Promedio: {formatCLP(quote.avg)} / noche
+                                            {t('booking.average', { price: formatCLP(quote.avg) })}
                                         </div>
                                     </div>
                                 ) : (
-                                    <span className="text-xs font-bold text-primary-600">Consultar</span>
+                                    <span className="text-xs font-bold text-primary-600">{t('booking.consult')}</span>
                                 )}
                             </div>
                         </div>
@@ -610,7 +638,7 @@ export default function ReservationWidget({ unit }) {
 
                     <div className="grid grid-cols-2 gap-3">
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Adultos</label>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.adults')}</label>
                             <input
                                 type="number"
                                 value={adults}
@@ -621,7 +649,7 @@ export default function ReservationWidget({ unit }) {
                             />
                         </div>
                         <div>
-                            <label className="block text-xs font-semibold text-slate-600 mb-1">Niños</label>
+                            <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.children')}</label>
                             <input
                                 type="number"
                                 value={children}
@@ -638,7 +666,7 @@ export default function ReservationWidget({ unit }) {
                         disabled={loading}
                         className="w-full py-3 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
                     >
-                        {loading ? 'Verificando...' : 'Verificar disponibilidad →'}
+                        {loading ? t('booking.verifying') : t('booking.checkAvailability')}
                     </button>
                 </form>
             )}
@@ -649,36 +677,36 @@ export default function ReservationWidget({ unit }) {
                     {/* Summary */}
                     <div className="bg-slate-50 rounded-xl p-3 text-xs text-slate-600 flex flex-col gap-1 border border-slate-200">
                         <div className="flex justify-between">
-                            <span>{formatDate(checkIn)} → {formatDate(checkOut)}</span>
-                            <span className="font-semibold text-primary-600">{nights} noche{nights !== 1 ? 's' : ''} · {adults}a{children > 0 ? ` ${children}n` : ''}</span>
+                            <span>{formatDateLocal(checkIn, lang)} → {formatDateLocal(checkOut, lang)}</span>
+                            <span className="font-semibold text-primary-600">{t('booking.nights', { count: nights })} · {guestsLabel(t, adults, children)}</span>
                         </div>
                         {quote.total > 0 && (
                             <div className="flex justify-between pt-1 border-t border-slate-200 mt-1">
-                                <span className="font-bold text-slate-500 uppercase text-[10px]">Total estimado</span>
+                                <span className="font-bold text-slate-500 uppercase text-[10px]">{t('booking.estimatedTotal')}</span>
                                 <span className="font-black text-slate-900 text-sm">{formatCLP(quote.total)}</span>
                             </div>
                         )}
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Nombre completo *</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.fullName')}</label>
                         <input
                             type="text"
                             value={fullName}
                             onChange={e => setFullName(e.target.value)}
-                            placeholder="Tu nombre y apellido"
+                            placeholder={t('booking.fullNamePlaceholder')}
                             className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent"
                             required
                         />
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Teléfono / WhatsApp *</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.phone')}</label>
                         <input
                             type="tel"
                             value={phone}
                             onChange={e => { setPhone(e.target.value); setFieldErrors(fe => ({ ...fe, phone: null })) }}
-                            placeholder="+56 9 XXXX XXXX"
+                            placeholder={t('booking.phonePlaceholder')}
                             aria-invalid={!!fieldErrors.phone}
                             className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent ${fieldErrors.phone ? 'border-red-400' : 'border-slate-300'}`}
                         />
@@ -686,12 +714,12 @@ export default function ReservationWidget({ unit }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Email *</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.email')}</label>
                         <input
                             type="email"
                             value={email}
                             onChange={e => { setEmail(e.target.value); setFieldErrors(fe => ({ ...fe, email: null })) }}
-                            placeholder="tu@email.com"
+                            placeholder={t('booking.emailPlaceholder')}
                             aria-invalid={!!fieldErrors.email}
                             className={`w-full border rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent ${fieldErrors.email ? 'border-red-400' : 'border-slate-300'}`}
                         />
@@ -699,12 +727,12 @@ export default function ReservationWidget({ unit }) {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-semibold text-slate-600 mb-1">Notas (opcional)</label>
+                        <label className="block text-xs font-semibold text-slate-600 mb-1">{t('booking.notes')}</label>
                         <textarea
                             value={notes}
                             onChange={e => setNotes(e.target.value)}
                             rows={2}
-                            placeholder="Llegada tardía, necesidades especiales, etc."
+                            placeholder={t('booking.notesPlaceholder')}
                             className="w-full border border-slate-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary-400 focus:border-transparent resize-none"
                         />
                     </div>
@@ -715,14 +743,14 @@ export default function ReservationWidget({ unit }) {
                             onClick={() => { setStep(1); setError(null) }}
                             className="px-4 py-2.5 border border-slate-300 text-slate-600 text-sm font-semibold rounded-xl hover:bg-slate-50 transition-colors"
                         >
-                            ← Atrás
+                            {t('booking.back')}
                         </button>
                         <button
                             type="submit"
                             disabled={loading || !fullName.trim()}
                             className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 disabled:opacity-50 text-white font-bold rounded-xl transition-colors text-sm"
                         >
-                            {loading ? 'Enviando...' : 'Continuar al pago'}
+                            {loading ? t('booking.sending') : t('booking.continueToPayment')}
                         </button>
                     </div>
                 </form>

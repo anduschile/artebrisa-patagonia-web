@@ -12,6 +12,7 @@ import { unitPageMeta } from '../seo/pageMeta'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
 import { unitSlug } from '../data/unitSlug'
+import { localizedDescription } from '../data/unitDescription'
 import { WHATSAPP_NUMBER } from '../config/contact'
 
 // ─── Derive gallery folder from mapping ─────────────────────
@@ -252,15 +253,13 @@ export default function UnitDetailPage() {
         ? Array.from({ length: 11 }, (_, i) => `${galleryBase}/${i + 1}.jpg`)
         : [getUnitImage(unit)] // fallback: just hero
 
-    // description_en solo existe para inglés; si viene vacía, cae a la
-    // descripción en español en vez de mostrar el placeholder de "sin
-    // traducir" — no queremos que una unidad sin description_en se vea rota.
-    const displayDescription = lang === 'en'
-        ? (unit.description_en?.trim() || unit.description?.trim())
-        : unit.description?.trim()
+    // Si la traducción viene vacía cae a español (ver localizedDescription).
+    const displayDescription = localizedDescription(unit, lang)
 
+    // Mensaje para Karina: siempre en español, aunque la página esté en en/de
+    // (el tipo de unidad va fijo en español, no desde t()).
     const waMsg = encodeURIComponent(
-        `Hola, quiero consultar disponibilidad para ${typeLabel.toLowerCase()} *${unit.name || unit.code}* en Arte Brisa Patagonia.`
+        `Hola, quiero consultar disponibilidad para ${unit.unit_type === 'cabana' ? 'cabaña' : 'departamento'} *${unit.name || unit.code}* en Arte Brisa Patagonia.`
     )
 
     const { title, description } = unitPageMeta(unit)

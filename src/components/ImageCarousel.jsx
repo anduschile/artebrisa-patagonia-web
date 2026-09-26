@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 
 /** Single image that hides itself on 404 */
 function SafeImg({ src, alt, className, onClick }) {
@@ -31,7 +32,9 @@ function ChevronRight() {
     )
 }
 
-export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
+export default function ImageCarousel({ images = [], altBase }) {
+    const { t } = useTranslation()
+    const baseName = altBase || t('carousel.defaultAlt')
     const [current, setCurrent] = useState(0)
     const [lightbox, setLightbox] = useState(false)
     // track which thumb indices failed to load
@@ -86,7 +89,7 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                     <motion.img
                         key={mainSrc}
                         src={mainSrc}
-                        alt={`${altBase} — foto ${safeIndex + 1}`}
+                        alt={t('carousel.photoAlt', { name: baseName, n: safeIndex + 1 })}
                         className="w-full h-full object-cover"
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
@@ -109,7 +112,7 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                         <circle cx="11" cy="11" r="8" /><line x1="21" y1="21" x2="16.65" y2="16.65" />
                         <line x1="11" y1="8" x2="11" y2="14" /><line x1="8" y1="11" x2="14" y2="11" />
                     </svg>
-                    Ampliar
+                    {t('carousel.zoom')}
                 </span>
 
                 {/* Prev / Next */}
@@ -118,14 +121,14 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                         <button
                             onClick={e => { e.stopPropagation(); prev() }}
                             className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors backdrop-blur-sm"
-                            aria-label="Anterior"
+                            aria-label={t('carousel.previous')}
                         >
                             <ChevronLeft />
                         </button>
                         <button
                             onClick={e => { e.stopPropagation(); next() }}
                             className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/40 hover:bg-black/60 text-white rounded-full p-2 transition-colors backdrop-blur-sm"
-                            aria-label="Siguiente"
+                            aria-label={t('carousel.next')}
                         >
                             <ChevronRight />
                         </button>
@@ -149,11 +152,11 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                                 onClick={() => goTo(i)}
                                 className={`flex-shrink-0 w-16 h-12 sm:w-20 sm:h-14 rounded-lg overflow-hidden border-2 transition-all ${isActive ? 'border-primary-500 opacity-100' : 'border-transparent opacity-60 hover:opacity-90'
                                     }`}
-                                aria-label={`Ver foto ${i + 1}`}
+                                aria-label={t('carousel.viewPhoto', { n: i + 1, total: images.length })}
                             >
                                 <SafeImg
                                     src={src}
-                                    alt={`Miniatura ${i + 1}`}
+                                    alt={t('carousel.thumbAlt', { n: i + 1 })}
                                     className="w-full h-full object-cover"
                                 />
                             </button>
@@ -177,14 +180,14 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                             animate={{ scale: 1 }}
                             exit={{ scale: 0.92 }}
                             src={mainSrc}
-                            alt={`${altBase} — ampliada`}
+                            alt={t('carousel.zoomedAlt', { name: baseName })}
                             className="max-w-full max-h-full rounded-xl object-contain"
                             onClick={e => e.stopPropagation()}
                         />
                         <button
                             onClick={() => setLightbox(false)}
                             className="absolute top-4 right-4 text-white/70 hover:text-white p-2"
-                            aria-label="Cerrar"
+                            aria-label={t('carousel.close')}
                         >
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
                                 <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
@@ -196,10 +199,10 @@ export default function ImageCarousel({ images = [], altBase = 'Imagen' }) {
                             <>
                                 <button onClick={e => { e.stopPropagation(); prev() }}
                                     className="absolute left-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 transition-colors"
-                                    aria-label="Anterior"><ChevronLeft /></button>
+                                    aria-label={t('carousel.previous')}><ChevronLeft /></button>
                                 <button onClick={e => { e.stopPropagation(); next() }}
                                     className="absolute right-4 top-1/2 -translate-y-1/2 bg-white/10 hover:bg-white/20 text-white rounded-full p-3 transition-colors"
-                                    aria-label="Siguiente"><ChevronRight /></button>
+                                    aria-label={t('carousel.next')}><ChevronRight /></button>
                             </>
                         )}
                     </motion.div>
