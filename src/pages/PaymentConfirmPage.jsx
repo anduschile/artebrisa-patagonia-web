@@ -72,7 +72,7 @@ export default function PaymentConfirmPage() {
                   </div>
                 </div>
                 <p className="ml-3 text-sm text-gray-600">
-                  <span className="font-semibold">Pago confirmado</span> — Tu transacción fue autorizada por Transbank.
+                  <span className="font-semibold">Pago confirmado</span> — Tu transacción fue aprobada.
                 </p>
               </div>
               <div className="flex items-start">
@@ -131,7 +131,7 @@ export default function PaymentConfirmPage() {
 
             <div className="space-y-3 mb-6 text-left">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">Puedes reintentar:</span> Completa el formulario de reserva nuevamente para generar un nuevo enlace de pago. Tu información se mantiene segura en nuestro sistema.
+                <span className="font-semibold">Puedes reintentar:</span> Prueba con otra tarjeta o medio de pago; si necesitas un nuevo enlace de pago, escríbenos por WhatsApp. Tu información se mantiene segura en nuestro sistema.
               </p>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">¿Problemas técnicos?</span> Contáctanos por WhatsApp y te asistimos en forma directa.
@@ -249,7 +249,7 @@ export default function PaymentConfirmPage() {
 
             <div className="space-y-3 text-left mb-6">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">¿Qué pasó?</span> Intentamos confirmar tu pago con el banco pero no recibimos respuesta. Esto puede ser un error temporal de conexión.
+                <span className="font-semibold">¿Qué pasó?</span> Intentamos confirmar tu pago con el procesador de pagos pero no recibimos respuesta. Esto puede ser un error temporal de conexión.
               </p>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">Próximo paso:</span> Si el cargo aparece en tu cuenta bancaria, tu pago fue procesado y tu reserva está siendo revisada por nuestro equipo. Si tienes dudas, contáctanos por WhatsApp.

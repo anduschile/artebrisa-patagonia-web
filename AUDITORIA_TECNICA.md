@@ -349,7 +349,12 @@ Es el segundo gran descubrimiento. Implementado en [src/pages/admin/AdminReserva
 
 ## 2.4 Pasarela de pago
 
-**❌ No existe.** Ninguna integración de Stripe, MercadoPago, Flow, Webpay o equivalente. El flujo termina en una "consulta" (`inquiry`) que se confirma manualmente por WhatsApp, y el pago se gestiona offline (transferencia / efectivo / link manual de Webpay).
+**✅ Implementada con Mercado Pago** (actualizado después de la auditoría original del 2026-05-25, que registraba "no existe"). Hubo una primera integración con Transbank/Webpay Plus que se reemplazó por Mercado Pago (commit `bddf7da`). Hoy conviven dos flujos, ambos con Mercado Pago:
+
+- **Bot de WhatsApp — Checkout Pro:** al confirmar una reserva, el bot llama a la Edge Function `create-payment`, que crea una preferencia de Mercado Pago y devuelve un enlace de pago; el bot se lo envía al huésped por WhatsApp. El huésped paga en Mercado Pago y vuelve a `/reserva/confirmar` (página `PaymentConfirmPage`, vía `back_urls`). La Edge Function `confirm-payment` recibe el retorno y el webhook (`notification_url`) y actualiza `core_reservations` (`status`, `payment_status`, `payment_method = 'mercadopago'`).
+- **Reserva directa en el sitio — Card Payment Brick:** el `ReservationWidget` incrusta el formulario de tarjeta de Mercado Pago y envía el pago a la Edge Function `process-payment`; el resultado se muestra dentro del mismo widget, sin redirección, y se envía un correo de confirmación al huésped.
+
+Se cobra el total de la reserva (`quoted_total`), no una seña. Las secciones 3.5 y siguientes (recomendación de Flow, plan de integración) se conservan como registro histórico del análisis original y ya no describen el estado actual.
 
 ---
 
@@ -684,7 +689,7 @@ Esto es valioso y único — la mayoría de cabañas en Puerto Natales solo tien
 | Reservas directas | ✅ Funcional | Notificación automática |
 | Sincronización Booking/Airbnb | ✅ Importa | Falta **exportar** (1.5 días) |
 | Precios | ✅ Día por día | Diferenciar Booking vs directo (1.5 días) |
-| Pasarela de pago | ❌ No existe | Recomendamos **Flow** (3 días) |
+| Pasarela de pago | ✅ Mercado Pago (ver 2.4) | Estado original: ❌ no existía; recomendación histórica: Flow |
 | Editar textos del sitio | ❌ Requiere desarrollador | 2-3 días para que lo puedas hacer tú |
 
 ### Recomendación sobre pasarela de pago
