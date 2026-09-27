@@ -1,5 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
+import { buildWaUrl } from '../config/contact'
+
+// Enlace a WhatsApp con la referencia de la reserva. El mensaje es para el equipo
+// (hispanohablante), por eso va en español.
+function waLink(reservationId, text) {
+  return buildWaUrl(reservationId ? `Hola, ${text} Referencia de reserva: ${reservationId}` : `Hola, ${text}`)
+}
 
 export default function PaymentConfirmPage() {
   const location = useLocation()
@@ -131,7 +138,7 @@ export default function PaymentConfirmPage() {
 
             <div className="space-y-3 mb-6 text-left">
               <p className="text-sm text-gray-600">
-                <span className="font-semibold">Puedes reintentar:</span> Prueba con otra tarjeta o medio de pago; si necesitas un nuevo enlace de pago, escríbenos por WhatsApp. Tu información se mantiene segura en nuestro sistema.
+                <span className="font-semibold">¿Cómo seguir?</span> Para volver a intentarlo necesitas un nuevo enlace de pago: escríbenos por WhatsApp y te lo enviamos. Puedes usar otra tarjeta o medio de pago. Tu información se mantiene segura en nuestro sistema.
               </p>
               <p className="text-sm text-gray-600">
                 <span className="font-semibold">¿Problemas técnicos?</span> Contáctanos por WhatsApp y te asistimos en forma directa.
@@ -140,10 +147,69 @@ export default function PaymentConfirmPage() {
 
             <div className="space-y-3">
               <a
-                href="/cabanas"
-                className="block bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
+                href={waLink(reservationId, 'mi pago fue rechazado. ¿Me pueden enviar un nuevo enlace de pago?')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
               >
-                Reintentar pago
+                Pedir nuevo enlace por WhatsApp
+              </a>
+              <a
+                href="/"
+                className="block bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 px-6 rounded-lg transition-colors text-center"
+              >
+                Volver al inicio
+              </a>
+            </div>
+          </div>
+        </div>
+    )
+  }
+
+  // ── Pending: payment is being processed (deferred payment methods) ──────────
+  if (status === 'pending') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-sky-50 to-blue-50 px-4 sm:px-6 lg:px-8">
+          <div className="max-w-md w-full text-center">
+            <div className="mb-6">
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-blue-100">
+                <svg className="h-8 w-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+            </div>
+
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Tu pago está en proceso</h1>
+
+            <p className="text-gray-600 mb-4">
+              Tu pago está siendo procesado y todavía no tenemos la confirmación. Según el medio de pago que hayas usado, puede tardar. No es un error ni fue rechazado.
+            </p>
+
+            <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
+              <p className="text-sm text-gray-500 mb-1">Referencia de reserva</p>
+              <p className="text-lg font-mono font-semibold text-gray-900">{reservationId}</p>
+            </div>
+
+            <div className="space-y-3 text-left mb-6">
+              <p className="text-sm text-gray-600">
+                <span className="font-semibold">¿Qué sigue?</span> Cuando el pago se confirme, nuestro equipo te avisará. Puedes escribirnos por WhatsApp para consultar el estado de tu reserva.
+              </p>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-amber-900">
+                <span className="font-semibold">Importante:</span> No vuelvas a pagar mientras tu pago esté en proceso, para evitar un doble cobro.
+              </p>
+            </div>
+
+            <div className="space-y-3">
+              <a
+                href={waLink(reservationId, 'mi pago quedó en proceso. ¿Me pueden confirmar el estado de mi reserva?')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
+              >
+                Consultar estado por WhatsApp
               </a>
               <a
                 href="/"
@@ -174,7 +240,7 @@ export default function PaymentConfirmPage() {
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Cancelaste el pago</h1>
 
             <p className="text-gray-600 mb-6">
-              No te preocupes, tu reserva no se perdió. Puedes intentar el pago nuevamente cuando quieras.
+              No te preocupes: tu solicitud quedó registrada, pero las fechas no quedan reservadas hasta que se confirme el pago.
             </p>
 
             <div className="bg-white rounded-lg p-4 mb-6 border border-gray-200">
@@ -200,7 +266,7 @@ export default function PaymentConfirmPage() {
                   </div>
                 </div>
                 <p className="ml-3 text-sm text-gray-600">
-                  Puedes completar el pago en cualquier momento desde tu reserva.
+                  Para pagar necesitas un nuevo enlace: escríbenos por WhatsApp y te lo enviamos.
                 </p>
               </div>
             </div>
@@ -211,12 +277,22 @@ export default function PaymentConfirmPage() {
               </p>
             </div>
 
-            <a
-              href="/"
-              className="inline-block bg-slate-700 hover:bg-slate-800 text-white font-semibold py-2 px-6 rounded-lg transition-colors"
-            >
-              Volver al inicio
-            </a>
+            <div className="space-y-3">
+              <a
+                href={waLink(reservationId, 'cancelé el pago. ¿Me pueden enviar un nuevo enlace de pago?')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
+              >
+                Pedir nuevo enlace por WhatsApp
+              </a>
+              <a
+                href="/"
+                className="block bg-gray-200 hover:bg-gray-300 text-gray-900 font-semibold py-2 px-6 rounded-lg transition-colors text-center"
+              >
+                Volver al inicio
+              </a>
+            </div>
           </div>
         </div>
     )
