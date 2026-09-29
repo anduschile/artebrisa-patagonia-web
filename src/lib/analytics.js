@@ -39,10 +39,10 @@ function log(...args) {
     try { console.log('[analytics]', ...args) } catch (e) { /* noop */ }
 }
 
-function gtag(...args) {
+function gtag() {
     try {
         window.dataLayer = window.dataLayer || []
-        window.dataLayer.push(args)
+        window.dataLayer.push(arguments)
     } catch (e) { /* noop */ }
 }
 
