@@ -7,6 +7,7 @@ import {
     WHATSAPP_TRIGGER_KEYWORDS, ALLOWED_KEYWORDS,
 } from '../config/chatBot'
 import { buildWaUrl } from '../config/contact'
+import { trackWhatsappClick } from '../lib/analytics'
 import { FAQ_CATEGORIES, QUICK_REPLIES } from '../content/faq_es'
 
 // ─── Third-party script injectors ────────────────────────────────────────────
@@ -159,6 +160,7 @@ function Bubble({ msg }) {
                     <a
                         href={msg.waUrl}
                         target="_blank" rel="noopener noreferrer"
+                        onClick={() => trackWhatsappClick('chat_widget')}
                         className="mt-2 flex items-center gap-1.5 bg-green-500 hover:bg-green-400 text-white text-xs font-bold px-3 py-1.5 rounded-xl w-fit transition-colors"
                     >
                         <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { buildWaUrl } from '../config/contact'
+import { supabase } from '../lib/supabaseClient'
+import { trackPurchaseOnce, trackWhatsappClick } from '../lib/analytics'
 
 // Enlace a WhatsApp con la referencia de la reserva. El mensaje es para el equipo
 // (hispanohablante), por eso va en español.
@@ -33,6 +35,34 @@ export default function PaymentConfirmPage() {
 
     setLoading(false)
   }, [location.search])
+
+  // purchase — SOLO cuando este redirect confirma un pago aprobado (flujo
+  // async del webhook IPN de Mercado Pago; el flujo síncrono del Card
+  // Payment Brick se mide aparte, en ReservationWidget). El monto exacto
+  // cobrado se lee de la propia reserva (misma tabla/anon key que ya usa
+  // el resto del sitio) porque el redirect de Mercado Pago no lo trae.
+  useEffect(() => {
+    if (status !== 'paid' || !reservationId) return
+
+    let cancelled = false
+    supabase
+      .from('core_reservations')
+      .select('paid_amount, quoted_total, unit_id, core_units ( name )')
+      .eq('id', reservationId)
+      .single()
+      .then(({ data, error }) => {
+        if (cancelled || error || !data) return
+        const unit = Array.isArray(data.core_units) ? data.core_units[0] : data.core_units
+        trackPurchaseOnce({
+          transactionId: reservationId,
+          value: data.paid_amount || data.quoted_total || 0,
+          items: [{ item_id: data.unit_id, item_name: unit?.name }],
+        })
+      })
+      .catch(() => { /* noop — no romper la pantalla de confirmación por esto */ })
+
+    return () => { cancelled = true }
+  }, [status, reservationId])
 
   if (loading) {
     console.log('[DEBUG-CONFIRM] Renderizando bloque: LOADING')
@@ -150,6 +180,7 @@ export default function PaymentConfirmPage() {
                 href={waLink(reservationId, 'mi pago fue rechazado. ¿Me pueden enviar un nuevo enlace de pago?')}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackWhatsappClick('payment_result_failed')}
                 className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
               >
                 Pedir nuevo enlace por WhatsApp
@@ -207,6 +238,7 @@ export default function PaymentConfirmPage() {
                 href={waLink(reservationId, 'mi pago quedó en proceso. ¿Me pueden confirmar el estado de mi reserva?')}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackWhatsappClick('payment_result_pending')}
                 className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
               >
                 Consultar estado por WhatsApp
@@ -282,6 +314,7 @@ export default function PaymentConfirmPage() {
                 href={waLink(reservationId, 'cancelé el pago. ¿Me pueden enviar un nuevo enlace de pago?')}
                 target="_blank"
                 rel="noopener noreferrer"
+                onClick={() => trackWhatsappClick('payment_result_cancelled')}
                 className="block bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-6 rounded-lg transition-colors text-center"
               >
                 Pedir nuevo enlace por WhatsApp

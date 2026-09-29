@@ -3,6 +3,7 @@ import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { CONTACT, LOCATIONS } from '../../data/subsiteSections'
 import { DEFAULT_WA_MESSAGE } from '../../config/contact'
+import { trackWhatsappClick } from '../../lib/analytics'
 
 export default function ContactSection({ variant = 'cabana' }) {
     const { t } = useTranslation()
@@ -26,7 +27,8 @@ export default function ContactSection({ variant = 'cabana' }) {
             form.guests ? `Huéspedes: ${form.guests}` : null,
             form.message ? `\n${form.message}` : null,
         ].filter(Boolean).join('\n')
-        window.open(`${waUrl}?text=${encodeURIComponent(msg)}`, '_blank')
+        trackWhatsappClick('contact_section_form')
+        window.open(`https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
         setSent(true)
     }
 
@@ -94,6 +96,7 @@ export default function ContactSection({ variant = 'cabana' }) {
                                         href={href}
                                         target={external ? '_blank' : undefined}
                                         rel={external ? 'noopener noreferrer' : undefined}
+                                        onClick={icon === 'whatsapp' ? () => trackWhatsappClick('contact_section') : undefined}
                                         className="text-slate-700 text-sm hover:text-primary-600 transition-colors"
                                     >
                                         {value}

@@ -132,7 +132,13 @@
         "cabanasLabel": "Hütten:",
         "deptosLabel": "Apartments:",
         "copyright": "© 2026 Arte Brisa Patagonia. Alle Rechte vorbehalten.",
-        "adminAccess": "Admin-Zugang"
+        "adminAccess": "Admin-Zugang",
+        "cookiesLink": "Cookies"
+    },
+    "cookieBanner": {
+        "text": "Wir verwenden Cookies, um die Nutzung der Website zu messen und Ihr Erlebnis zu verbessern. Sie können diese akzeptieren oder ablehnen.",
+        "accept": "Akzeptieren",
+        "reject": "Ablehnen"
     },
     "unitCard": {
         "descriptionFallback": "Beschreibung folgt in Kürze",

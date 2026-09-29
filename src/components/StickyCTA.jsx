@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import { buildWaUrl } from '../config/contact'
+import { trackWhatsappClick } from '../lib/analytics'
 
 export default function StickyCTA() {
     const { t } = useTranslation()
@@ -11,6 +12,7 @@ export default function StickyCTA() {
                     href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackWhatsappClick('floating')}
                     className="flex items-center justify-center gap-2 w-full py-3.5 bg-green-500 hover:bg-green-600 active:bg-green-700 text-white font-bold text-base rounded-xl transition-colors shadow-lg"
                 >
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">

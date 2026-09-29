@@ -14,6 +14,7 @@ import { withLang } from '../i18n/languages'
 import { unitSlug } from '../data/unitSlug'
 import { localizedDescription } from '../data/unitDescription'
 import { WHATSAPP_NUMBER } from '../config/contact'
+import { trackViewItem, trackWhatsappClick } from '../lib/analytics'
 
 // ─── Derive gallery folder from mapping ─────────────────────
 function getGalleryBase(unit) {
@@ -227,6 +228,10 @@ export default function UnitDetailPage() {
         })
     }, [slug])
 
+    useEffect(() => {
+        if (unit) trackViewItem({ id: unit.id, name: unit.name })
+    }, [unit])
+
     if (loading) return <Skeleton />
 
     if (notFound || !unit) {
@@ -366,6 +371,7 @@ export default function UnitDetailPage() {
                                 href={`https://wa.me/${WHATSAPP_NUMBER}?text=${waMsg}`}
                                 target="_blank"
                                 rel="noopener noreferrer"
+                                onClick={() => trackWhatsappClick('unit_detail')}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-green-500 hover:bg-green-600 text-white font-semibold text-sm rounded-lg transition-colors flex-shrink-0"
                             >
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">

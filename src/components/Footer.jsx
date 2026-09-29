@@ -3,6 +3,8 @@ import { useTranslation } from 'react-i18next'
 import { CONTACT, LOCATIONS } from '../data/subsiteSections'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
+import { ANALYTICS_CONFIGURED } from '../lib/analytics'
+import { COOKIE_BANNER_REOPEN_EVENT } from './CookieBanner'
 
 const FACEBOOK_URL = 'https://www.facebook.com/p/Caba%C3%B1as-Arte-Brisa-Patagonia-100033325578398/'
 const INSTAGRAM_URL = 'https://www.instagram.com/cabanas_artebrisa_patagonia/'
@@ -133,12 +135,23 @@ export default function Footer() {
                 {/* ── Bottom bar ── */}
                 <div className="mt-10 pt-6 border-t border-slate-800 text-xs text-slate-500 flex flex-col sm:flex-row items-center justify-between gap-2">
                     <span>{t('footer.copyright')}</span>
-                    <Link to="/admin" className="flex items-center gap-1 text-slate-700 hover:text-slate-500 transition-colors">
-                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
-                        </svg>
-                        {t('footer.adminAccess')}
-                    </Link>
+                    <div className="flex items-center gap-4">
+                        {ANALYTICS_CONFIGURED && (
+                            <button
+                                type="button"
+                                onClick={() => window.dispatchEvent(new CustomEvent(COOKIE_BANNER_REOPEN_EVENT))}
+                                className="hover:text-primary-400 transition-colors"
+                            >
+                                {t('footer.cookiesLink')}
+                            </button>
+                        )}
+                        <Link to="/admin" className="flex items-center gap-1 text-slate-700 hover:text-slate-500 transition-colors">
+                            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" />
+                            </svg>
+                            {t('footer.adminAccess')}
+                        </Link>
+                    </div>
                 </div>
             </div>
         </footer>
