@@ -250,7 +250,7 @@
         "subtitle": "Respostas às dúvidas mais comuns",
         "common": {
             "checkinCheckout": { "q": "Quais são os horários de check-in e check-out?", "a": "O check-in é a partir das 14h e o check-out até as 11h. Entre em contato com antecedência se precisar de um horário especial." },
-            "cancellation": { "q": "Qual é a política de cancelamento?", "a": "Cancelamento gratuito até 48 horas antes da chegada. Cancelamentos feitos depois desse prazo são cobrados em 50% da primeira noite." },
+            "cancellation": { "q": "Qual é a política de cancelamento?", "a": "Reembolso total se o cancelamento for feito até 5 dias antes da chegada. Com menos de 5 dias de antecedência, é retido 50% do valor da primeira noite e o restante é reembolsado." },
             "payment": { "q": "Quais formas de pagamento vocês aceitam?", "a": "Dinheiro, transferência bancária e cartões de crédito/débito. Também é possível reservar pelo Booking.com." },
             "breakfast": { "q": "O café da manhã está incluído?", "a": "Não, o café da manhã não está incluído nas tarifas. A cozinha equipada permite preparar suas próprias refeições, e há cafés e padarias por perto." },
             "distanceTorres": { "q": "A que distância vocês ficam de Torres del Paine?", "a": "Ficamos a cerca de 112 km (1h30 de carro) da entrada do Parque Nacional Torres del Paine." },
@@ -258,14 +258,14 @@
             "airportTransfer": { "q": "Vocês oferecem transfer do aeroporto?", "a": "Podemos organizar o transfer do aeroporto mediante cobrança adicional. Entre em contato para mais informações." }
         },
         "cabana": {
-            "pets": { "q": "Vocês aceitam animais de estimação?", "a": "Sim, aceitamos animais de pequeno porte em algumas cabanas, mediante cobrança adicional. Avise-nos no momento da reserva." },
+            "pets": { "q": "Vocês aceitam animais de estimação?", "a": "Não, não aceitamos animais de estimação em nenhuma unidade (cabanas ou apartamentos)." },
             "parking": { "q": "Há estacionamento?", "a": "Sim, todas as cabanas incluem estacionamento privativo gratuito." },
             "heating": { "q": "As cabanas têm aquecimento?", "a": "Todas as nossas cabanas contam com sistemas de aquecimento eficientes para o seu conforto o ano todo." },
             "kitchen": { "q": "As cabanas têm cozinha equipada?", "a": "Sim, todas têm cozinha completa: utensílios, geladeira, fogão e micro-ondas." },
             "wifi": { "q": "Há Wi-Fi?", "a": "Sim, oferecemos Wi-Fi gratuito de alta velocidade em todas as nossas cabanas." }
         },
         "departamento": {
-            "pets": { "q": "Vocês aceitam animais de estimação?", "a": "Infelizmente não é permitido levar animais de estimação, para manter um ambiente hipoalergênico para todos os nossos hóspedes." },
+            "pets": { "q": "Vocês aceitam animais de estimação?", "a": "Não, não aceitamos animais de estimação em nenhuma unidade (cabanas ou apartamentos)." },
             "kitchen": { "q": "Os apartamentos têm cozinha equipada?", "a": "Sim, todos têm cozinha completa: utensílios, geladeira, fogão e micro-ondas." },
             "wifi": { "q": "Há Wi-Fi?", "a": "Sim, Wi-Fi gratuito de alta velocidade em todos os apartamentos." },
             "parking": { "q": "Há estacionamento?", "a": "Sim, temos estacionamento incluído para os nossos hóspedes." },
@@ -298,8 +298,8 @@
     "unitPolicies": {
         "checkIn": "14h",
         "checkOut": "11h",
-        "cancellation": "Cancelamento gratuito até 48 horas antes do check-in",
-        "pets": "Entre em contato para consultar a disponibilidade",
+        "cancellation": "Reembolso total até 5 dias antes da chegada (com menos de 5 dias: retenção de 50% da primeira noite)",
+        "pets": "Não aceitamos animais de estimação",
         "children": "Crianças são bem-vindas",
         "minimum": "Estadia mínima de 2 noites na alta temporada"
     },

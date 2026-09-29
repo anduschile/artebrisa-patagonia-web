@@ -849,7 +849,8 @@ HORARIOS:
 
 POLÍTICAS:
 - Sin estadía mínima ni máxima (desde 1 noche)
-- Cancelación con devolución total hasta 5 días antes
+- Cancelación con devolución total hasta 5 días antes de la llegada
+- Con menos de 5 días de anticipación: se retiene el 50% del valor de la primera noche y se devuelve el resto
 - No se aceptan mascotas
 - Formas de pago: transferencia, efectivo, tarjeta de crédito, débito y prepago
 

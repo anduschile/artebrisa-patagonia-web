@@ -250,7 +250,7 @@
         "subtitle": "Answers to the most common questions",
         "common": {
             "checkinCheckout": { "q": "What are the check-in and check-out times?", "a": "Check-in is from 2:00 PM and check-out is until 11:00 AM. Please contact us in advance if you need special arrangements." },
-            "cancellation": { "q": "What is the cancellation policy?", "a": "Free cancellation up to 48 hours before arrival. Cancellations made after that are charged 50% of the first night." },
+            "cancellation": { "q": "What is the cancellation policy?", "a": "Full refund if you cancel at least 5 days before arrival. If you cancel with less than 5 days' notice, 50% of the first night's value is withheld and the rest is refunded." },
             "payment": { "q": "What payment methods do you accept?", "a": "Cash, bank transfers, and credit/debit cards. You can also book through Booking.com." },
             "breakfast": { "q": "Is breakfast included?", "a": "No, breakfast is not included in the rates. The equipped kitchen lets you prepare your own meals, and there are cafés and bakeries nearby." },
             "distanceTorres": { "q": "How far are you from Torres del Paine?", "a": "We're about 112 km (a 1.5-hour drive) from the entrance to Torres del Paine National Park." },
@@ -258,14 +258,14 @@
             "airportTransfer": { "q": "Do you offer airport transfers?", "a": "We can arrange airport transfers for an additional charge. Contact us for more information." }
         },
         "cabana": {
-            "pets": { "q": "Do you accept pets?", "a": "Yes, we accept small pets in some cabins for an additional charge. Please let us know when booking." },
+            "pets": { "q": "Do you accept pets?", "a": "No, pets are not allowed in any unit (cabins or apartments)." },
             "parking": { "q": "Is there parking?", "a": "Yes, all cabins include free private parking." },
             "heating": { "q": "Do the cabins have heating?", "a": "All our cabins have efficient heating systems to keep you comfortable year-round." },
             "kitchen": { "q": "Do the cabins have an equipped kitchen?", "a": "Yes, all of them have a full kitchen: utensils, refrigerator, stove, and microwave." },
             "wifi": { "q": "Is Wi-Fi available?", "a": "Yes, we offer free high-speed Wi-Fi in all our cabins." }
         },
         "departamento": {
-            "pets": { "q": "Do you accept pets?", "a": "Unfortunately, pets are not allowed, to keep a hypoallergenic environment for all our guests." },
+            "pets": { "q": "Do you accept pets?", "a": "No, pets are not allowed in any unit (cabins or apartments)." },
             "kitchen": { "q": "Do the apartments have an equipped kitchen?", "a": "Yes, all of them have a full kitchen: utensils, refrigerator, stove, and microwave." },
             "wifi": { "q": "Is Wi-Fi available?", "a": "Yes, free high-speed Wi-Fi in all apartments." },
             "parking": { "q": "Is parking available?", "a": "Yes, we have parking included for our guests." },
@@ -298,8 +298,8 @@
     "unitPolicies": {
         "checkIn": "2:00 PM",
         "checkOut": "11:00 AM",
-        "cancellation": "Free cancellation up to 48 hours before check-in",
-        "pets": "Please contact us to check availability",
+        "cancellation": "Full refund up to 5 days before arrival (less than 5 days: 50% of the first night withheld)",
+        "pets": "Pets are not allowed",
         "children": "Children are welcome",
         "minimum": "2-night minimum stay in high season"
     },

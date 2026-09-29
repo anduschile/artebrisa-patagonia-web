@@ -38,9 +38,7 @@ export const FAQ_CATEGORIES = [
         icon: '🐾',
         label: 'Mascotas',
         answer: [
-            'Algunas de nuestras cabañas **aceptan mascotas**.',
-            'Consultanos antes de reservar indicando especie y tamaño de tu mascota.',
-            'Los departamentos por el momento **no admiten mascotas**.',
+            'No aceptamos **mascotas** en ninguna de nuestras unidades (cabañas ni departamentos).',
         ],
     },
     {
@@ -57,8 +55,8 @@ export const FAQ_CATEGORIES = [
         icon: '📋',
         label: 'Cancelación y políticas',
         answer: [
-            'Aceptamos cancelaciones con **al menos 48 hrs de anticipación** sin cargo.',
-            'Cancelaciones dentro de las 48 hrs pueden tener retención de una noche.',
+            'Cancelación con **devolución total** si la haces hasta 5 días antes de la llegada.',
+            'Con menos de 5 días de anticipación, se retiene el 50% del valor de la primera noche y se devuelve el resto.',
             'Para condiciones exactas consultanos por WhatsApp al momento de reservar.',
         ],
     },

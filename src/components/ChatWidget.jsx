@@ -71,7 +71,7 @@ const FAQ_FOLLOWUP_OPEN = {
     checkin: '¿Llegas en auto o en bus?',
     ubicacion: '¿Necesitas información de cómo llegar desde la terminal?',
     estacionamiento: '¿Vienes en auto propio?',
-    mascotas: '¿Qué tipo de mascota traes?',
+    mascotas: null,
     fumadores: null,
     cancelacion: '¿Tienes fechas tentativas en mente?',
     torres: '¿Quieres que te recomiende un operador para el parque?',

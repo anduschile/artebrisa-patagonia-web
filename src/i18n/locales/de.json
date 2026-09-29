@@ -250,7 +250,7 @@
         "subtitle": "Antworten auf die häufigsten Fragen",
         "common": {
             "checkinCheckout": { "q": "Wie sind die Check-in- und Check-out-Zeiten?", "a": "Der Check-in ist ab 14:00 Uhr möglich, der Check-out bis 11:00 Uhr. Bitte kontaktieren Sie uns im Voraus, wenn Sie eine besondere Regelung benötigen." },
-            "cancellation": { "q": "Wie lauten die Stornierungsbedingungen?", "a": "Kostenlose Stornierung bis 48 Stunden vor der Anreise. Bei späteren Stornierungen werden 50 % der ersten Nacht berechnet." },
+            "cancellation": { "q": "Wie lauten die Stornierungsbedingungen?", "a": "Bei Stornierung bis spätestens 5 Tage vor Anreise erhalten Sie eine vollständige Rückerstattung. Bei Stornierung innerhalb von 5 Tagen werden 50 % des Preises der ersten Nacht einbehalten, der Rest wird zurückerstattet." },
             "payment": { "q": "Welche Zahlungsmethoden akzeptieren Sie?", "a": "Bargeld, Banküberweisungen sowie Kredit- und Debitkarten. Sie können auch über Booking.com buchen." },
             "breakfast": { "q": "Ist das Frühstück inklusive?", "a": "Nein, das Frühstück ist im Preis nicht enthalten. In der voll ausgestatteten Küche können Sie Ihre Mahlzeiten selbst zubereiten, und in der Nähe gibt es Cafés und Bäckereien." },
             "distanceTorres": { "q": "Wie weit ist es bis zum Torres del Paine?", "a": "Wir sind etwa 112 km (1,5 Stunden Fahrt) vom Eingang des Nationalparks Torres del Paine entfernt." },
@@ -258,14 +258,14 @@
             "airportTransfer": { "q": "Bieten Sie Flughafentransfers an?", "a": "Wir können Flughafentransfers gegen Aufpreis organisieren. Kontaktieren Sie uns für weitere Informationen." }
         },
         "cabana": {
-            "pets": { "q": "Sind Haustiere erlaubt?", "a": "Ja, in einigen Hütten sind kleine Haustiere gegen Aufpreis erlaubt. Bitte teilen Sie uns dies bei der Buchung mit." },
+            "pets": { "q": "Sind Haustiere erlaubt?", "a": "Nein, Haustiere sind in keiner unserer Unterkünfte erlaubt (weder in den Hütten noch in den Apartments)." },
             "parking": { "q": "Gibt es einen Parkplatz?", "a": "Ja, alle Hütten verfügen über einen kostenlosen privaten Parkplatz." },
             "heating": { "q": "Haben die Hütten eine Heizung?", "a": "Alle unsere Hütten verfügen über effiziente Heizsysteme, damit Sie sich das ganze Jahr über wohlfühlen." },
             "kitchen": { "q": "Haben die Hütten eine voll ausgestattete Küche?", "a": "Ja, alle haben eine komplette Küche: Geschirr, Kühlschrank, Herd und Mikrowelle." },
             "wifi": { "q": "Gibt es WLAN?", "a": "Ja, wir bieten kostenloses Highspeed-WLAN in allen unseren Hütten." }
         },
         "departamento": {
-            "pets": { "q": "Sind Haustiere erlaubt?", "a": "Leider sind Haustiere nicht erlaubt, damit für alle unsere Gäste eine allergikerfreundliche Umgebung gewährleistet ist." },
+            "pets": { "q": "Sind Haustiere erlaubt?", "a": "Nein, Haustiere sind in keiner unserer Unterkünfte erlaubt (weder in den Hütten noch in den Apartments)." },
             "kitchen": { "q": "Haben die Apartments eine voll ausgestattete Küche?", "a": "Ja, alle haben eine komplette Küche: Geschirr, Kühlschrank, Herd und Mikrowelle." },
             "wifi": { "q": "Gibt es WLAN?", "a": "Ja, kostenloses Highspeed-WLAN in allen Apartments." },
             "parking": { "q": "Gibt es einen Parkplatz?", "a": "Ja, für unsere Gäste ist ein Parkplatz inklusive." },
@@ -298,8 +298,8 @@
     "unitPolicies": {
         "checkIn": "14:00 Uhr",
         "checkOut": "11:00 Uhr",
-        "cancellation": "Kostenlose Stornierung bis 48 Stunden vor dem Check-in",
-        "pets": "Bitte kontaktieren Sie uns, um die Verfügbarkeit zu erfragen",
+        "cancellation": "Vollständige Rückerstattung bis 5 Tage vor Anreise (bei weniger als 5 Tagen: 50 % der ersten Nacht einbehalten)",
+        "pets": "Haustiere sind nicht erlaubt",
         "children": "Kinder sind willkommen",
         "minimum": "Mindestaufenthalt von 2 Nächten in der Hochsaison"
     },
