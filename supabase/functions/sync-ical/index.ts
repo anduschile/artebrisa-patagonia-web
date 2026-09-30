@@ -43,6 +43,7 @@ interface CalendarResult {
     inserted: number
     updated: number
     skipped: number
+    cancelled: number
     errors: string[]
 }
 
@@ -215,6 +216,7 @@ Deno.serve(async (req: Request) => {
         globalTotals.inserted += result.inserted
         globalTotals.updated += result.updated
         globalTotals.skipped += result.skipped
+        globalTotals.cancelled += result.cancelled
         globalTotals.errors += result.errors.length
 
         // Update last_synced_at — ignore error if column doesn't exist yet
@@ -244,6 +246,7 @@ async function processCalendar(
         inserted: 0,
         updated: 0,
         skipped: 0,
+        cancelled: 0,
         errors: [],
     }
 
@@ -416,6 +419,74 @@ async function processCalendar(
         }
     }
 
+    // ── Limpieza de eventos cancelados: filas 'blocked' que ya no aparecen en el feed ──
+    // Solo corre si llegamos hasta acá, es decir, el fetch y el parseo de ESTE calendario
+    // fueron exitosos (si hubieran fallado, ya se hizo `return result` más arriba).
+    //
+    // Guard duro: si el feed trajo 0 eventos pero había N>0 reservas 'blocked' activas para
+    // este calendario, NO se limpia nada — es la firma de un fallo silencioso (token inválido,
+    // feed vacío/roto con HTTP 200), no de cancelaciones reales. Se registra como alerta en
+    // core_ical_sync_errors y se reintenta en el próximo ciclo del cron.
+    const today = new Date().toISOString().slice(0, 10)
+
+    const { data: activeBlocked, error: activeBlockedErr } = await supabase
+        .from('core_reservations')
+        .select('id, external_uid, notes')
+        .eq('external_calendar_id', cal.id)
+        .eq('external_source', 'ical')
+        .eq('status', 'blocked')
+        .gte('check_out', today)
+
+    if (activeBlockedErr) {
+        const msg = `Error buscando reservas activas para limpieza de cancelados: ${activeBlockedErr.message}`
+        result.errors.push(msg)
+        await logSyncError(supabase, {
+            calendar_id: cal.id,
+            unit_id: cal.unit_id,
+            ics_url: cal.ics_url,
+            error_message: msg,
+        })
+    } else if (events.length === 0 && (activeBlocked?.length ?? 0) > 0) {
+        const msg = `Feed vacío (0 eventos) pero había ${activeBlocked!.length} reserva(s) activa(s) — posible fallo silencioso, limpieza de cancelados omitida este ciclo`
+        result.errors.push(msg)
+        await logSyncError(supabase, {
+            calendar_id: cal.id,
+            unit_id: cal.unit_id,
+            ics_url: cal.ics_url,
+            error_message: msg,
+        })
+    } else {
+        // Comparación en memoria (mismo patrón ya usado en el resto del proyecto para
+        // evitar filtros complejos contra PostgREST): UIDs presentes en el feed actual vs.
+        // filas 'blocked' de este calendario que ya no están ahí.
+        const currentUids = new Set(events.map(ev => ev.uid))
+        const orphans = (activeBlocked || []).filter(r => !currentUids.has(r.external_uid as string))
+        const cancelledAt = new Date().toISOString()
+
+        for (const orphan of orphans) {
+            const newNotes = `${orphan.notes || ''} [AUTO-CANCELADO sync-ical: ausente del feed el ${cancelledAt}]`.trim()
+
+            const { error: cancelErr } = await supabase
+                .from('core_reservations')
+                .update({ status: 'cancelled', notes: newNotes })
+                .eq('id', orphan.id)
+
+            if (cancelErr) {
+                const msg = `UID ${orphan.external_uid}: error al auto-cancelar reserva huérfana: ${cancelErr.message}`
+                result.errors.push(msg)
+                await logSyncError(supabase, {
+                    calendar_id: cal.id,
+                    unit_id: cal.unit_id,
+                    ics_url: cal.ics_url,
+                    event_uid: orphan.external_uid,
+                    error_message: msg,
+                })
+            } else {
+                result.cancelled++
+            }
+        }
+    }
+
     return result
 }
 
@@ -491,7 +562,7 @@ async function getOrCreateSystemGuest(
 }
 
 function zeroTotals() {
-    return { inserted: 0, updated: 0, skipped: 0, errors: 0 }
+    return { inserted: 0, updated: 0, skipped: 0, cancelled: 0, errors: 0 }
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
