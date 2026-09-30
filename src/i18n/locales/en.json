@@ -366,6 +366,7 @@
             "unit": "Unit",
             "nights": "Nights",
             "totalToPay": "Total to pay:",
+            "currencyNote": "You will be charged in Chilean pesos (CLP). If your card is foreign, your bank may apply currency conversion and fees.",
             "approvedTitle": "Booking confirmed!",
             "approvedText": "You will receive a WhatsApp message with the access details.",
             "pendingTitle": "Payment processing",

@@ -230,8 +230,9 @@ function CardPaymentForm({
                 </div>
                 <div className="pt-3 border-t border-slate-200 flex justify-between items-end">
                     <span className="text-slate-500">{t('booking.payment.totalToPay')}</span>
-                    <span className="text-2xl font-black text-primary-700">{formatCLP(quotedTotal)}</span>
+                    <span className="text-2xl font-black text-primary-700">{formatCLP(quotedTotal, lang)}</span>
                 </div>
+                <p className="text-xs text-slate-500 leading-snug">{t('booking.payment.currencyNote')}</p>
             </div>
 
             {/* Card Payment Brick container */}
@@ -341,7 +342,7 @@ function ConfirmationScreen({ reservation, unit, guest }) {
                 {reservation.quoted_total > 0 && (
                     <div className="flex justify-between pt-2 border-t border-slate-200 mt-1">
                         <span className="text-slate-900 font-bold">{t('booking.estimatedTotal')}</span>
-                        <span className="font-black text-primary-700 text-lg">{formatCLP(reservation.quoted_total)}</span>
+                        <span className="font-black text-primary-700 text-lg">{formatCLP(reservation.quoted_total, lang)}</span>
                     </div>
                 )}
             </div>
@@ -643,9 +644,9 @@ export default function ReservationWidget({ unit }) {
                                     <span className="text-xs text-slate-400 animate-pulse">{t('booking.calculating')}</span>
                                 ) : quote.total > 0 ? (
                                     <div className="text-right">
-                                        <div className="text-lg font-black text-primary-700 leading-none">{formatCLP(quote.total)}</div>
+                                        <div className="text-lg font-black text-primary-700 leading-none">{formatCLP(quote.total, lang)}</div>
                                         <div className="text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                                            {t('booking.average', { price: formatCLP(quote.avg) })}
+                                            {t('booking.average', { price: formatCLP(quote.avg, lang) })}
                                         </div>
                                     </div>
                                 ) : (
@@ -702,7 +703,7 @@ export default function ReservationWidget({ unit }) {
                         {quote.total > 0 && (
                             <div className="flex justify-between pt-1 border-t border-slate-200 mt-1">
                                 <span className="font-bold text-slate-500 uppercase text-[10px]">{t('booking.estimatedTotal')}</span>
-                                <span className="font-black text-slate-900 text-sm">{formatCLP(quote.total)}</span>
+                                <span className="font-black text-slate-900 text-sm">{formatCLP(quote.total, lang)}</span>
                             </div>
                         )}
                     </div>

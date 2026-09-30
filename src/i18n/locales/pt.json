@@ -366,6 +366,7 @@
             "unit": "Acomodação",
             "nights": "Noites",
             "totalToPay": "Total a pagar:",
+            "currencyNote": "A cobrança é feita em pesos chilenos (CLP). Se o seu cartão for estrangeiro, o seu banco pode aplicar conversão de moeda e taxas.",
             "approvedTitle": "Reserva confirmada!",
             "approvedText": "Você receberá uma mensagem no WhatsApp com os detalhes de acesso.",
             "pendingTitle": "Pagamento em processamento",

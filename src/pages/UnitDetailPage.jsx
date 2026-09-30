@@ -184,13 +184,14 @@ function PoliciesBlock() {
 // ─── Información de Precios ────────────────────────────────────
 function PricesBlock({ unit }) {
     const { t } = useTranslation()
+    const lang = useLang()
     if (!unit.base_price) return null
     return (
         <Section title={t('unitDetail.pricingTitle')}>
             <div className="bg-primary-50 border border-primary-100 rounded-2xl p-6">
                 <div className="text-slate-500 text-xs uppercase font-black tracking-widest mb-1">{t('unitDetail.baseRate')}</div>
                 <div className="flex items-baseline gap-2">
-                    <span className="text-3xl font-black text-primary-700">{formatCLP(unit.base_price)}</span>
+                    <span className="text-3xl font-black text-primary-700">{formatCLP(unit.base_price, lang)}</span>
                     <span className="text-slate-500 font-bold">{t('common.perNight')}</span>
                 </div>
                 <p className="text-slate-500 text-sm mt-3 leading-relaxed">
@@ -320,7 +321,7 @@ export default function UnitDetailPage() {
                             {t('common.capacity', { count: capacity })}
                             {unit.base_price > 0 && (
                                 <span className="ml-2 text-primary-600 font-bold">
-                                    · {t('common.from')} {formatCLP(unit.base_price)} {t('common.approx')}
+                                    · {t('common.from')} {formatCLP(unit.base_price, lang)} {t('common.approx')}
                                 </span>
                             )}
                         </div>

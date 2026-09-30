@@ -4,9 +4,11 @@ import { useTranslation } from 'react-i18next'
 import { INCLUDED, INCLUDED_DEPTO } from '../../data/subsiteSections'
 import { getUnitsByType } from '../../data/units'
 import { formatCLP } from '../../data/unitDefaults'
+import { useLang } from '../../i18n/LangContext'
 
 export default function RatesSection({ variant = 'cabana' }) {
     const { t } = useTranslation()
+    const lang = useLang()
     const [units, setUnits] = useState([])
     const [loading, setLoading] = useState(true)
 
@@ -53,7 +55,7 @@ export default function RatesSection({ variant = 'cabana' }) {
                                         <td className="px-5 py-4 font-bold text-slate-800">{u.name}</td>
                                         <td className="px-4 py-4 text-center text-slate-600">{t('rates.capacitySuffix', { count: u.capacity_total || u.capacidad_total })}</td>
                                         <td className="px-5 py-4 text-right font-black text-primary-700 text-lg">
-                                            {formatCLP(u.base_price)} <span className="text-[10px] text-slate-400 font-normal">{t('common.approx')}</span>
+                                            {formatCLP(u.base_price, lang)} <span className="text-[10px] text-slate-400 font-normal">{t('common.approx')}</span>
                                         </td>
                                     </tr>
                                 ))}

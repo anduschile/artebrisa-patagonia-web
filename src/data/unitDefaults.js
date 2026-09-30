@@ -55,8 +55,10 @@ export const PRICES_BY_CODE = {
     'DEP-4': { alta: 70000, media: 70000, baja: 70000 },
 }
 
-// Helper: format CLP
-export function formatCLP(value) {
+// Helper: format CLP. En es queda "$110.000"; en en/de/pt se agrega la sigla
+// ("$110.000 CLP") para que un visitante extranjero no confunda el "$" con USD.
+export function formatCLP(value, lang = 'es') {
     if (value == null) return '—'
-    return `$${Number(value).toLocaleString('es-CL')}`
+    const amount = `$${Number(value).toLocaleString('es-CL')}`
+    return lang === 'es' ? amount : `${amount} CLP`
 }

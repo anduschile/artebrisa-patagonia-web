@@ -179,7 +179,7 @@ export default function UnitCard({ unit }) {
                 <div className="mb-3">
                     <span className="text-xs text-slate-400">{t('common.from')} </span>
                     {priceNum > 0
-                        ? <span className="text-primary-600 font-bold text-base">{formatCLP(priceNum)} <span className="text-xs text-slate-400 font-normal">{t('common.approx')}</span> <span className="text-xs font-normal text-slate-400">{t('common.perNight')}</span></span>
+                        ? <span className="text-primary-600 font-bold text-base">{formatCLP(priceNum, lang)} <span className="text-xs text-slate-400 font-normal">{t('common.approx')}</span> <span className="text-xs font-normal text-slate-400">{t('common.perNight')}</span></span>
                         : <span className="text-slate-400 font-semibold text-sm">— {t('common.perNight')}</span>
                     }
                 </div>

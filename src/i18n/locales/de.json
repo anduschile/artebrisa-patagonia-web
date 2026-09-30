@@ -366,6 +366,7 @@
             "unit": "Unterkunft",
             "nights": "Nächte",
             "totalToPay": "Zu zahlender Betrag:",
+            "currencyNote": "Die Abbuchung erfolgt in chilenischen Pesos (CLP). Bei einer ausländischen Karte kann Ihre Bank Währungsumrechnung und Gebühren berechnen.",
             "approvedTitle": "Buchung bestätigt!",
             "approvedText": "Sie erhalten eine WhatsApp-Nachricht mit den Zugangsdaten.",
             "pendingTitle": "Zahlung in Bearbeitung",

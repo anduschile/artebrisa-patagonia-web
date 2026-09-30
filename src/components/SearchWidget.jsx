@@ -5,7 +5,7 @@ import { getAvailableUnits } from '../data/units'
 import { getUnitImage } from '../data/unitImages'
 import { unitSlug } from '../data/unitSlug'
 import { localizedDescription } from '../data/unitDescription'
-import { PRICES_BY_CODE } from '../data/unitDefaults'
+import { PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
 
@@ -74,7 +74,7 @@ function ResultCard({ unit }) {
                         <span className="text-xs text-slate-400">{t('common.from')} </span>
                         {priceNum
                             ? <span className="text-primary-600 font-bold text-base">
-                                ${Number(priceNum).toLocaleString('es-CL')}
+                                {formatCLP(priceNum, lang)}
                                 <span className="text-xs text-slate-400 font-normal"> {t('common.perNight')}</span>
                               </span>
                             : <span className="text-slate-400 font-semibold text-sm">— {t('common.perNight')}</span>
