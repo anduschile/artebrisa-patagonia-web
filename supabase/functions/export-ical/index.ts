@@ -254,7 +254,9 @@ Deno.serve(async (req: Request) => {
         headers: {
             'Content-Type': 'text/calendar; charset=utf-8',
             'Content-Disposition': `attachment; filename="cal-${unitCode.toLowerCase()}.ics"`,
-            // Booking polls every ~2-6 h, Airbnb every ~2-3 h. Cache 5 min is safe.
+            // Cadencia real de polling de Booking/Airbnb sobre este feed: no verificada —
+            // no asumir un tiempo específico. Cache 5 min es un valor conservador razonable
+            // mientras no se mida empíricamente.
             'Cache-Control': 'public, max-age=300, s-maxage=300',
             'Access-Control-Allow-Origin': '*',
         },

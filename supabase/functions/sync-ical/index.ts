@@ -44,6 +44,7 @@ interface CalendarResult {
     updated: number
     skipped: number
     cancelled: number
+    placeholdersSkipped: number
     errors: string[]
 }
 
@@ -99,6 +100,19 @@ function icsDateToIso(raw: string): string | undefined {
     const digits = raw.replace(/[^0-9]/g, '')
     if (digits.length < 8) return undefined
     return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`
+}
+
+// ── Marcadores genéricos de disponibilidad ──────────────────────────────────
+// Algunos canales (confirmado para Airbnb) incluyen en su export iCal, además de
+// los VEVENT de reservas reales (SUMMARY:Reserved), bloques que representan reglas
+// de disponibilidad de la cuenta (ventana de reserva, buffer entre estadías, fechas
+// cerradas manualmente) sin huésped real asociado. Match exacto (no parcial/difuso)
+// a propósito: evita excluir por error una reserva real cuyo texto se parezca.
+// Lista acotada, se amplía solo ante un nuevo patrón confirmado empíricamente.
+const GENERIC_AVAILABILITY_SUMMARIES = new Set(['airbnb (not available)'])
+
+function isGenericAvailabilityPlaceholder(summary: string): boolean {
+    return GENERIC_AVAILABILITY_SUMMARIES.has(summary.trim().toLowerCase())
 }
 
 // ── Main handler ─────────────────────────────────────────────────────────────
@@ -217,6 +231,7 @@ Deno.serve(async (req: Request) => {
         globalTotals.updated += result.updated
         globalTotals.skipped += result.skipped
         globalTotals.cancelled += result.cancelled
+        globalTotals.placeholdersSkipped += result.placeholdersSkipped
         globalTotals.errors += result.errors.length
 
         // Update last_synced_at — ignore error if column doesn't exist yet
@@ -247,6 +262,7 @@ async function processCalendar(
         updated: 0,
         skipped: 0,
         cancelled: 0,
+        placeholdersSkipped: 0,
         errors: [],
     }
 
@@ -298,6 +314,20 @@ async function processCalendar(
             error_stack: (e as Error).stack,
         })
         return result
+    }
+
+    // ── Filtrar marcadores genéricos de disponibilidad (no son reservas reales) ──
+    // Se filtra ACÁ, apenas termina el parseo, antes de que `events` llegue a
+    // cualquier lógica downstream (loop de upsert y limpieza de cancelados). Así,
+    // el resto de processCalendar() —incluido el guard duro y la comparación de
+    // huérfanos de la limpieza de cancelados— trata estos eventos como si nunca
+    // hubieran existido en el feed: no cuentan como "evento presente que prueba
+    // que el feed no está vacío", y tampoco generan ni tocan ninguna fila de
+    // core_reservations.
+    const placeholderEvents = events.filter(ev => isGenericAvailabilityPlaceholder(ev.summary))
+    if (placeholderEvents.length > 0) {
+        events = events.filter(ev => !isGenericAvailabilityPlaceholder(ev.summary))
+        result.placeholdersSkipped += placeholderEvents.length
     }
 
     // ── Get property_id from unit ─────────────────────────────────────────────
@@ -562,7 +592,7 @@ async function getOrCreateSystemGuest(
 }
 
 function zeroTotals() {
-    return { inserted: 0, updated: 0, skipped: 0, cancelled: 0, errors: 0 }
+    return { inserted: 0, updated: 0, skipped: 0, cancelled: 0, placeholdersSkipped: 0, errors: 0 }
 }
 
 function jsonResponse(body: unknown, status = 200): Response {
