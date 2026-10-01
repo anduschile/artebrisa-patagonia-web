@@ -1586,7 +1586,7 @@ Deno.serve(async (req: Request) => {
         } catch (e) {
             const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
             console.error(`[whatsapp-bot] Guardián de promesa sin marcador: corrección falló (${reason}), se deriva a humano — phone=${phone} conversation_id=${conversation.id}`)
-            assistantText = '##DERIVAR##'
+            assistantText = 'Dame un momento, ya te contacto con la información 🙂 ##DERIVAR##'
         } finally {
             clearTimeout(promiseTimeoutId)
         }
@@ -2122,6 +2122,12 @@ Deno.serve(async (req: Request) => {
                     text: `El chat con ${displayName} (${phone}) requiere atención humana.\n\nÚltimo mensaje: "${notificationText}"`,
                     html: `<p>El chat con <strong>${displayName}</strong> (${phone}) requiere atención humana.</p><p>Último mensaje: <em>${notificationText}</em></p>`,
                 }),
+            }).then(resp => {
+                if (resp.ok) {
+                    console.log(`[whatsapp-bot] Email de derivación enviado a Resend OK — phone=${phone} conversation_id=${conversation.id}`)
+                } else {
+                    console.error(`[whatsapp-bot] Resend respondió con error al enviar email de derivación: ${resp.status}`)
+                }
             }).catch(e => console.error('Resend error:', e))
         }
 
@@ -2159,6 +2165,12 @@ Deno.serve(async (req: Request) => {
                         'Content-Type': 'application/x-www-form-urlencoded',
                     },
                     body: twilioBody.toString(),
+                }).then(resp => {
+                    if (resp.ok) {
+                        console.log(`[whatsapp-bot] Notificación de derivación a Karina enviada por WhatsApp OK — phone=${phone} conversation_id=${conversation.id}`)
+                    } else {
+                        console.error(`[whatsapp-bot] Twilio respondió con error al notificar a Karina (DERIVAR): ${resp.status}`)
+                    }
                 }).catch(e => console.error('[whatsapp-bot] Error notificando a Karina (DERIVAR):', e))
             }
         } catch (e) {
@@ -2198,6 +2210,14 @@ Deno.serve(async (req: Request) => {
             .from('core_chat_conversations')
             .update({ status: 'human' })
             .eq('id', conversation.id)
+    }
+
+    // ── 12c. Guardia final de vacío: nunca enviar un mensaje sin contenido ────
+    // Última línea de defensa, independiente de la causa: si el procesamiento de
+    // marcadores (ej. ##DERIVAR## sin texto conversacional previo) deja assistantText
+    // vacío, Twilio rechaza el envío (error 21619) y el huésped no recibe nada.
+    if (!assistantText || !assistantText.trim()) {
+        assistantText = 'Dame un momento, ya te contacto con la información 🙂'
     }
 
     // ── 13. Guardar respuesta del asistente ───────────────────────────────
