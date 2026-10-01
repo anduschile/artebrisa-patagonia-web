@@ -1044,6 +1044,27 @@ INSTRUCCIONES:
    - Esto es independiente de la instrucción 6: aunque ya hayas verificado con este marcador,
      ##RESERVA_LISTA## de todas formas vuelve a validar todo automáticamente del lado del
      servidor antes de confirmar la reserva — no necesitas "verificar dos veces" a propósito
+5f. PROMESA PENDIENTE SIN RESOLVER (prioridad sobre cierre cortés):
+   - Antes de responder a un mensaje del huésped que sea neutro o de cierre (ejemplos:
+     "gracias", "ok", "dale", "perfecto", "listo", "buena", "genial", o variantes similares,
+     SIN una pregunta o pedido nuevo), revisa tu propio último mensaje en el historial de la
+     conversación.
+   - Si ese último mensaje tuyo contiene lenguaje de promesa de acción futura (ejemplos:
+     "déjame verificar", "voy a revisar", "te confirmo", "dame un momento", "permíteme
+     chequear", o equivalentes) Y ese mismo mensaje NO disparó el marcador correspondiente
+     (##VERIFICAR_DISPONIBILIDAD## de la instrucción 5e o ##COTIZAR## de la instrucción 4c)
+     en ese turno, tienes una promesa pendiente sin resolver.
+   - Con una promesa pendiente sin resolver, NO puedes cerrar la conversación ni responder
+     solo con cortesía genérica (ej. "¡de nada! que tengas un buen día"). Debes resolver la
+     promesa en este mismo turno, disparando el marcador correspondiente según corresponda,
+     independientemente de que el mensaje del huésped sea neutro o de cierre.
+   - Esta instrucción tiene prioridad sobre cualquier lectura de "el huésped se despidió,
+     puedo cerrar amablemente".
+   - Si el huésped, en ese mismo mensaje de cierre, cambia de tema o hace un pedido distinto
+     que cancela o redirige lo que estaban conversando (ej. "gracias, pero mejor olvídalo",
+     "gracias, al final no voy a viajar"), esa instrucción explícita del huésped sí prevalece
+     y no corresponde disparar el marcador — esta regla solo cubre el caso en que el mensaje
+     es puramente neutro o cortés, sin cancelar ni redirigir nada.
 6. GENERACIÓN DE RESERVA (##RESERVA_LISTA##):
    Si el turista ha confirmado EXPLÍCITAMENTE (mediante mensajes claros del cliente):
    - Su nombre completo
@@ -1394,7 +1415,7 @@ Deno.serve(async (req: Request) => {
         return twimlMessage('Solo puedo procesar mensajes de texto. Si tienes alguna consulta sobre disponibilidad o reservas, escríbeme con texto.')
     }
 
-    const { data: insertedMsg } = await supabase
+    const { data: insertedMsg, error: insertMsgErr } = await supabase
         .from('core_chat_messages')
         .insert({
             conversation_id: conversation.id,
@@ -1404,6 +1425,15 @@ Deno.serve(async (req: Request) => {
         })
         .select('id')
         .single()
+
+    if (insertMsgErr?.code === '23505') {
+        // Carrera con un reintento de Twilio que ganó la inserción primero — caso
+        // esperado (el UNIQUE de twilio_sid cierra la ventana de carrera que el
+        // chequeo de deduplicación del paso 3 por sí solo no alcanza a cubrir),
+        // no una falla real.
+        console.log(`[whatsapp-bot] Insert de mensaje bloqueado por UNIQUE(twilio_sid): carrera con reintento de Twilio ya procesado. twilio_sid=${messageSid} phone=${phone}`)
+        return twimlEmpty()
+    }
 
     // TEMPORAL DIAGNÓSTICO — REMOVER
     console.log('[BOT-FLOW] Mensaje guardado, id:', insertedMsg?.id)
@@ -1503,6 +1533,64 @@ Deno.serve(async (req: Request) => {
     const claudeData = await claudeResp.json()
     console.log('Claude response:', JSON.stringify(claudeData?.content))
     let assistantText: string = claudeData?.content?.[0]?.text ?? ''
+
+    // ── 8b. Guardián de "promesa sin marcador" (ver instrucción 5f del prompt) ───────
+    // El modelo a veces promete una acción futura ("déjame verificar...", "voy a
+    // confirmar...") sin disparar el marcador que ejecuta esa verificación en el mismo
+    // turno. Si después el huésped responde con algo neutro ("gracias", "ok"), el bot
+    // puede cerrar la conversación sin haber resuelto nunca la promesa — caso real:
+    // venta perdida con Melisa Gabriela Llaurado, 30/sept/2026. Corre ANTES de los
+    // parsers de marcadores (paso 9 en adelante) para no duplicar su lógica.
+    const KNOWN_MARKERS_REGEX = /##(COTIZAR|LISTAR_PRECIOS|ENVIAR_FOTOS|VERIFICAR_DISPONIBILIDAD|RESERVA_LISTA|DERIVAR)##/
+    const PROMISE_LANGUAGE_REGEX = /d[ée]jame (verificar|revisar|chequear|consultar)|voy a (verificar|revisar|chequear|consultar|confirmar)|te confirmo en un momento|dame un momento|permíteme (verificar|revisar|chequear)|un momento mientras (reviso|verifico)/i
+
+    if (!KNOWN_MARKERS_REGEX.test(assistantText) && PROMISE_LANGUAGE_REGEX.test(assistantText)) {
+        const promiseOriginalText = assistantText
+        console.log(`[whatsapp-bot] Guardián de promesa sin marcador activado — phone=${phone} conversation_id=${conversation.id} texto_original="${promiseOriginalText}"`)
+
+        const promiseNote = `IMPORTANTE: tu respuesta anterior prometía verificar o revisar algo ("${promiseOriginalText}") pero no disparaste ningún marcador en ese mismo turno. Resuelve esto ahora: dispara ##VERIFICAR_DISPONIBILIDAD## (instrucción 5e) o ##COTIZAR## (instrucción 4c) según corresponda a lo que estabas por verificar, siguiendo exactamente el formato de esas instrucciones. Si al revisar el contexto de la conversación no corresponde ningún marcador, responde de forma conversacional, sin usar lenguaje que prometa una acción futura sin resolverla.`
+
+        const promiseController = new AbortController()
+        const promiseTimeoutId = setTimeout(() => promiseController.abort(), 8000)
+
+        try {
+            const promiseResp = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'x-api-key': anthropicKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    system: `${systemPrompt}\n\n${promiseNote}`,
+                    messages: sanitizedMessages,
+                }),
+                signal: promiseController.signal,
+            })
+
+            if (!promiseResp.ok) {
+                throw new Error(`HTTP ${promiseResp.status}`)
+            }
+
+            const promiseData = await promiseResp.json()
+            const promiseCorrectedText: string = promiseData?.content?.[0]?.text ?? ''
+
+            if (!promiseCorrectedText.trim() || !KNOWN_MARKERS_REGEX.test(promiseCorrectedText)) {
+                throw new Error('respuesta corregida sin marcador')
+            }
+
+            assistantText = promiseCorrectedText
+            console.log(`[whatsapp-bot] Guardián de promesa sin marcador: corrección exitosa — phone=${phone} conversation_id=${conversation.id}`)
+        } catch (e) {
+            const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+            console.error(`[whatsapp-bot] Guardián de promesa sin marcador: corrección falló (${reason}), se deriva a humano — phone=${phone} conversation_id=${conversation.id}`)
+            assistantText = '##DERIVAR##'
+        } finally {
+            clearTimeout(promiseTimeoutId)
+        }
+    }
 
     // ── 9. Detectar y procesar ##COTIZAR## (cotización con precio real, 2da llamada) ────
     const cotizarResult = parseCotizar(assistantText)
