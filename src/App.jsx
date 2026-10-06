@@ -9,6 +9,7 @@ import DepartamentosPage from './pages/DepartamentosPage'
 import UnitDetailPage from './pages/UnitDetailPage'
 import PaymentConfirmPage from './pages/PaymentConfirmPage'
 import NotFoundPage from './pages/NotFoundPage'
+import TestPaymentPage from './pages/TestPaymentPage'
 
 // Admin
 import AdminGuard from './components/admin/AdminGuard'
@@ -46,6 +47,11 @@ export default function App() {
 
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>
+
+                {/* ── Página de prueba de pago, aislada y sin layout — NO enlazar
+                    desde ningún menú/navbar/footer (ver robots.txt + meta noindex
+                    en TestPaymentPage.jsx) ── */}
+                <Route path="/test-pago" element={<TestPaymentPage />} />
 
                 {/* ── Admin ── */}
                 <Route path="/admin" element={<AdminLoginPage />} />
