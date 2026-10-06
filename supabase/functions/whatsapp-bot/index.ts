@@ -2210,7 +2210,7 @@ Deno.serve(async (req: Request) => {
     // Última línea de defensa, independiente de la causa: si por cualquier motivo
     // (prompt, parseo, nueva llamada a Claude, etc.) queda un marcador ##ALGO## crudo
     // en el texto final, no debe llegar nunca al huésped.
-    const rawMarkerMatch = assistantText.match(/##[A-ZÁÉÍÓÚÑ]+##/)
+    const rawMarkerMatch = assistantText.match(/##[A-ZÁÉÍÓÚÑ_]+##/)
     if (rawMarkerMatch) {
         console.error(`[whatsapp-bot] Marcador interno sin procesar detectado antes de enviar (${rawMarkerMatch[0]}), se reemplaza por fallback seguro. Texto original: ${assistantText}`)
         assistantText = 'Dame un momento para confirmarte esa información 🙂 Ya te contacto directamente.'
