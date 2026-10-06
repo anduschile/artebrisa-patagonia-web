@@ -181,7 +181,7 @@
         "cabana": {
             "wifi": "Kostenloses WLAN",
             "kitchen": "Voll ausgestattete Küche",
-            "heat": "Holz-/Elektroheizung",
+            "heat": "Zentralheizung",
             "parking": "Parkplatz",
             "tv": "Kabel-/Streaming-TV",
             "washer": "Waschmaschine",
@@ -191,7 +191,7 @@
         "departamento": {
             "wifi": "Kostenloses WLAN",
             "kitchen": "Voll ausgestattete Küche",
-            "heat": "Elektroheizung",
+            "heat": "Zentralheizung",
             "tv": "Kabel-/Streaming-TV",
             "location": "Zentrale Lage",
             "bed": "Bettwäsche",

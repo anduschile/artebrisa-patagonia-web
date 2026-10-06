@@ -181,7 +181,7 @@
         "cabana": {
             "wifi": "Wi-Fi gratuito",
             "kitchen": "Cocina equipada",
-            "heat": "Calefacción leña/eléctrica",
+            "heat": "Calefacción central",
             "parking": "Estacionamiento",
             "tv": "TV cable/streaming",
             "washer": "Lavadora",
@@ -191,7 +191,7 @@
         "departamento": {
             "wifi": "Wi-Fi gratuito",
             "kitchen": "Cocina equipada",
-            "heat": "Calefacción eléctrica",
+            "heat": "Calefacción central",
             "tv": "TV cable/streaming",
             "location": "Ubicación céntrica",
             "bed": "Ropa de cama",
