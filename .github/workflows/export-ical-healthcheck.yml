@@ -1,0 +1,78 @@
+name: Export iCal Healthcheck
+
+on:
+  schedule:
+    - cron: "0 */2 * * *"  # cada 2 horas (UTC)
+  workflow_dispatch:
+
+jobs:
+  healthcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verificar export-ical para una muestra de unidades y canales
+        run: |
+          declare -a URLS=(
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=CAB-LUPINO&channel=airbnb"
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=CAB-LUPINO&channel=booking"
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=TINY-VIOLETA&channel=airbnb"
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=TINY-VIOLETA&channel=booking"
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=DEP-2&channel=airbnb"
+            "https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/export-ical?unit=DEP-2&channel=booking"
+          )
+
+          FAILURES=()
+
+          for URL in "${URLS[@]}"; do
+            HTTP_CODE=$(curl -sS -o response.txt -w "%{http_code}" "$URL")
+            BODY=$(cat response.txt)
+
+            if [[ "$HTTP_CODE" == "200" && "$BODY" == BEGIN:VCALENDAR* ]]; then
+              echo "OK ($HTTP_CODE): $URL"
+              continue
+            fi
+
+            SNIPPET=$(printf '%s' "$BODY" | head -c 200)
+            echo "FALLÓ ($HTTP_CODE): $URL"
+            echo "$SNIPPET"
+            FAILURES+=("$(printf 'URL: %s\nHTTP recibido: %s\nCuerpo (primeros 200 car.): %s' "$URL" "$HTTP_CODE" "$SNIPPET")")
+          done
+
+          if [[ ${#FAILURES[@]} -eq 0 ]]; then
+            echo "export-ical healthcheck OK: ${#URLS[@]}/${#URLS[@]} URLs respondieron 200 con BEGIN:VCALENDAR."
+            exit 0
+          fi
+
+          echo "export-ical healthcheck: ${#FAILURES[@]} de ${#URLS[@]} URLs fallaron."
+
+          # Escapa un string para insertarlo como valor JSON (comillas, backslashes, saltos de línea).
+          json_escape() {
+            local s="$1"
+            local bs='\'
+            local dq='"'
+            local esc_bs="$bs$bs"
+            local esc_dq="$bs$dq"
+            s="${s//$bs/$esc_bs}"
+            s="${s//$dq/$esc_dq}"
+            s="${s//$'\r'/}"
+            s="${s//$'\n'/${bs}n}"
+            printf '%s' "$s"
+          }
+
+          TIMESTAMP=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          FAILURES_TEXT=$(printf '%s\n\n' "${FAILURES[@]}")
+
+          EMAIL_BODY=$(printf 'El healthcheck de export-ical de Arte Brisa detectó fallas.\n\nFecha/hora (UTC): %s\nURLs que fallaron (%s de %s):\n\n%s' \
+            "$TIMESTAMP" "${#FAILURES[@]}" "${#URLS[@]}" "$FAILURES_TEXT")
+
+          PAYLOAD=$(printf '{"from":"%s","to":["%s"],"subject":"%s","text":"%s"}' \
+            "$(json_escape 'Arte Brisa Patagonia <reservas@artebrisapatagonia.com>')" \
+            "$(json_escape "${{ vars.ALERT_EMAIL_TO }}")" \
+            "$(json_escape 'ALERTA: export-ical healthcheck falló')" \
+            "$(json_escape "$EMAIL_BODY")")
+
+          curl -sS -X POST "https://api.resend.com/emails" \
+            -H "Authorization: Bearer ${{ secrets.RESEND_API_KEY }}" \
+            -H "Content-Type: application/json" \
+            --data "$PAYLOAD"
+
+          exit 1
