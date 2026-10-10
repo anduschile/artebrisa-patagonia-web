@@ -28,7 +28,7 @@ const EN = {
     },
     cabanas: {
         title: 'Cabins in Puerto Natales — Arte Brisa Patagonia',
-        description: 'Family cabins with mountain views, minutes from downtown Puerto Natales. Wifi, equipped kitchen and heating included.',
+        description: 'Cabins and tiny houses in Puerto Natales, Patagonia. Mountain views, fully equipped, free Wi-Fi and heating. Book direct, no fees.',
     },
     departamentos: {
         title: 'Apartments in Downtown Puerto Natales — Arte Brisa Patagonia',
