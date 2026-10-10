@@ -27,7 +27,7 @@ export default function Layout() {
         // document.title (ocurre en un efecto posterior al render) antes de
         // reportar el page_view con el título correcto de la página nueva.
         const id = requestAnimationFrame(() => {
-            trackPageView({ path: location.pathname, title: document.title })
+            trackPageView({ path: location.pathname + location.search, title: document.title })
         })
         return () => cancelAnimationFrame(id)
     }, [location.pathname])

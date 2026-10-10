@@ -170,7 +170,7 @@ export function trackPageView({ path, title }) {
         track('page_view', {
             page_path: path,
             page_title: title,
-            page_location: `${window.location.origin}${path}`,
+            page_location: window.location.href,
         })
     } catch (e) { /* noop */ }
 }
