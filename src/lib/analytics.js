@@ -220,3 +220,34 @@ export function trackPurchaseOnce({ transactionId, value, items }) {
 export function trackWhatsappClick(location) {
     track('whatsapp_click', { location })
 }
+
+// Build ecommerce items from unit data only; never forward the full record.
+export function toAnalyticsItem(unit) {
+    const item = { quantity: 1 }
+    if (unit.id != null) item.item_id = unit.id
+    if (unit.name) item.item_name = unit.name
+    if (unit.unit_type) item.item_category = unit.unit_type
+    if (unit.base_price != null && unit.base_price !== '') {
+        const price = Number(unit.base_price)
+        if (Number.isFinite(price) && price >= 0) item.price = price
+    }
+    return item
+}
+
+export function trackViewItemList({ listId, listName, items }) {
+    track('view_item_list', { item_list_id: listId, item_list_name: listName, items })
+}
+
+export function trackSelectItem({ listId, listName, unit }) {
+    const { quantity, item_category, ...item } = toAnalyticsItem(unit)
+    track('select_item', { item_list_id: listId, item_list_name: listName, items: [item] })
+}
+
+export function trackCheckAvailability({ unitId, unitName, guests, nights, available, resultCount, pageType }) {
+    const params = { guests, available, page_type: pageType }
+    if (unitId != null) params.unit_id = unitId
+    if (unitName) params.unit_name = unitName
+    if (Number.isFinite(nights) && nights > 0) params.nights = nights
+    if (resultCount != null) params.result_count = resultCount
+    track('check_availability', params)
+}

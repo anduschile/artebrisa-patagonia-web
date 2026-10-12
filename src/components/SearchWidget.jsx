@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { getAvailableUnits } from '../data/units'
@@ -8,6 +8,9 @@ import { localizedDescription } from '../data/unitDescription'
 import { PRICES_BY_CODE, formatCLP } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
+import { toAnalyticsItem, trackViewItemList, trackSelectItem, trackCheckAvailability } from '../lib/analytics'
+
+const SEARCH_LIST = { listId: 'search_results', listName: 'Search results' }
 
 const DATE_LOCALES = { en: 'en-US', de: 'de-DE', pt: 'pt-BR' }
 
@@ -82,6 +85,7 @@ function ResultCard({ unit }) {
                     </div>
                     <Link
                         to={withLang(lang, `/unidad/${unitSlug(unit)}`)}
+                        onClick={() => trackSelectItem({ ...SEARCH_LIST, unit })}
                         className="flex items-center gap-1.5 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white font-semibold text-sm rounded-xl transition-colors"
                     >
                         {t('search.viewAndBook')}
@@ -107,6 +111,15 @@ export default function SearchWidget() {
     const [loading, setLoading]     = useState(false)
     const [apiError, setApiError]   = useState(null)
     const [formError, setFormError] = useState(null)
+    const reportedResults = useRef(null)
+
+    useEffect(() => {
+        if (!results || reportedResults.current === results) return
+        reportedResults.current = results
+        if (results.length > 0) {
+            trackViewItemList({ ...SEARCH_LIST, items: results.map(toAnalyticsItem) })
+        }
+    }, [results])
 
     const nights = checkIn && checkOut && checkOut > checkIn
         ? Math.round((new Date(checkOut) - new Date(checkIn)) / 86400000)
@@ -131,6 +144,13 @@ export default function SearchWidget() {
 
         try {
             const available = await getAvailableUnits({ check_in: checkIn, check_out: checkOut, guests })
+            trackCheckAvailability({
+                guests,
+                nights,
+                available: available.length > 0,
+                resultCount: available.length,
+                pageType: 'home_search',
+            })
             setResults(available)
             setTimeout(() => {
                 document.getElementById('search-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' })

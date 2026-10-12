@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import HeroSection from '../components/HeroSection'
@@ -16,6 +16,7 @@ import { buildWaUrl } from '../config/contact'
 import SeoHead from '../components/SeoHead'
 import { useLang } from '../i18n/LangContext'
 import { PAGE_META } from '../seo/pageMeta'
+import { toAnalyticsItem, trackViewItemList, trackWhatsappClick } from '../lib/analytics'
 
 // Íconos disponibles para el filtro de servicios (subset más relevante para
 // cabañas). Los labels traducidos se resuelven dentro del componente (con
@@ -50,6 +51,7 @@ export default function CabanasPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
     const [filters, setFilters] = useState(EMPTY_FILTERS)
+    const reportedList = useRef(null)
     const lang = useLang()
     const meta = PAGE_META[lang].cabanas
     const { t } = useTranslation()
@@ -78,6 +80,17 @@ export default function CabanasPage() {
 
     const total = filtered.length
     const showing = !loading && !error
+
+    useEffect(() => {
+        if (!showing) return
+        const items = filtered.map(toAnalyticsItem)
+        const signature = JSON.stringify(items)
+        if (reportedList.current === signature) return
+        reportedList.current = signature
+        if (items.length > 0) {
+            trackViewItemList({ listId: 'cabanas', listName: 'Cabanas', items })
+        }
+    }, [showing, filtered])
 
     return (
         <div className="pb-16 md:pb-0">
@@ -143,7 +156,7 @@ export default function CabanasPage() {
                                     transition={{ delay: i * 0.06 }}
                                     className="flex"
                                 >
-                                    <UnitCard unit={unit} />
+                                    <UnitCard unit={unit} itemListId="cabanas" itemListName="Cabanas" />
                                 </motion.div>
                             ))}
                         </AnimatePresence>
@@ -171,6 +184,7 @@ export default function CabanasPage() {
                         </p>
                         <a
                             href={buildWaUrl('Hola, quiero consultar disponibilidad de cabañas en Arte Brisa Patagonia')}
+                            onClick={() => trackWhatsappClick('cabanas_empty')}
                             target="_blank" rel="noopener noreferrer"
                             className="inline-flex items-center gap-2 px-6 py-3 bg-green-500 text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
                         >

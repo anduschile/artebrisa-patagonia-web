@@ -7,6 +7,7 @@ import { localizedDescription } from '../data/unitDescription'
 import { SERVICES_BY_TYPE, formatCLP } from '../data/unitDefaults'
 import { useLang } from '../i18n/LangContext'
 import { withLang } from '../i18n/languages'
+import { trackSelectItem } from '../lib/analytics'
 
 // ─── Helpers ─────────────────────────────────────────────────
 function truncate(str, max = 130) {
@@ -97,7 +98,7 @@ function ServiceStrip({ unitType }) {
 }
 
 // ─── Card ─────────────────────────────────────────────────────
-export default function UnitCard({ unit }) {
+export default function UnitCard({ unit, itemListId, itemListName }) {
     const navigate = useNavigate()
     const lang = useLang()
     const { t } = useTranslation()
@@ -114,9 +115,16 @@ export default function UnitCard({ unit }) {
     const priceNum = unit.base_price ?? null
     const href = withLang(lang, `/unidad/${unitSlug(unit)}`)
 
+    function trackSelection() {
+        if (itemListId && itemListName) {
+            trackSelectItem({ listId: itemListId, listName: itemListName, unit })
+        }
+    }
+
     function handleCardClick(e) {
         // don't navigate twice if user clicked the Link button itself
         if (e.target.closest('a') || e.target.closest('button')) return
+        trackSelection()
         navigate(href)
     }
 
@@ -187,7 +195,10 @@ export default function UnitCard({ unit }) {
                 {/* CTA — stays at bottom */}
                 <Link
                     to={href}
-                    onClick={e => e.stopPropagation()} // prevent double navigation
+                    onClick={e => {
+                        e.stopPropagation()
+                        trackSelection()
+                    }} // prevent double navigation and tracking
                     className="flex items-center justify-center gap-2 w-full py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-semibold text-sm rounded-xl transition-colors"
                 >
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

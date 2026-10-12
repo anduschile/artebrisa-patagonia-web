@@ -6,6 +6,7 @@ import HeroSection from '../components/HeroSection'
 import UnitCard from '../components/UnitCard'
 import { getFeaturedUnits } from '../data/units'
 import { buildWaUrl } from '../config/contact'
+import { trackWhatsappClick } from '../lib/analytics'
 import SearchWidget from '../components/SearchWidget'
 import SeoHead from '../components/SeoHead'
 import { useLang } from '../i18n/LangContext'
@@ -156,7 +157,7 @@ export default function HomePage() {
                     ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
                             {featured.map(unit => (
-                                <UnitCard key={unit.id} unit={unit} />
+                                <UnitCard key={unit.id} unit={unit} itemListId="home_featured" itemListName="Home featured" />
                             ))}
                         </div>
                     )}
@@ -177,6 +178,7 @@ export default function HomePage() {
                     </p>
                     <a
                         href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
+                        onClick={() => trackWhatsappClick('home_cta')}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-2 px-8 py-3.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-xl transition-colors shadow-lg text-base"

@@ -8,7 +8,7 @@ import { getConflicts, createInquiryReservation } from '../data/reservations'
 import { getDailyRatesForRange } from '../data/units'
 import { formatCLP } from '../data/unitDefaults'
 import { WHATSAPP_NUMBER } from '../config/contact'
-import { trackBeginCheckout, trackPurchaseOnce, trackWhatsappClick } from '../lib/analytics'
+import { trackBeginCheckout, trackPurchaseOnce, trackWhatsappClick, trackCheckAvailability } from '../lib/analytics'
 import { useLang } from '../i18n/LangContext'
 
 // ─── helpers ────────────────────────────────────────────────
@@ -469,6 +469,14 @@ export default function ReservationWidget({ unit }) {
         setLoading(true)
         try {
             const conflicts = await getConflicts({ unit_id: unit.id, check_in: checkIn, check_out: checkOut })
+            trackCheckAvailability({
+                unitId: unit.id,
+                unitName: unit.name,
+                guests: Number(adults) + Number(children),
+                nights,
+                available: conflicts.length === 0,
+                pageType: 'unit_detail',
+            })
             if (conflicts.length > 0) {
                 setConflictMsg(t('booking.errors.unavailable'))
             } else {
