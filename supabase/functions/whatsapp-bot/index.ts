@@ -1586,12 +1586,22 @@ Deno.serve(async (req: Request) => {
             const promiseData = await promiseResp.json()
             const promiseCorrectedText: string = promiseData?.content?.[0]?.text ?? ''
 
-            if (!promiseCorrectedText.trim() || !KNOWN_MARKERS_REGEX.test(promiseCorrectedText)) {
-                throw new Error('respuesta corregida sin marcador')
+            if (!promiseCorrectedText.trim()) {
+                throw new Error('respuesta_vacia')
             }
 
-            assistantText = promiseCorrectedText
-            console.log(`[whatsapp-bot] Guardián de promesa sin marcador: corrección exitosa — phone=${phone} conversation_id=${conversation.id}`)
+            if (KNOWN_MARKERS_REGEX.test(promiseCorrectedText)) {
+                assistantText = promiseCorrectedText
+                console.log(`[whatsapp-bot] Guardián de promesa sin marcador: corrección exitosa — phone=${phone} conversation_id=${conversation.id}`)
+            } else if (!PROMISE_LANGUAGE_REGEX.test(promiseCorrectedText)) {
+                // Sin marcador pero también sin lenguaje de promesa pendiente: Claude siguió
+                // la segunda rama legítima del promiseNote ("responde de forma conversacional
+                // si no corresponde ningún marcador"). No es un fallo — no se deriva a humano.
+                assistantText = promiseCorrectedText
+                console.log(`[whatsapp-bot] Guardián de promesa sin marcador: corrección exitosa sin marcador (respuesta conversacional válida) — phone=${phone} conversation_id=${conversation.id}`)
+            } else {
+                throw new Error('fallo_real_promesa_repetida')
+            }
         } catch (e) {
             const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
             console.error(`[whatsapp-bot] Guardián de promesa sin marcador: corrección falló (${reason}), se deriva a humano — phone=${phone} conversation_id=${conversation.id}`)
