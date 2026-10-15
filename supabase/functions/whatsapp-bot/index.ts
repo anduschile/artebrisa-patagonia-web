@@ -758,6 +758,51 @@ async function checkUnitAvailability(
 }
 
 /**
+ * Devuelve el Set de unit_id ocupados para un rango de fechas en UNA SOLA consulta a
+ * core_reservations (en vez de llamar checkUnitAvailability por cada unidad). Duplica a
+ * propósito la lógica de checkUnitAvailability, para no tocar código ya probado.
+ *
+ * El .gt('check_out', checkIn) es obligatorio: acota la consulta a reservas que se solapan
+ * con el rango pedido y evita el límite de 1000 filas de PostgREST.
+ *
+ * Fail-open: cualquier error de BD o excepción retorna { error: true } y se loguea; nunca
+ * debe impedir la respuesta al huésped.
+ */
+async function getOccupiedUnitIds(
+    supabase: any,
+    checkIn: string,
+    checkOut: string,
+): Promise<{ error: true } | { error: false; occupied: Set<string> }> {
+    try {
+        const { data: conflicts, error } = await supabase
+            .from('core_reservations')
+            .select('unit_id, check_in, check_out, status, created_at, notes')
+            .in('status', ['inquiry', 'confirmed', 'blocked'])
+            .lt('check_in', checkOut)
+            .gt('check_out', checkIn)
+
+        if (error) {
+            console.error('[whatsapp-bot] getOccupiedUnitIds: error consultando conflictos:', error)
+            return { error: true }
+        }
+
+        const occupied = new Set<string>()
+        for (const r of conflicts || []) {
+            const isExpiredInquiry = r.status === 'inquiry' &&
+                new Date(r.created_at).getTime() < Date.now() - inquiryExpiryMs(r.notes)
+            if (!isExpiredInquiry) {
+                occupied.add(r.unit_id)
+            }
+        }
+
+        return { error: false, occupied }
+    } catch (e) {
+        console.error('[whatsapp-bot] getOccupiedUnitIds: excepción:', e)
+        return { error: true }
+    }
+}
+
+/**
  * Construye el bloque dinámico de unidades + tarifas BASE para inyectar en el system prompt.
  * Muestra siempre base_price (precio "desde"), NUNCA el precio de hoy: este bloque es
  * contexto general de referencia, no una cotización para fechas específicas del huésped.
@@ -1830,53 +1875,71 @@ Deno.serve(async (req: Request) => {
             console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
             assistantText = priceFallbackText(Number(unit.base_price))
         } else {
+            let unitOccupied = false
             try {
-                const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
-                const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
-                const avgPrice = Math.round(totalPrice / nights)
-
-                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
-
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
-
-                try {
-                    const secondResp = await fetch(CLAUDE_API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'x-api-key': anthropicKey,
-                            'anthropic-version': '2023-06-01',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: CLAUDE_MODEL,
-                            max_tokens: 1024,
-                            system: `${systemPrompt}\n\n${priceNote}`,
-                            messages: sanitizedMessages,
-                        }),
-                        signal: controller.signal,
-                    })
-
-                    if (!secondResp.ok) {
-                        throw new Error(`HTTP ${secondResp.status}`)
-                    }
-
-                    const secondData = await secondResp.json()
-                    const secondText: string = secondData?.content?.[0]?.text ?? ''
-
-                    if (!secondText.trim()) {
-                        throw new Error('respuesta vacía')
-                    }
-
-                    assistantText = secondText
-                } finally {
-                    clearTimeout(timeoutId)
+                const availCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
+                if (availCheck.error) {
+                    // Fail-open: no se pudo verificar antes de cotizar, se sigue como si no hubiera conflicto
+                } else {
+                    unitOccupied = !availCheck.disponible
                 }
-            } catch (e) {
-                usedFallback = true
-                const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
-                console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
-                assistantText = priceFallbackText(Number(unit.base_price))
+            } catch (availErr) {
+                console.error('[whatsapp-bot] ##COTIZAR## error verificando disponibilidad previa al cálculo:', availErr)
+            }
+
+            if (unitOccupied) {
+                console.error(`[whatsapp-bot] ##COTIZAR## unidad ocupada, no se cotiza: ${unit_code} ${check_in} ${check_out}`)
+                assistantText = `Lamentablemente ${unit.name} no está disponible del ${check_in} al ${check_out}. Si quieres, dime otras fechas u otra unidad y te cuento qué tenemos libre 🙂`
+                usedFallback = false
+            } else {
+                try {
+                    const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
+                    const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
+                    const avgPrice = Math.round(totalPrice / nights)
+
+                    const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
+
+                    const controller = new AbortController()
+                    const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
+
+                    try {
+                        const secondResp = await fetch(CLAUDE_API_URL, {
+                            method: 'POST',
+                            headers: {
+                                'x-api-key': anthropicKey,
+                                'anthropic-version': '2023-06-01',
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                model: CLAUDE_MODEL,
+                                max_tokens: 1024,
+                                system: `${systemPrompt}\n\n${priceNote}`,
+                                messages: sanitizedMessages,
+                            }),
+                            signal: controller.signal,
+                        })
+
+                        if (!secondResp.ok) {
+                            throw new Error(`HTTP ${secondResp.status}`)
+                        }
+
+                        const secondData = await secondResp.json()
+                        const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+                        if (!secondText.trim()) {
+                            throw new Error('respuesta vacía')
+                        }
+
+                        assistantText = secondText
+                    } finally {
+                        clearTimeout(timeoutId)
+                    }
+                } catch (e) {
+                    usedFallback = true
+                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
+                    console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
+                    assistantText = priceFallbackText(Number(unit.base_price))
+                }
             }
         }
 
@@ -1925,9 +1988,27 @@ Deno.serve(async (req: Request) => {
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
             assistantText = genericFallbackText
         } else {
+            const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
+
+            // Fail-open: si getOccupiedUnitIds falla, se cotiza sin filtrar (comportamiento previo)
+            let unitsToPrice = knownUnits
+            let removedOccupiedCodes: string[] = []
+            let otherFreeUnits: Unit[] = []
+
+            if (occupiedResult.error) {
+                // Fail-open: no se pudo verificar disponibilidad, se cotiza sin filtrar
+            } else {
+                const occupied = occupiedResult.occupied
+                unitsToPrice = knownUnits.filter(u => !occupied.has(u.id))
+                removedOccupiedCodes = knownUnits.filter(u => occupied.has(u.id)).map(u => u.code)
+                otherFreeUnits = activeUnits.filter(u => !occupied.has(u.id) && !knownUnits.some(k => k.id === u.id))
+
+                console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## filtro_disponibilidad: pedidas=${knownUnits.map(u => u.code).join(',')} ocupadas_removidas=${removedOccupiedCodes.join(',')} libres=${unitsToPrice.map(u => u.code).join(',')}`)
+            }
+
             // Precio real por unidad EN PARALELO — son consultas a BD, no llamadas a Claude
             const settled = await Promise.allSettled(
-                knownUnits.map(async unit => {
+                unitsToPrice.map(async unit => {
                     const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
                     const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
                     return { code: unit.code, totalPrice, nights, avgPrice: Math.round(totalPrice / nights) }
@@ -1938,7 +2019,7 @@ Deno.serve(async (req: Request) => {
                 .filter((r): r is PromiseFulfilledResult<{ code: string; totalPrice: number; nights: number; avgPrice: number }> => r.status === 'fulfilled')
                 .map(r => r.value)
 
-            const failedCodes = knownUnits
+            const failedCodes = unitsToPrice
                 .filter((_, i) => settled[i].status === 'rejected')
                 .map(u => u.code)
 
@@ -1947,8 +2028,13 @@ Deno.serve(async (req: Request) => {
             }
 
             if (priced.length === 0) {
-                usedFallback = true
-                assistantText = genericFallbackText
+                if (unitsToPrice.length === 0) {
+                    usedFallback = false
+                    assistantText = 'Lamentablemente no tenemos disponibilidad en esas fechas en las unidades que consultaste. Si quieres, dime otras fechas y te cuento qué tenemos libre 🙂'
+                } else {
+                    usedFallback = true
+                    assistantText = genericFallbackText
+                }
             } else {
                 const priceLines = priced
                     .map(p => `- ${p.code}: $${p.totalPrice.toLocaleString('es-CL')} total ($${p.avgPrice.toLocaleString('es-CL')}/noche, ${p.nights} noches)`)
@@ -1958,7 +2044,15 @@ Deno.serve(async (req: Request) => {
                     ? `\n\nNo se pudo calcular el precio de: ${failedCodes.join(', ')} — para esas NO des ningún precio, dile al huésped que se las confirmas aparte.`
                     : ''
 
-                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.`
+                const otherFreeNote = otherFreeUnits.length > 0
+                    ? `\n\nOtras unidades libres verificadas para esas fechas, sin precio calculado: ${otherFreeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join(', ')}. Si caben en el grupo, puedes mencionar que también están disponibles y que les cotizas el precio exacto si les interesa; no inventes precios para ellas.`
+                    : ''
+
+                const removedNote = removedOccupiedCodes.length > 0
+                    ? `\n\nEstas unidades NO están disponibles para esas fechas, no las ofrezcas: ${removedOccupiedCodes.join(', ')}.`
+                    : ''
+
+                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.${otherFreeNote}${removedNote}`
 
                 const controller = new AbortController()
                 const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
@@ -2160,12 +2254,30 @@ Deno.serve(async (req: Request) => {
                 assistantText = genericFallbackText
             } else {
                 console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## resultado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} disponible=${availabilityCheck.disponible}`)
+
+                const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
+                let libresSuffix = ''
+                if (occupiedResult.error) {
+                    // Fail-open: no se pudo verificar unidades libres, no se agrega sufijo
+                } else {
+                    const occupied = occupiedResult.occupied
+                    const freeUnits = activeUnits.filter(u => !occupied.has(u.id))
+                    const libresList = freeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join('; ')
+
+                    libresSuffix = libresList
+                        ? `\n\nUNIDADES LIBRES VERIFICADAS EN LA BASE DE DATOS para ${check_in} → ${check_out} (única fuente válida para ofrecer alternativas o mencionar otras opciones; no uses el bloque DISPONIBILIDAD ACTUAL para eso, y ofrece solo las que caben en el grupo): ${libresList}. Toda unidad que no esté en esta lista está OCUPADA para esas fechas: no la presentes como disponible.`
+                        : `\n\nNo hay ninguna unidad libre para esas fechas: infórmalo con calidez y sugiere otras fechas.`
+
+                    console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## libres_verificadas: ${freeUnits.map(u => u.code).join(',')}`)
+                }
+
                 // Sin tercera llamada: esta segunda respuesta debe quedar en texto natural,
                 // así que se prohíbe explícitamente CUALQUIER marcador (no solo el propio),
                 // mismo principio de seguridad que ya usan ##COTIZAR## y ##LISTAR_PRECIOS##.
-                const availNote = availabilityCheck.disponible
+                const availNote = (availabilityCheck.disponible
                     ? `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} SÍ está disponible para el rango ${check_in} → ${check_out}. Confírmaselo al turista con naturalidad. NO uses ningún marcador (##COTIZAR##, ##LISTAR_PRECIOS##, ##RESERVA_LISTA##, ##VERIFICAR_DISPONIBILIDAD##, etc.) en esta respuesta bajo ninguna circunstancia, aunque otra instrucción diga lo contrario — responde solo en texto natural, y si te faltan datos para cotizar o completar la reserva, pídeselos en este mismo mensaje. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
                     : `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} NO está disponible para el rango ${check_in} → ${check_out}: hay un conflicto real en el sistema. NO confirmes disponibilidad para esa unidad y esas fechas bajo ninguna circunstancia, aunque el bloque DISPONIBILIDAD ACTUAL te haya parecido ambiguo. Informa al turista con calidez que esas fechas específicas ya están ocupadas para esa unidad, y ofrécele alternativas (otra unidad disponible para esas fechas, u otras fechas para la misma unidad) usando el bloque DISPONIBILIDAD ACTUAL que ya tienes en tu contexto. NO uses ningún marcador en esta respuesta bajo ninguna circunstancia — responde solo en texto natural. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
+                ) + libresSuffix
 
                 const controller = new AbortController()
                 const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
