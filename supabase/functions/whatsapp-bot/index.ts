@@ -1308,6 +1308,70 @@ function sanitizeMessages(
     return result
 }
 
+/**
+ * Alerta técnica a José (no a Karina): para derivaciones a humano que se originan
+ * por un fallo interno del bot (timeout, HTTP, parseo, marcador sin procesar),
+ * no por una consulta legítima del huésped — así Karina no se confunde viendo
+ * bugs técnicos mezclados con leads normales.
+ *
+ * Best-effort: un fallo en el envío de la alerta misma (Twilio/Resend caídos)
+ * solo se loguea, nunca debe bloquear ni demorar la respuesta al huésped — por
+ * eso ningún fetch de esta función se espera (await) desde el llamador.
+ */
+async function enviarAlertaTecnicaAJose(
+    contexto: string,
+    reason: string,
+    phone: string,
+    conversationId: string
+): Promise<void> {
+    try {
+        const alertTimestamp = new Date().toISOString()
+        const alertText = `⚠️ Fallo técnico en whatsapp-bot — revisar\n\n${contexto}\nMotivo: ${reason}\nTeléfono: ${phone}\nConversation ID: ${conversationId}\nTimestamp: ${alertTimestamp}`
+
+        const joseAlertEmail = Deno.env.get('JOSE_ALERT_EMAIL') ?? ''
+        const resendKey = Deno.env.get('RESEND_API_KEY') ?? ''
+        if (joseAlertEmail && resendKey) {
+            fetch('https://api.resend.com/emails', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${resendKey}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    from: SENDER_EMAIL,
+                    to: [joseAlertEmail],
+                    subject: '⚠️ Fallo técnico en whatsapp-bot — revisar',
+                    text: alertText,
+                }),
+            }).catch(err => console.error('[whatsapp-bot] Error enviando alerta técnica por email a José:', err))
+        }
+
+        const joseAlertPhone = Deno.env.get('JOSE_ALERT_PHONE') ?? ''
+        const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+        const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+        const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+        if (joseAlertPhone && accountSid && twilioAuthToken && fromNumber) {
+            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+            const twilioBody = new URLSearchParams({
+                From: fromNumber,
+                To: `whatsapp:${joseAlertPhone}`,
+                Body: alertText,
+            })
+
+            fetch(twilioUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: twilioBody.toString(),
+            }).catch(err => console.error('[whatsapp-bot] Error enviando alerta técnica por WhatsApp a José:', err))
+        }
+    } catch (alertErr) {
+        console.error('[whatsapp-bot] Excepción enviando alerta técnica a José:', alertErr)
+    }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -1606,6 +1670,8 @@ Deno.serve(async (req: Request) => {
             const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
             console.error(`[whatsapp-bot] Guardián de promesa sin marcador: corrección falló (${reason}), se deriva a humano — phone=${phone} conversation_id=${conversation.id}`)
             assistantText = 'Dame un momento, ya te contacto con la información 🙂 ##DERIVAR##'
+
+            enviarAlertaTecnicaAJose('Fallo: guardián de promesa sin marcador', reason, phone, conversation.id)
         } finally {
             clearTimeout(promiseTimeoutId)
         }
@@ -1629,6 +1695,8 @@ Deno.serve(async (req: Request) => {
             usedFallback = true
             console.error(`[whatsapp-bot] ##COTIZAR## unit_code no encontrado: ${unit_code}`)
             assistantText = `Dame un momento para confirmarte disponibilidad y precio para esas fechas 🙂 Ya te contacto con la información.`
+
+            enviarAlertaTecnicaAJose('Fallo: unit_code inválido en COTIZAR', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
             await supabase
                 .from('core_chat_conversations')
@@ -1714,6 +1782,8 @@ Deno.serve(async (req: Request) => {
             usedFallback = true
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## unit_codes no encontrados: ${unknownCodes.join(', ')}`)
             assistantText = genericFallbackText
+
+            enviarAlertaTecnicaAJose('Fallo: unit_codes inválidos en LISTAR_PRECIOS', `unit_codes no encontrados: ${unknownCodes.join(', ')}`, phone, conversation.id)
 
             await supabase
                 .from('core_chat_conversations')
@@ -1932,6 +2002,8 @@ Deno.serve(async (req: Request) => {
             usedFallback = true
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## unit_code no encontrado: ${unit_code}`)
             assistantText = genericFallbackText
+
+            enviarAlertaTecnicaAJose('Fallo: unit_code inválido en VERIFICAR_DISPONIBILIDAD', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
             await supabase
                 .from('core_chat_conversations')
@@ -2224,6 +2296,8 @@ Deno.serve(async (req: Request) => {
     if (rawMarkerMatch) {
         console.error(`[whatsapp-bot] Marcador interno sin procesar detectado antes de enviar (${rawMarkerMatch[0]}), se reemplaza por fallback seguro. Texto original: ${assistantText}`)
         assistantText = 'Dame un momento para confirmarte esa información 🙂 Ya te contacto directamente.'
+
+        enviarAlertaTecnicaAJose('Fallo: marcador crudo sin procesar llegó al guard 12b', `marcador sin procesar: ${rawMarkerMatch[0]}`, phone, conversation.id)
 
         await supabase
             .from('core_chat_conversations')
