@@ -24,6 +24,7 @@ const RECIPIENT_EMAIL = 'reservasartebrisa@gmail.com'
 const SENDER_EMAIL    = 'Arte Brisa Patagonia <reservas@artebrisapatagonia.com>'
 const CLAUDE_MODEL    = 'claude-sonnet-4-5'
 const CLAUDE_API_URL  = 'https://api.anthropic.com/v1/messages'
+const CLAUDE_RETRY_TIMEOUT_MS = 15000
 const TWILIO_WEBHOOK_URL = 'https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/whatsapp-bot'
 
 // ContentSid de la plantilla de WhatsApp 'derivacion_humano_v1' (aprobada por Meta),
@@ -1624,7 +1625,7 @@ Deno.serve(async (req: Request) => {
         const promiseNote = `IMPORTANTE: tu respuesta anterior prometía verificar o revisar algo ("${promiseOriginalText}") pero no disparaste ningún marcador en ese mismo turno. Resuelve esto ahora: dispara ##VERIFICAR_DISPONIBILIDAD## (instrucción 5e) o ##COTIZAR## (instrucción 4c) según corresponda a lo que estabas por verificar, siguiendo exactamente el formato de esas instrucciones. Si al revisar el contexto de la conversación no corresponde ningún marcador, responde de forma conversacional, sin usar lenguaje que prometa una acción futura sin resolverla.`
 
         const promiseController = new AbortController()
-        const promiseTimeoutId = setTimeout(() => promiseController.abort(), 8000)
+        const promiseTimeoutId = setTimeout(() => promiseController.abort(), CLAUDE_RETRY_TIMEOUT_MS)
 
         try {
             const promiseResp = await fetch(CLAUDE_API_URL, {
@@ -1667,7 +1668,7 @@ Deno.serve(async (req: Request) => {
                 throw new Error('fallo_real_promesa_repetida')
             }
         } catch (e) {
-            const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+            const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
             console.error(`[whatsapp-bot] Guardián de promesa sin marcador: corrección falló (${reason}), se deriva a humano — phone=${phone} conversation_id=${conversation.id}`)
             assistantText = 'Dame un momento, ya te contacto con la información 🙂 ##DERIVAR##'
 
@@ -1715,7 +1716,7 @@ Deno.serve(async (req: Request) => {
                 const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
 
                 const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 8000)
+                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
 
                 try {
                     const secondResp = await fetch(CLAUDE_API_URL, {
@@ -1751,7 +1752,7 @@ Deno.serve(async (req: Request) => {
                 }
             } catch (e) {
                 usedFallback = true
-                const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
                 console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
                 assistantText = priceFallbackText(Number(unit.base_price))
             }
@@ -1830,7 +1831,7 @@ Deno.serve(async (req: Request) => {
                 const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.`
 
                 const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 8000)
+                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
 
                 try {
                     const secondResp = await fetch(CLAUDE_API_URL, {
@@ -1863,7 +1864,7 @@ Deno.serve(async (req: Request) => {
                     assistantText = secondText
                 } catch (e) {
                     usedFallback = true
-                    const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
                     console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## segunda llamada falló (${reason})`)
                     assistantText = genericFallbackText
                 } finally {
@@ -2028,7 +2029,7 @@ Deno.serve(async (req: Request) => {
                     : `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} NO está disponible para el rango ${check_in} → ${check_out}: hay un conflicto real en el sistema. NO confirmes disponibilidad para esa unidad y esas fechas bajo ninguna circunstancia, aunque el bloque DISPONIBILIDAD ACTUAL te haya parecido ambiguo. Informa al turista con calidez que esas fechas específicas ya están ocupadas para esa unidad, y ofrécele alternativas (otra unidad disponible para esas fechas, u otras fechas para la misma unidad) usando el bloque DISPONIBILIDAD ACTUAL que ya tienes en tu contexto. NO uses ningún marcador en esta respuesta bajo ninguna circunstancia — responde solo en texto natural. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
 
                 const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), 8000)
+                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
 
                 try {
                     const secondResp = await fetch(CLAUDE_API_URL, {
@@ -2061,7 +2062,7 @@ Deno.serve(async (req: Request) => {
                     assistantText = secondText
                 } catch (e) {
                     usedFallback = true
-                    const reason = (e as Error).name === 'AbortError' ? 'timeout_8s' : (e as Error).message
+                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
                     console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda llamada falló (${reason})`)
                     assistantText = genericFallbackText
                 } finally {
