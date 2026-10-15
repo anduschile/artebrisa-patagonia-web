@@ -1373,6 +1373,102 @@ async function enviarAlertaTecnicaAJose(
     }
 }
 
+/**
+ * Notifica a Karina (email + WhatsApp) que una conversación quedó en status 'human'
+ * fuera del flujo ##DERIVAR## (paso 11) — ej. marcadores con datos inválidos generados
+ * por el modelo, o guardias de seguridad que derivan a humano sin pasar por ##DERIVAR##.
+ * Duplica a propósito la lógica de notificación del paso 11 (email Resend + WhatsApp con
+ * la plantilla 'derivacion_humano_v1'), en vez de extraer un helper compartido, para no
+ * tocar el flujo ##DERIVAR## ya probado en producción.
+ *
+ * sendEmail=false cuando el llamador ya envía su propio email específico del fallo
+ * (ej. ##RESERVA_LISTA## con processReservaLista fallido o JSON inválido).
+ *
+ * Best-effort: cada fetch se espera (await) dentro de su propio try/catch — un fallo de
+ * notificación (Resend/Twilio caídos) solo se loguea, nunca lanza excepción ni impide la
+ * respuesta al huésped.
+ */
+async function notificarDerivacionAKarina(
+    displayName: string,
+    phone: string,
+    conversationId: string,
+    notificationText: string,
+    sendEmail = true
+): Promise<void> {
+    if (sendEmail) {
+        try {
+            const resendKey = Deno.env.get('RESEND_API_KEY') ?? ''
+            if (resendKey) {
+                await fetch('https://api.resend.com/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${resendKey}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        from: SENDER_EMAIL,
+                        to: [RECIPIENT_EMAIL],
+                        subject: 'Chat requiere atención humana',
+                        text: `El chat con ${displayName} (${phone}) requiere atención humana.\n\nÚltimo mensaje: "${notificationText}"`,
+                        html: `<p>El chat con <strong>${displayName}</strong> (${phone}) requiere atención humana.</p><p>Último mensaje: <em>${notificationText}</em></p>`,
+                    }),
+                }).then(resp => {
+                    if (resp.ok) {
+                        console.log(`[whatsapp-bot] Email de derivación enviado a Resend OK — phone=${phone} conversation_id=${conversationId}`)
+                    } else {
+                        console.error(`[whatsapp-bot] Resend respondió con error al enviar email de derivación: ${resp.status}`)
+                    }
+                }).catch(e => console.error('Resend error:', e))
+            }
+        } catch (e) {
+            console.error('[whatsapp-bot] Exception enviando email de derivación a Karina:', e)
+        }
+    }
+
+    try {
+        const karinasPhone = Deno.env.get('KARINA_WHATSAPP_PHONE') ?? '+56958383166'
+
+        const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+        const twilioAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+        const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+
+        if (accountSid && twilioAuthToken && fromNumber) {
+            const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+            const contentVariables = JSON.stringify({
+                '1': displayName,
+                '2': phone,
+                '3': notificationText,
+            })
+
+            // IMPORTANTE: Twilio exige que 'Body' esté COMPLETAMENTE AUSENTE del
+            // request cuando se usa ContentSid — no basta con dejarlo vacío o null.
+            const twilioBody = new URLSearchParams({
+                From: fromNumber,
+                To: `whatsapp:${karinasPhone}`,
+                ContentSid: TWILIO_CONTENT_SID_DERIVACION_HUMANO,
+                ContentVariables: contentVariables,
+            })
+
+            await fetch(twilioUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Basic ' + btoa(`${accountSid}:${twilioAuthToken}`),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: twilioBody.toString(),
+            }).then(resp => {
+                if (resp.ok) {
+                    console.log(`[whatsapp-bot] Notificación de derivación a Karina enviada por WhatsApp OK — phone=${phone} conversation_id=${conversationId}`)
+                } else {
+                    console.error(`[whatsapp-bot] Twilio respondió con error al notificar a Karina (DERIVAR): ${resp.status}`)
+                }
+            }).catch(e => console.error('[whatsapp-bot] Error notificando a Karina (DERIVAR):', e))
+        }
+    } catch (e) {
+        console.error('[whatsapp-bot] Exception notificando a Karina (DERIVAR):', e)
+    }
+}
+
 // ── Main handler ───────────────────────────────────────────────────────────
 
 Deno.serve(async (req: Request) => {
@@ -1703,6 +1799,14 @@ Deno.serve(async (req: Request) => {
                 .from('core_chat_conversations')
                 .update({ status: 'human' })
                 .eq('id', conversation.id)
+
+            await notificarDerivacionAKarina(
+                profileName || phone,
+                phone,
+                conversation.id,
+                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
+                true
+            )
         } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             usedFallback = true
             console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
@@ -1790,6 +1894,14 @@ Deno.serve(async (req: Request) => {
                 .from('core_chat_conversations')
                 .update({ status: 'human' })
                 .eq('id', conversation.id)
+
+            await notificarDerivacionAKarina(
+                profileName || phone,
+                phone,
+                conversation.id,
+                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
+                true
+            )
         } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             usedFallback = true
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
@@ -2010,6 +2122,14 @@ Deno.serve(async (req: Request) => {
                 .from('core_chat_conversations')
                 .update({ status: 'human' })
                 .eq('id', conversation.id)
+
+            await notificarDerivacionAKarina(
+                profileName || phone,
+                phone,
+                conversation.id,
+                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
+                true
+            )
         } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             usedFallback = true
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
@@ -2142,6 +2262,16 @@ Deno.serve(async (req: Request) => {
                     }),
                 }).catch(e => console.error('Resend error:', e))
             }
+
+            if (!assistantText.includes('##DERIVAR##')) {
+                await notificarDerivacionAKarina(
+                    profileName || phone,
+                    phone,
+                    conversation.id,
+                    `Reserva que el bot no pudo completar (el huésped ya había confirmado sus datos). Último mensaje del huésped: "${body}"`,
+                    false
+                )
+            }
         }
     } else if (parseResult.reason === 'invalid_json') {
         // JSON malformado en ##RESERVA_LISTA##: derivar a humano + email específico
@@ -2173,6 +2303,16 @@ Deno.serve(async (req: Request) => {
                     html: `<p>El modelo generó un marcador <code>##RESERVA_LISTA##</code> con JSON malformado.</p><p><strong>Teléfono:</strong> ${phone}</p><p><strong>JSON crudo que no pudo parsearse:</strong></p><pre>${parseResult.rawText}</pre><p><strong>Último mensaje del turista:</strong> <em>${body}</em></p>`,
                 }),
             }).catch(e => console.error('Resend error:', e))
+        }
+
+        if (!assistantText.includes('##DERIVAR##')) {
+            await notificarDerivacionAKarina(
+                profileName || phone,
+                phone,
+                conversation.id,
+                `Reserva que el bot no pudo completar (el huésped ya había confirmado sus datos). Último mensaje del huésped: "${body}"`,
+                false
+            )
         }
     }
     // Si parseResult.reason === 'no_marker': no hacer nada especial, continuar
@@ -2304,6 +2444,16 @@ Deno.serve(async (req: Request) => {
             .from('core_chat_conversations')
             .update({ status: 'human' })
             .eq('id', conversation.id)
+
+        if (!shouldDerive) {
+            await notificarDerivacionAKarina(
+                profileName || phone,
+                phone,
+                conversation.id,
+                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
+                true
+            )
+        }
     }
 
     // ── 12c. Guardia final de vacío: nunca enviar un mensaje sin contenido ────
