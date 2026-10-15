@@ -1687,6 +1687,8 @@ Deno.serve(async (req: Request) => {
         .replace('{context_disponibilidad}', availabilityCtx)
         .replace('{fecha_actual}', getTodayInChile())
 
+    console.log(`[whatsapp-bot] prompt_stats: prompt_chars=${systemPrompt.length} disponibilidad_chars=${availabilityCtx.length} disponibilidad_lineas=${availabilityCtx.split('\n').length}`)
+
     // DEBUG: Loguear el systemPrompt completo para auditoría
     console.log('[whatsapp-bot] === SYSTEM PROMPT ENVIADO A CLAUDE ===')
     console.log(systemPrompt)
@@ -2157,6 +2159,7 @@ Deno.serve(async (req: Request) => {
                 usedFallback = true
                 assistantText = genericFallbackText
             } else {
+                console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## resultado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} disponible=${availabilityCheck.disponible}`)
                 // Sin tercera llamada: esta segunda respuesta debe quedar en texto natural,
                 // así que se prohíbe explícitamente CUALQUIER marcador (no solo el propio),
                 // mismo principio de seguridad que ya usan ##COTIZAR## y ##LISTAR_PRECIOS##.
@@ -2196,6 +2199,7 @@ Deno.serve(async (req: Request) => {
                     }
 
                     assistantText = secondText
+                    console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda_respuesta: ${secondText.slice(0, 600).replace(/\s+/g, ' ')}`)
                 } catch (e) {
                     usedFallback = true
                     const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
