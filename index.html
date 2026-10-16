@@ -5,6 +5,12 @@
     <link rel="icon" type="image/png" href="/images/common/logo-cabanas.png" />
     <link rel="apple-touch-icon" href="/images/common/logo-cabanas.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Preload del hero de cabañas (home y /cabanas), única variante 1600px
+         (misma imagen que usa el CSS en todos los anchos).
+         No se precarga el hero de departamentos: no es LCP en esas rutas. -->
+    <link rel="preload" as="image" type="image/webp" fetchpriority="high" href="/images/common/hero_cabanasa_artebrisa-1600.webp" />
+
     <title>Arte Brisa Patagonia — Cabañas y Departamentos en Puerto Natales</title>
     <!-- Los tags marcados data-rh son el fallback estático (crawlers sin JS); react-helmet-async
          los reemplaza en runtime por los de cada página/idioma (SeoHead), sin duplicarlos. -->

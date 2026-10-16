@@ -38,6 +38,8 @@ function ResultCard({ unit }) {
                 <img
                     src={imageUrl}
                     alt={unit.name || typeLabel}
+                    loading="lazy"
+                    decoding="async"
                     className="w-full h-full object-cover"
                     onError={e => {
                         e.target.onerror = null

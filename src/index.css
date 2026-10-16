@@ -39,14 +39,23 @@ body {
 }
 
 .hero-cabanas {
-  background-image: url('/images/common/hero_cabanasa_artebrisa.png');
+  /* WebP generado desde hero_cabanasa_artebrisa.png (ver public/images/common/);
+     el PNG original se mantiene en disco como respaldo, no se usa en runtime.
+     Se usa siempre la variante ancha (no la angosta): con background-size:
+     cover sobre un contenedor casi cuadrado en móvil, el límite es el alto
+     y la variante angosta se amplía 2-3x en pantallas de alta densidad y
+     se ve borrosa. */
+  background-image: url('/images/common/hero_cabanasa_artebrisa-1600.webp');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
 }
 
 .hero-departamentos {
-  background-image: url('/images/common/hero_departamentos_patagonia.png');
+  /* WebP generado desde hero_departamentos_patagonia.png (ver public/images/common/);
+     el PNG original se mantiene en disco como respaldo, no se usa en runtime.
+     Se usa siempre la variante ancha, por la misma razón que en .hero-cabanas. */
+  background-image: url('/images/common/hero_departamentos_patagonia-1600.webp');
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
