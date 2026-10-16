@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import LangLayout from './components/LangLayout'
@@ -9,16 +10,23 @@ import DepartamentosPage from './pages/DepartamentosPage'
 import UnitDetailPage from './pages/UnitDetailPage'
 import PaymentConfirmPage from './pages/PaymentConfirmPage'
 import NotFoundPage from './pages/NotFoundPage'
-import TestPaymentPage from './pages/TestPaymentPage'
+
+// Página de prueba de pago y panel /admin: code-split aparte del sitio
+// público (ver INCIDENTES.md/auditoría de rendimiento) — no las visita el
+// 80% del tráfico y no deberían pesar en el bundle de las rutas públicas.
+const TestPaymentPage = lazy(() => import('./pages/TestPaymentPage'))
 
 // Admin
 import AdminGuard from './components/admin/AdminGuard'
 import AdminLayout from './components/admin/AdminLayout'
-import AdminLoginPage from './pages/admin/AdminLoginPage'
-import AdminDashboardPage from './pages/admin/AdminDashboardPage'
-import AdminReservationsPage from './pages/admin/AdminReservationsPage'
-import AdminRatesPage from './pages/admin/AdminRatesPage'
-import AdminChatPage from './pages/admin/AdminChatPage'
+const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'))
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
+const AdminReservationsPage = lazy(() => import('./pages/admin/AdminReservationsPage'))
+const AdminRatesPage = lazy(() => import('./pages/admin/AdminRatesPage'))
+const AdminChatPage = lazy(() => import('./pages/admin/AdminChatPage'))
+
+// Fallback neutro mientras carga el chunk de una página lazy.
+const LAZY_FALLBACK = <div>Cargando...</div>
 
 export default function App() {
     const location = useLocation()
@@ -51,16 +59,16 @@ export default function App() {
                 {/* ── Página de prueba de pago, aislada y sin layout — NO enlazar
                     desde ningún menú/navbar/footer (ver robots.txt + meta noindex
                     en TestPaymentPage.jsx) ── */}
-                <Route path="/test-pago" element={<TestPaymentPage />} />
+                <Route path="/test-pago" element={<Suspense fallback={LAZY_FALLBACK}><TestPaymentPage /></Suspense>} />
 
                 {/* ── Admin ── */}
-                <Route path="/admin" element={<AdminLoginPage />} />
+                <Route path="/admin" element={<Suspense fallback={LAZY_FALLBACK}><AdminLoginPage /></Suspense>} />
                 <Route element={<AdminGuard />}>
                     <Route element={<AdminLayout />}>
-                        <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
-                        <Route path="/admin/reservas" element={<AdminReservationsPage />} />
-                        <Route path="/admin/tarifas" element={<AdminRatesPage />} />
-                        <Route path="/admin/chat" element={<AdminChatPage />} />
+                        <Route path="/admin/dashboard" element={<Suspense fallback={LAZY_FALLBACK}><AdminDashboardPage /></Suspense>} />
+                        <Route path="/admin/reservas" element={<Suspense fallback={LAZY_FALLBACK}><AdminReservationsPage /></Suspense>} />
+                        <Route path="/admin/tarifas" element={<Suspense fallback={LAZY_FALLBACK}><AdminRatesPage /></Suspense>} />
+                        <Route path="/admin/chat" element={<Suspense fallback={LAZY_FALLBACK}><AdminChatPage /></Suspense>} />
                     </Route>
                 </Route>
             </Routes>

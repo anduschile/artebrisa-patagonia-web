@@ -34,7 +34,13 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+    <!-- Pesos de Inter realmente usados en el sitio (incluye /admin): 400/500/600/700/900.
+         800 (extrabold) no se usa en ningún componente — se quitó de la URL.
+         Carga no bloqueante: preload + swap a stylesheet en onload, con <noscript> de respaldo. -->
+    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" />
+    </noscript>
   </head>
   <body>
     <div id="root"></div>
