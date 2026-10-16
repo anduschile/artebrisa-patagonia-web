@@ -1993,7 +1993,6 @@ Deno.serve(async (req: Request) => {
             // Fail-open: si getOccupiedUnitIds falla, se cotiza sin filtrar (comportamiento previo)
             let unitsToPrice = knownUnits
             let removedOccupiedCodes: string[] = []
-            let otherFreeUnits: Unit[] = []
 
             if (occupiedResult.error) {
                 // Fail-open: no se pudo verificar disponibilidad, se cotiza sin filtrar
@@ -2001,7 +2000,6 @@ Deno.serve(async (req: Request) => {
                 const occupied = occupiedResult.occupied
                 unitsToPrice = knownUnits.filter(u => !occupied.has(u.id))
                 removedOccupiedCodes = knownUnits.filter(u => occupied.has(u.id)).map(u => u.code)
-                otherFreeUnits = activeUnits.filter(u => !occupied.has(u.id) && !knownUnits.some(k => k.id === u.id))
 
                 console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## filtro_disponibilidad: pedidas=${knownUnits.map(u => u.code).join(',')} ocupadas_removidas=${removedOccupiedCodes.join(',')} libres=${unitsToPrice.map(u => u.code).join(',')}`)
             }
@@ -2044,15 +2042,11 @@ Deno.serve(async (req: Request) => {
                     ? `\n\nNo se pudo calcular el precio de: ${failedCodes.join(', ')} — para esas NO des ningún precio, dile al huésped que se las confirmas aparte.`
                     : ''
 
-                const otherFreeNote = otherFreeUnits.length > 0
-                    ? `\n\nOtras unidades libres verificadas para esas fechas, sin precio calculado: ${otherFreeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join(', ')}. Si caben en el grupo, puedes mencionar que también están disponibles y que les cotizas el precio exacto si les interesa; no inventes precios para ellas.`
-                    : ''
-
                 const removedNote = removedOccupiedCodes.length > 0
                     ? `\n\nEstas unidades NO están disponibles para esas fechas, no las ofrezcas: ${removedOccupiedCodes.join(', ')}.`
                     : ''
 
-                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.${otherFreeNote}${removedNote}`
+                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.${removedNote}`
 
                 const controller = new AbortController()
                 const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
