@@ -10,6 +10,7 @@ import DepartamentosPage from './pages/DepartamentosPage'
 import UnitDetailPage from './pages/UnitDetailPage'
 import PaymentConfirmPage from './pages/PaymentConfirmPage'
 import NotFoundPage from './pages/NotFoundPage'
+import TrekPage from './pages/TrekPage'
 
 // Página de prueba de pago y panel /admin: code-split aparte del sitio
 // público (ver INCIDENTES.md/auditoría de rendimiento) — no las visita el
@@ -52,6 +53,13 @@ export default function App() {
                         <Route path="departamentos" element={<DepartamentosPage />} />
                         <Route path="unidad/:slug" element={<UnitDetailPage />} />
                     </Route>
+
+                    {/* ── Landing exclusiva en inglés para Google Ads (grupo
+                        "Base para el trek") — NO existe en /es ni /de, por eso
+                        va fuera de la rama ":lang" (que acepta cualquier
+                        idioma con prefijo). Ruta fija "en/trek" en vez de
+                        anidarla ahí. */}
+                    <Route path="en/trek" element={<TrekPage />} />
 
                     <Route path="*" element={<NotFoundPage />} />
                 </Route>

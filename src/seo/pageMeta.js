@@ -34,6 +34,12 @@ const EN = {
         title: 'Apartments in Downtown Puerto Natales — Arte Brisa Patagonia',
         description: 'Fully equipped apartments right in downtown Puerto Natales, steps from everything. Ideal for short and long stays.',
     },
+    // Landing exclusiva de /en/trek (tráfico de Google Ads) — no tiene
+    // equivalente en es/de/pt, por eso solo existe esta clave en EN.
+    trek: {
+        title: 'Your Base for the W Trek | Arte Brisa Patagonia',
+        description: 'Private cabins and tiny houses 5 km from Puerto Natales, plus apartments downtown. Your base before and after the W Trek in Torres del Paine.',
+    },
 }
 
 const DE = {
