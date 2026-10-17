@@ -48,7 +48,7 @@ export async function getMessages(conversationId) {
 
 /**
  * Insert an admin message in the DB and send it to the tourist via WhatsApp.
- * Sets conversation status to 'human' only if it was 'bot' (Karina takes over).
+ * Always sets conversation status to 'human' (Karina takes over).
  */
 export async function sendMessage(conversationId, phone, content) {
     const { error: insertErr } = await supabase
@@ -62,12 +62,12 @@ export async function sendMessage(conversationId, phone, content) {
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversationId)
 
-    // Take over from bot only when status was 'bot'
+    // Always set to human when an admin sends a message — self-heals
+    // conversations left in 'bot' or 'closed' by mistake
     await supabase
         .from('core_chat_conversations')
         .update({ status: 'human' })
         .eq('id', conversationId)
-        .eq('status', 'bot')
 
     const { error: fnErr } = await supabase.functions.invoke('send-whatsapp', {
         body: { phone, message: content },
