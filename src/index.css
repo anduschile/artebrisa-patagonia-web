@@ -61,6 +61,30 @@ body {
   background-repeat: no-repeat;
 }
 
+.hero-trek {
+  /* Landing /en/trek (Google Ads) — foto real de Torres del Paine, no
+     reusa hero-cabanas. Original pesaba ~1.96 MB (PNG disfrazado de
+     .jpg); WebP optimizado a 1920px / calidad 80 queda en ~110 KB. */
+  background-image: url('/images/common/torres-del-paine-trek-hero-1920.webp');
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.hero-trek::after {
+  /* Capa extra de oscurecido SOLO para esta foto: el 40% superior es
+     cielo celeste claro y uniforme, y el overlay compartido de
+     .hero--home (0.2 arriba) no alcanza para el texto blanco sin
+     text-shadow (badge, línea "Book direct..."). Atado a .hero-trek,
+     no a .hero--home, para no afectar home/cabañas/departamentos. */
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 1;
+}
+
 /* Home hero */
 .hero--home {
   min-height: 520px;

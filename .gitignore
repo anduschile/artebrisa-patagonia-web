@@ -10,3 +10,7 @@ dist/
 *.tiff
 
 supabase/.temp/
+
+# scripts/mapa-huecos — credenciales locales y salidas generadas
+scripts/mapa-huecos/.env.eval
+scripts/mapa-huecos/output/

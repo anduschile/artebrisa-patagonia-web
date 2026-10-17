@@ -160,7 +160,7 @@ export default function TrekPage() {
 
             {/* ── Hero ── */}
             <HeroSection
-                type="home"
+                type="trek"
                 title="Your Base Before and After the W Trek"
                 subtitle="Private cabins, tiny houses and apartments to rest, recharge, and get ready for Torres del Paine."
             >

@@ -5,6 +5,9 @@ export default function HeroSection({ type = 'home', title, subtitle, children }
         home: 'hero-cabanas hero--home',
         cabanas: 'hero-cabanas hero--listing',
         departamentos: 'hero-departamentos hero--listing',
+        // Fondo propio (foto de Torres del Paine) para /en/trek; reusa el
+        // tamaño/overlay de hero--home sin tocar esa clase compartida.
+        trek: 'hero-trek hero--home',
     }
 
     return (
