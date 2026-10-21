@@ -1611,8 +1611,12 @@ Deno.serve(async (req: Request) => {
     // TEMPORAL DIAGNÓSTICO — REMOVER
     console.log('[BOT-FLOW] Conversación:', conversation.id, 'From:', phone)
 
-    // ── 2. Si está en modo humano: guardar y salir ─────────────────────────
-    if (conversation.status === 'human') {
+    // ── 2. Si está en modo humano o cerrado: guardar y salir ───────────────
+    // 'closed' debe comportarse igual que 'human' — el bot no debe responder en
+    // ninguno de los dos estados. La única forma de que el bot vuelva a responder
+    // es la acción explícita "Devolver al bot" (ver updateConversationStatus /
+    // el endpoint correspondiente en el panel admin), que cambia el status a 'bot'.
+    if (conversation.status === 'human' || conversation.status === 'closed') {
         await supabase.from('core_chat_messages').insert({
             conversation_id: conversation.id,
             role: 'user',
@@ -1838,23 +1842,21 @@ Deno.serve(async (req: Request) => {
     }
 
     // ── 9. Detectar y procesar ##COTIZAR## (cotización con precio real, 2da llamada) ────
-    const cotizarResult = parseCotizar(assistantText)
-
-    if (cotizarResult.success) {
-        const { unit_code, check_in, check_out } = cotizarResult.data
-        const cotizarStart = Date.now()
+    // processCotizarMarker se reutiliza también desde Guard 12b (paso 12b) para reprocesar
+    // un marcador ##COTIZAR## crudo que se filtró en la segunda llamada, sin duplicar lógica.
+    async function processCotizarMarker(
+        data: { unit_code: string; check_in: string; check_out: string }
+    ): Promise<{ text: string; usedFallback: boolean }> {
+        const { unit_code, check_in, check_out } = data
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
         const unit = activeUnits.find(u => u.code === unit_code)
-        let usedFallback = false
 
         const priceFallbackText = (basePrice: number) =>
             `Dame un momento para confirmarte el precio exacto para esas fechas 🙂 Mientras tanto, el precio de referencia de ${unit_code} es desde ${basePrice.toLocaleString('es-CL')} por noche.`
 
         if (!unit) {
             // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
-            usedFallback = true
             console.error(`[whatsapp-bot] ##COTIZAR## unit_code no encontrado: ${unit_code}`)
-            assistantText = `Dame un momento para confirmarte disponibilidad y precio para esas fechas 🙂 Ya te contacto con la información.`
 
             enviarAlertaTecnicaAJose('Fallo: unit_code inválido en COTIZAR', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
@@ -1870,88 +1872,98 @@ Deno.serve(async (req: Request) => {
                 `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
                 true
             )
-        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
-            usedFallback = true
-            console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            assistantText = priceFallbackText(Number(unit.base_price))
-        } else {
-            let unitOccupied = false
-            try {
-                const availCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
-                if (availCheck.error) {
-                    // Fail-open: no se pudo verificar antes de cotizar, se sigue como si no hubiera conflicto
-                } else {
-                    unitOccupied = !availCheck.disponible
-                }
-            } catch (availErr) {
-                console.error('[whatsapp-bot] ##COTIZAR## error verificando disponibilidad previa al cálculo:', availErr)
-            }
 
-            if (unitOccupied) {
-                console.error(`[whatsapp-bot] ##COTIZAR## unidad ocupada, no se cotiza: ${unit_code} ${check_in} ${check_out}`)
-                assistantText = `Lamentablemente ${unit.name} no está disponible del ${check_in} al ${check_out}. Si quieres, dime otras fechas u otra unidad y te cuento qué tenemos libre 🙂`
-                usedFallback = false
-            } else {
-                try {
-                    const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
-                    const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
-                    const avgPrice = Math.round(totalPrice / nights)
-
-                    const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
-
-                    const controller = new AbortController()
-                    const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
-
-                    try {
-                        const secondResp = await fetch(CLAUDE_API_URL, {
-                            method: 'POST',
-                            headers: {
-                                'x-api-key': anthropicKey,
-                                'anthropic-version': '2023-06-01',
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                model: CLAUDE_MODEL,
-                                max_tokens: 1024,
-                                system: `${systemPrompt}\n\n${priceNote}`,
-                                messages: sanitizedMessages,
-                            }),
-                            signal: controller.signal,
-                        })
-
-                        if (!secondResp.ok) {
-                            throw new Error(`HTTP ${secondResp.status}`)
-                        }
-
-                        const secondData = await secondResp.json()
-                        const secondText: string = secondData?.content?.[0]?.text ?? ''
-
-                        if (!secondText.trim()) {
-                            throw new Error('respuesta vacía')
-                        }
-
-                        assistantText = secondText
-                    } finally {
-                        clearTimeout(timeoutId)
-                    }
-                } catch (e) {
-                    usedFallback = true
-                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
-                    console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
-                    assistantText = priceFallbackText(Number(unit.base_price))
-                }
-            }
+            return { text: `Dame un momento para confirmarte disponibilidad y precio para esas fechas 🙂 Ya te contacto con la información.`, usedFallback: true }
         }
 
-        console.log(`[whatsapp-bot] ##COTIZAR## disparado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - cotizarStart} fallback=${usedFallback}`)
+        if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
+            console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            return { text: priceFallbackText(Number(unit.base_price)), usedFallback: true }
+        }
+
+        let unitOccupied = false
+        try {
+            const availCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
+            if (availCheck.error) {
+                // Fail-open: no se pudo verificar antes de cotizar, se sigue como si no hubiera conflicto
+            } else {
+                unitOccupied = !availCheck.disponible
+            }
+        } catch (availErr) {
+            console.error('[whatsapp-bot] ##COTIZAR## error verificando disponibilidad previa al cálculo:', availErr)
+        }
+
+        if (unitOccupied) {
+            console.error(`[whatsapp-bot] ##COTIZAR## unidad ocupada, no se cotiza: ${unit_code} ${check_in} ${check_out}`)
+            return { text: `Lamentablemente ${unit.name} no está disponible del ${check_in} al ${check_out}. Si quieres, dime otras fechas u otra unidad y te cuento qué tenemos libre 🙂`, usedFallback: false }
+        }
+
+        try {
+            const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
+            const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
+            const avgPrice = Math.round(totalPrice / nights)
+
+            const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4c PARA ESTE TURNO: ya tienes el precio real, calculado por el sistema. NO uses el marcador ##COTIZAR## en esta respuesta bajo ninguna circunstancia, aunque la instrucción 4c diga lo contrario — respóndele directamente al turista en texto natural, sin marcadores.\n\nEl precio real calculado para ${unit_code} del ${check_in} al ${check_out} es $${totalPrice.toLocaleString('es-CL')} total ($${avgPrice.toLocaleString('es-CL')}/noche, ${nights} noches). Comunícaselo al huésped de forma natural y cálida, invitándolo a continuar con la reserva si le interesa.`
+
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
+
+            try {
+                const secondResp = await fetch(CLAUDE_API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'x-api-key': anthropicKey,
+                        'anthropic-version': '2023-06-01',
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        model: CLAUDE_MODEL,
+                        max_tokens: 1024,
+                        system: `${systemPrompt}\n\n${priceNote}`,
+                        messages: sanitizedMessages,
+                    }),
+                    signal: controller.signal,
+                })
+
+                if (!secondResp.ok) {
+                    throw new Error(`HTTP ${secondResp.status}`)
+                }
+
+                const secondData = await secondResp.json()
+                const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+                if (!secondText.trim()) {
+                    throw new Error('respuesta vacía')
+                }
+
+                return { text: secondText, usedFallback: false }
+            } finally {
+                clearTimeout(timeoutId)
+            }
+        } catch (e) {
+            const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
+            console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
+            return { text: priceFallbackText(Number(unit.base_price)), usedFallback: true }
+        }
+    }
+
+    const cotizarResult = parseCotizar(assistantText)
+
+    if (cotizarResult.success) {
+        const cotizarStart = Date.now()
+        const { text: cotizarText, usedFallback: cotizarUsedFallback } = await processCotizarMarker(cotizarResult.data)
+        assistantText = cotizarText
+
+        console.log(`[whatsapp-bot] ##COTIZAR## disparado: unit_code=${cotizarResult.data.unit_code} check_in=${cotizarResult.data.check_in} check_out=${cotizarResult.data.check_out} elapsed_ms=${Date.now() - cotizarStart} fallback=${cotizarUsedFallback}`)
     }
 
     // ── 9b. Detectar y procesar ##LISTAR_PRECIOS## (precios reales para varias unidades candidatas) ──
-    const listarPreciosResult = parseListarPrecios(assistantText)
-
-    if (listarPreciosResult.success) {
-        const { check_in, check_out, unit_codes } = listarPreciosResult.data
-        const listarStart = Date.now()
+    // processListarPreciosMarker se reutiliza también desde Guard 12b (paso 12b) para reprocesar
+    // un marcador ##LISTAR_PRECIOS## crudo que se filtró en la segunda llamada.
+    async function processListarPreciosMarker(
+        data: { check_in: string; check_out: string; unit_codes: string[] }
+    ): Promise<{ text: string; usedFallback: boolean }> {
+        const { check_in, check_out, unit_codes } = data
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
 
         const uniqueCodes = [...new Set(unit_codes)]
@@ -1959,15 +1971,12 @@ Deno.serve(async (req: Request) => {
         const unknownCodes = resolved.filter(r => r.unit === null).map(r => r.code)
         const knownUnits = resolved.map(r => r.unit).filter((u): u is Unit => u !== null)
 
-        let usedFallback = false
         const genericFallbackText =
             `Dame un momento para confirmarte los precios exactos para esas fechas 🙂 Ya te contacto con la información.`
 
         if (unknownCodes.length > 0) {
             // unit_code(s) inválidos generados por el LLM: señal de que algo no cuadra, amerita revisión humana
-            usedFallback = true
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## unit_codes no encontrados: ${unknownCodes.join(', ')}`)
-            assistantText = genericFallbackText
 
             enviarAlertaTecnicaAJose('Fallo: unit_codes inválidos en LISTAR_PRECIOS', `unit_codes no encontrados: ${unknownCodes.join(', ')}`, phone, conversation.id)
 
@@ -1983,125 +1992,132 @@ Deno.serve(async (req: Request) => {
                 `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
                 true
             )
-        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
-            usedFallback = true
-            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            assistantText = genericFallbackText
-        } else {
-            const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
 
-            // Fail-open: si getOccupiedUnitIds falla, se cotiza sin filtrar (comportamiento previo)
-            let unitsToPrice = knownUnits
-            let removedOccupiedCodes: string[] = []
-
-            if (occupiedResult.error) {
-                // Fail-open: no se pudo verificar disponibilidad, se cotiza sin filtrar
-            } else {
-                const occupied = occupiedResult.occupied
-                unitsToPrice = knownUnits.filter(u => !occupied.has(u.id))
-                removedOccupiedCodes = knownUnits.filter(u => occupied.has(u.id)).map(u => u.code)
-
-                console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## filtro_disponibilidad: pedidas=${knownUnits.map(u => u.code).join(',')} ocupadas_removidas=${removedOccupiedCodes.join(',')} libres=${unitsToPrice.map(u => u.code).join(',')}`)
-            }
-
-            // Precio real por unidad EN PARALELO — son consultas a BD, no llamadas a Claude
-            const settled = await Promise.allSettled(
-                unitsToPrice.map(async unit => {
-                    const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
-                    const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
-                    return { code: unit.code, totalPrice, nights, avgPrice: Math.round(totalPrice / nights) }
-                })
-            )
-
-            const priced = settled
-                .filter((r): r is PromiseFulfilledResult<{ code: string; totalPrice: number; nights: number; avgPrice: number }> => r.status === 'fulfilled')
-                .map(r => r.value)
-
-            const failedCodes = unitsToPrice
-                .filter((_, i) => settled[i].status === 'rejected')
-                .map(u => u.code)
-
-            if (failedCodes.length > 0) {
-                console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fallo calculando precio para: ${failedCodes.join(', ')}`)
-            }
-
-            if (priced.length === 0) {
-                if (unitsToPrice.length === 0) {
-                    usedFallback = false
-                    assistantText = 'Lamentablemente no tenemos disponibilidad en esas fechas en las unidades que consultaste. Si quieres, dime otras fechas y te cuento qué tenemos libre 🙂'
-                } else {
-                    usedFallback = true
-                    assistantText = genericFallbackText
-                }
-            } else {
-                const priceLines = priced
-                    .map(p => `- ${p.code}: $${p.totalPrice.toLocaleString('es-CL')} total ($${p.avgPrice.toLocaleString('es-CL')}/noche, ${p.nights} noches)`)
-                    .join('\n')
-
-                const missingNote = failedCodes.length > 0
-                    ? `\n\nNo se pudo calcular el precio de: ${failedCodes.join(', ')} — para esas NO des ningún precio, dile al huésped que se las confirmas aparte.`
-                    : ''
-
-                const removedNote = removedOccupiedCodes.length > 0
-                    ? `\n\nEstas unidades NO están disponibles para esas fechas, no las ofrezcas: ${removedOccupiedCodes.join(', ')}.`
-                    : ''
-
-                const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.${removedNote}`
-
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
-
-                try {
-                    const secondResp = await fetch(CLAUDE_API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'x-api-key': anthropicKey,
-                            'anthropic-version': '2023-06-01',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: CLAUDE_MODEL,
-                            max_tokens: 1024,
-                            system: `${systemPrompt}\n\n${priceNote}`,
-                            messages: sanitizedMessages,
-                        }),
-                        signal: controller.signal,
-                    })
-
-                    if (!secondResp.ok) {
-                        throw new Error(`HTTP ${secondResp.status}`)
-                    }
-
-                    const secondData = await secondResp.json()
-                    const secondText: string = secondData?.content?.[0]?.text ?? ''
-
-                    if (!secondText.trim()) {
-                        throw new Error('respuesta vacía')
-                    }
-
-                    assistantText = secondText
-                } catch (e) {
-                    usedFallback = true
-                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
-                    console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## segunda llamada falló (${reason})`)
-                    assistantText = genericFallbackText
-                } finally {
-                    clearTimeout(timeoutId)
-                }
-            }
+            return { text: genericFallbackText, usedFallback: true }
         }
 
-        console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## disparado: unit_codes=${uniqueCodes.join(',')} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - listarStart} fallback=${usedFallback}`)
+        if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
+            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            return { text: genericFallbackText, usedFallback: true }
+        }
+
+        const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
+
+        // Fail-open: si getOccupiedUnitIds falla, se cotiza sin filtrar (comportamiento previo)
+        let unitsToPrice = knownUnits
+        let removedOccupiedCodes: string[] = []
+
+        if (occupiedResult.error) {
+            // Fail-open: no se pudo verificar disponibilidad, se cotiza sin filtrar
+        } else {
+            const occupied = occupiedResult.occupied
+            unitsToPrice = knownUnits.filter(u => !occupied.has(u.id))
+            removedOccupiedCodes = knownUnits.filter(u => occupied.has(u.id)).map(u => u.code)
+
+            console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## filtro_disponibilidad: pedidas=${knownUnits.map(u => u.code).join(',')} ocupadas_removidas=${removedOccupiedCodes.join(',')} libres=${unitsToPrice.map(u => u.code).join(',')}`)
+        }
+
+        // Precio real por unidad EN PARALELO — son consultas a BD, no llamadas a Claude
+        const settled = await Promise.allSettled(
+            unitsToPrice.map(async unit => {
+                const totalPrice = await calculateReservationPrice(supabase, unit.id, check_in, check_out, Number(unit.base_price))
+                const nights = Math.ceil((new Date(check_out).getTime() - new Date(check_in).getTime()) / (24 * 60 * 60 * 1000))
+                return { code: unit.code, totalPrice, nights, avgPrice: Math.round(totalPrice / nights) }
+            })
+        )
+
+        const priced = settled
+            .filter((r): r is PromiseFulfilledResult<{ code: string; totalPrice: number; nights: number; avgPrice: number }> => r.status === 'fulfilled')
+            .map(r => r.value)
+
+        const failedCodes = unitsToPrice
+            .filter((_, i) => settled[i].status === 'rejected')
+            .map(u => u.code)
+
+        if (failedCodes.length > 0) {
+            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fallo calculando precio para: ${failedCodes.join(', ')}`)
+        }
+
+        if (priced.length === 0) {
+            if (unitsToPrice.length === 0) {
+                return { text: 'Lamentablemente no tenemos disponibilidad en esas fechas en las unidades que consultaste. Si quieres, dime otras fechas y te cuento qué tenemos libre 🙂', usedFallback: false }
+            }
+            return { text: genericFallbackText, usedFallback: true }
+        }
+
+        const priceLines = priced
+            .map(p => `- ${p.code}: $${p.totalPrice.toLocaleString('es-CL')} total ($${p.avgPrice.toLocaleString('es-CL')}/noche, ${p.nights} noches)`)
+            .join('\n')
+
+        const missingNote = failedCodes.length > 0
+            ? `\n\nNo se pudo calcular el precio de: ${failedCodes.join(', ')} — para esas NO des ningún precio, dile al huésped que se las confirmas aparte.`
+            : ''
+
+        const removedNote = removedOccupiedCodes.length > 0
+            ? `\n\nEstas unidades NO están disponibles para esas fechas, no las ofrezcas: ${removedOccupiedCodes.join(', ')}.`
+            : ''
+
+        const priceNote = `IMPORTANTE — ANULA LA INSTRUCCIÓN 4d PARA ESTE TURNO: ya tienes los precios reales de estas unidades, calculados por el sistema. NO uses el marcador ##LISTAR_PRECIOS## en esta respuesta bajo ninguna circunstancia. Respóndele directamente al turista en texto natural, sin marcadores, con SOLO estas unidades y SOLO estos precios (no inventes precios para ninguna otra):\n\nPrecios reales para ${check_in} → ${check_out}:\n${priceLines}${missingNote}\n\nComunícaselo de forma natural y cálida, invitándolo a elegir una para continuar con la reserva.${removedNote}`
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
+
+        try {
+            const secondResp = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'x-api-key': anthropicKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    system: `${systemPrompt}\n\n${priceNote}`,
+                    messages: sanitizedMessages,
+                }),
+                signal: controller.signal,
+            })
+
+            if (!secondResp.ok) {
+                throw new Error(`HTTP ${secondResp.status}`)
+            }
+
+            const secondData = await secondResp.json()
+            const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+            if (!secondText.trim()) {
+                throw new Error('respuesta vacía')
+            }
+
+            return { text: secondText, usedFallback: false }
+        } catch (e) {
+            const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
+            console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## segunda llamada falló (${reason})`)
+            return { text: genericFallbackText, usedFallback: true }
+        } finally {
+            clearTimeout(timeoutId)
+        }
+    }
+
+    const listarPreciosResult = parseListarPrecios(assistantText)
+
+    if (listarPreciosResult.success) {
+        const listarStart = Date.now()
+        const { text: listarText, usedFallback: listarUsedFallback } = await processListarPreciosMarker(listarPreciosResult.data)
+        assistantText = listarText
+
+        const uniqueCodesForLog = [...new Set(listarPreciosResult.data.unit_codes)]
+        console.log(`[whatsapp-bot] ##LISTAR_PRECIOS## disparado: unit_codes=${uniqueCodesForLog.join(',')} check_in=${listarPreciosResult.data.check_in} check_out=${listarPreciosResult.data.check_out} elapsed_ms=${Date.now() - listarStart} fallback=${listarUsedFallback}`)
     }
 
     // ── 9c. Detectar y procesar ##ENVIAR_FOTOS## (envío de fotos de una unidad) ──
-    let mediaAlreadySent = false
-    const enviarFotosResult = parseEnviarFotos(assistantText)
-
-    if (enviarFotosResult.success) {
-        const { unit_code } = enviarFotosResult.data
-        const fotosStart = Date.now()
-
+    // processEnviarFotosMarker se reutiliza también desde Guard 12b (paso 12b) para reprocesar
+    // un marcador ##ENVIAR_FOTOS## crudo que se filtró en la segunda llamada.
+    async function processEnviarFotosMarker(
+        data: { unit_code: string }
+    ): Promise<{ text: string; mediaAlreadySent: boolean }> {
+        const { unit_code } = data
         const fotosFallbackText = 'Dame un momento, te comparto las fotos directamente 🙂'
 
         const { data: photoRow, error: photoErr } = await supabase
@@ -2112,115 +2128,123 @@ Deno.serve(async (req: Request) => {
 
         if (photoErr) {
             console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error consultando unit_photos para unit_code=${unit_code}:`, photoErr)
-            assistantText = fotosFallbackText
-        } else if (!photoRow || !Array.isArray(photoRow.photo_urls) || photoRow.photo_urls.length < 2) {
+            return { text: fotosFallbackText, mediaAlreadySent: false }
+        }
+
+        if (!photoRow || !Array.isArray(photoRow.photo_urls) || photoRow.photo_urls.length < 2) {
             // Sin fila cargada, o fila con menos de 2 URLs: pendiente de completar en unit_photos
             console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## unit_code sin fotos suficientes (pendiente de completar en unit_photos): unit_code=${unit_code} urls_encontradas=${photoRow?.photo_urls?.length ?? 0}`)
-            assistantText = fotosFallbackText
-        } else {
-            const photoUrls = photoRow.photo_urls.slice(0, 3)
-            const captionText = `Estas son algunas fotos de ${unit_code}:`
+            return { text: fotosFallbackText, mediaAlreadySent: false }
+        }
 
-            const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
-            const fotosAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
-            const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
+        const photoUrls = photoRow.photo_urls.slice(0, 3)
+        const captionText = `Estas son algunas fotos de ${unit_code}:`
 
-            if (accountSid && fotosAuthToken && fromNumber) {
-                const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
-                let anySent = false
+        const accountSid = Deno.env.get('TWILIO_ACCOUNT_SID') ?? ''
+        const fotosAuthToken = Deno.env.get('TWILIO_AUTH_TOKEN') ?? ''
+        const fromNumber = Deno.env.get('TWILIO_WHATSAPP_FROM') ?? ''
 
-                // WhatsApp (a diferencia de MMS) solo acepta UN media por mensaje: Twilio ignora
-                // silenciosamente los MediaUrl adicionales. Por eso se manda 1) el caption como
-                // mensaje de texto normal y 2) un mensaje separado por cada foto, secuencial
-                // (no Promise.all) para preservar el orden en que llegan al huésped.
-                try {
-                    const captionBody = new URLSearchParams({
-                        From: fromNumber,
-                        To: fromRaw,
-                        Body: captionText,
-                    })
-                    const captionSend = await fetch(twilioUrl, {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
-                            'Content-Type': 'application/x-www-form-urlencoded',
-                        },
-                        body: captionBody.toString(),
-                    })
+        if (!accountSid || !fotosAuthToken || !fromNumber) {
+            console.error('[whatsapp-bot] ##ENVIAR_FOTOS## faltan credenciales de Twilio para enviar fotos')
+            return { text: fotosFallbackText, mediaAlreadySent: false }
+        }
 
-                    if (!captionSend.ok) {
-                        const errText = await captionSend.text()
-                        console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando caption por Twilio (unit_code=${unit_code}):`, captionSend.status, errText)
-                    } else {
-                        anySent = true
-                    }
-                } catch (e) {
-                    console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando caption por Twilio (unit_code=${unit_code}):`, e)
-                }
+        const twilioUrl = `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`
+        let anySent = false
 
-                for (const url of photoUrls) {
-                    try {
-                        const photoBody = new URLSearchParams({
-                            From: fromNumber,
-                            To: fromRaw,
-                            MediaUrl: url,
-                        })
-                        const photoSend = await fetch(twilioUrl, {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
-                                'Content-Type': 'application/x-www-form-urlencoded',
-                            },
-                            body: photoBody.toString(),
-                        })
+        // WhatsApp (a diferencia de MMS) solo acepta UN media por mensaje: Twilio ignora
+        // silenciosamente los MediaUrl adicionales. Por eso se manda 1) el caption como
+        // mensaje de texto normal y 2) un mensaje separado por cada foto, secuencial
+        // (no Promise.all) para preservar el orden en que llegan al huésped.
+        try {
+            const captionBody = new URLSearchParams({
+                From: fromNumber,
+                To: fromRaw,
+                Body: captionText,
+            })
+            const captionSend = await fetch(twilioUrl, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: captionBody.toString(),
+            })
 
-                        if (!photoSend.ok) {
-                            const errText = await photoSend.text()
-                            console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, photoSend.status, errText)
-                        } else {
-                            anySent = true
-                        }
-                    } catch (e) {
-                        console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, e)
-                    }
-                }
-
-                if (anySent) {
-                    // Al menos el caption o una foto llegó al huésped: no duplicar en el paso 15.
-                    assistantText = captionText
-                    mediaAlreadySent = true
-                } else {
-                    // Nada llegó al huésped: dejar que el paso 15 mande el fallback.
-                    assistantText = fotosFallbackText
-                }
+            if (!captionSend.ok) {
+                const errText = await captionSend.text()
+                console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando caption por Twilio (unit_code=${unit_code}):`, captionSend.status, errText)
             } else {
-                console.error('[whatsapp-bot] ##ENVIAR_FOTOS## faltan credenciales de Twilio para enviar fotos')
-                assistantText = fotosFallbackText
+                anySent = true
+            }
+        } catch (e) {
+            console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando caption por Twilio (unit_code=${unit_code}):`, e)
+        }
+
+        for (const url of photoUrls) {
+            try {
+                const photoBody = new URLSearchParams({
+                    From: fromNumber,
+                    To: fromRaw,
+                    MediaUrl: url,
+                })
+                const photoSend = await fetch(twilioUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Basic ' + btoa(`${accountSid}:${fotosAuthToken}`),
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: photoBody.toString(),
+                })
+
+                if (!photoSend.ok) {
+                    const errText = await photoSend.text()
+                    console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## error enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, photoSend.status, errText)
+                } else {
+                    anySent = true
+                }
+            } catch (e) {
+                console.error(`[whatsapp-bot] ##ENVIAR_FOTOS## excepción enviando foto por Twilio (unit_code=${unit_code}, url=${url}):`, e)
             }
         }
 
-        console.log(`[whatsapp-bot] ##ENVIAR_FOTOS## disparado: unit_code=${unit_code} elapsed_ms=${Date.now() - fotosStart} media_enviado=${mediaAlreadySent}`)
+        if (anySent) {
+            // Al menos el caption o una foto llegó al huésped: no duplicar en el paso 15.
+            return { text: captionText, mediaAlreadySent: true }
+        }
+        // Nada llegó al huésped: dejar que el paso 15 mande el fallback.
+        return { text: fotosFallbackText, mediaAlreadySent: false }
+    }
+
+    let mediaAlreadySent = false
+    const enviarFotosResult = parseEnviarFotos(assistantText)
+
+    if (enviarFotosResult.success) {
+        const fotosStart = Date.now()
+        const { text: fotosText, mediaAlreadySent: fotosSent } = await processEnviarFotosMarker(enviarFotosResult.data)
+        assistantText = fotosText
+        mediaAlreadySent = fotosSent
+
+        console.log(`[whatsapp-bot] ##ENVIAR_FOTOS## disparado: unit_code=${enviarFotosResult.data.unit_code} elapsed_ms=${Date.now() - fotosStart} media_enviado=${mediaAlreadySent}`)
     }
 
     // ── 9d. Detectar y procesar ##VERIFICAR_DISPONIBILIDAD## (verificación determinista
     // de una unidad puntual antes de confirmar, 2da llamada) ──────────────────
-    const verificarDispoResult = parseVerificarDisponibilidad(assistantText)
-
-    if (verificarDispoResult.success) {
-        const { unit_code, check_in, check_out } = verificarDispoResult.data
-        const verificarStart = Date.now()
+    // processVerificarDisponibilidadMarker se reutiliza también desde Guard 12b (paso 12b)
+    // para reprocesar un marcador ##VERIFICAR_DISPONIBILIDAD## crudo filtrado en la 2da llamada.
+    async function processVerificarDisponibilidadMarker(
+        data: { unit_code: string; check_in: string; check_out: string }
+    ): Promise<{ text: string; usedFallback: boolean }> {
+        const { unit_code, check_in, check_out } = data
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
         const unit = activeUnits.find(u => u.code === unit_code)
-        let usedFallback = false
 
         const genericFallbackText =
             `Dame un momento para confirmarte la disponibilidad exacta para esas fechas 🙂 Ya te contacto con la información.`
 
         if (!unit) {
             // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
-            usedFallback = true
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## unit_code no encontrado: ${unit_code}`)
-            assistantText = genericFallbackText
 
             enviarAlertaTecnicaAJose('Fallo: unit_code inválido en VERIFICAR_DISPONIBILIDAD', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
@@ -2236,88 +2260,97 @@ Deno.serve(async (req: Request) => {
                 `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
                 true
             )
-        } else if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
-            usedFallback = true
-            console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            assistantText = genericFallbackText
-        } else {
-            const availabilityCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
 
-            if (availabilityCheck.error) {
-                usedFallback = true
-                assistantText = genericFallbackText
-            } else {
-                console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## resultado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} disponible=${availabilityCheck.disponible}`)
-
-                const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
-                let libresSuffix = ''
-                if (occupiedResult.error) {
-                    // Fail-open: no se pudo verificar unidades libres, no se agrega sufijo
-                } else {
-                    const occupied = occupiedResult.occupied
-                    const freeUnits = activeUnits.filter(u => !occupied.has(u.id))
-                    const libresList = freeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join('; ')
-
-                    libresSuffix = libresList
-                        ? `\n\nUNIDADES LIBRES VERIFICADAS EN LA BASE DE DATOS para ${check_in} → ${check_out} (única fuente válida para ofrecer alternativas o mencionar otras opciones; no uses el bloque DISPONIBILIDAD ACTUAL para eso, y ofrece solo las que caben en el grupo): ${libresList}. Toda unidad que no esté en esta lista está OCUPADA para esas fechas: no la presentes como disponible.`
-                        : `\n\nNo hay ninguna unidad libre para esas fechas: infórmalo con calidez y sugiere otras fechas.`
-
-                    console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## libres_verificadas: ${freeUnits.map(u => u.code).join(',')}`)
-                }
-
-                // Sin tercera llamada: esta segunda respuesta debe quedar en texto natural,
-                // así que se prohíbe explícitamente CUALQUIER marcador (no solo el propio),
-                // mismo principio de seguridad que ya usan ##COTIZAR## y ##LISTAR_PRECIOS##.
-                const availNote = (availabilityCheck.disponible
-                    ? `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} SÍ está disponible para el rango ${check_in} → ${check_out}. Confírmaselo al turista con naturalidad. NO uses ningún marcador (##COTIZAR##, ##LISTAR_PRECIOS##, ##RESERVA_LISTA##, ##VERIFICAR_DISPONIBILIDAD##, etc.) en esta respuesta bajo ninguna circunstancia, aunque otra instrucción diga lo contrario — responde solo en texto natural, y si te faltan datos para cotizar o completar la reserva, pídeselos en este mismo mensaje. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
-                    : `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} NO está disponible para el rango ${check_in} → ${check_out}: hay un conflicto real en el sistema. NO confirmes disponibilidad para esa unidad y esas fechas bajo ninguna circunstancia, aunque el bloque DISPONIBILIDAD ACTUAL te haya parecido ambiguo. Informa al turista con calidez que esas fechas específicas ya están ocupadas para esa unidad, y ofrécele alternativas (otra unidad disponible para esas fechas, u otras fechas para la misma unidad) usando el bloque DISPONIBILIDAD ACTUAL que ya tienes en tu contexto. NO uses ningún marcador en esta respuesta bajo ninguna circunstancia — responde solo en texto natural. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
-                ) + libresSuffix
-
-                const controller = new AbortController()
-                const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
-
-                try {
-                    const secondResp = await fetch(CLAUDE_API_URL, {
-                        method: 'POST',
-                        headers: {
-                            'x-api-key': anthropicKey,
-                            'anthropic-version': '2023-06-01',
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify({
-                            model: CLAUDE_MODEL,
-                            max_tokens: 1024,
-                            system: `${systemPrompt}\n\n${availNote}`,
-                            messages: sanitizedMessages,
-                        }),
-                        signal: controller.signal,
-                    })
-
-                    if (!secondResp.ok) {
-                        throw new Error(`HTTP ${secondResp.status}`)
-                    }
-
-                    const secondData = await secondResp.json()
-                    const secondText: string = secondData?.content?.[0]?.text ?? ''
-
-                    if (!secondText.trim()) {
-                        throw new Error('respuesta vacía')
-                    }
-
-                    assistantText = secondText
-                    console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda_respuesta: ${secondText.slice(0, 600).replace(/\s+/g, ' ')}`)
-                } catch (e) {
-                    usedFallback = true
-                    const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
-                    console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda llamada falló (${reason})`)
-                    assistantText = genericFallbackText
-                } finally {
-                    clearTimeout(timeoutId)
-                }
-            }
+            return { text: genericFallbackText, usedFallback: true }
         }
 
-        console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## disparado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} elapsed_ms=${Date.now() - verificarStart} fallback=${usedFallback}`)
+        if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
+            console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
+            return { text: genericFallbackText, usedFallback: true }
+        }
+
+        const availabilityCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
+
+        if (availabilityCheck.error) {
+            return { text: genericFallbackText, usedFallback: true }
+        }
+
+        console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## resultado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} disponible=${availabilityCheck.disponible}`)
+
+        const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
+        let libresSuffix = ''
+        if (occupiedResult.error) {
+            // Fail-open: no se pudo verificar unidades libres, no se agrega sufijo
+        } else {
+            const occupied = occupiedResult.occupied
+            const freeUnits = activeUnits.filter(u => !occupied.has(u.id))
+            const libresList = freeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join('; ')
+
+            libresSuffix = libresList
+                ? `\n\nUNIDADES LIBRES VERIFICADAS EN LA BASE DE DATOS para ${check_in} → ${check_out} (única fuente válida para ofrecer alternativas o mencionar otras opciones; no uses el bloque DISPONIBILIDAD ACTUAL para eso, y ofrece solo las que caben en el grupo): ${libresList}. Toda unidad que no esté en esta lista está OCUPADA para esas fechas: no la presentes como disponible.`
+                : `\n\nNo hay ninguna unidad libre para esas fechas: infórmalo con calidez y sugiere otras fechas.`
+
+            console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## libres_verificadas: ${freeUnits.map(u => u.code).join(',')}`)
+        }
+
+        // Sin tercera llamada: esta segunda respuesta debe quedar en texto natural,
+        // así que se prohíbe explícitamente CUALQUIER marcador (no solo el propio),
+        // mismo principio de seguridad que ya usan ##COTIZAR## y ##LISTAR_PRECIOS##.
+        const availNote = (availabilityCheck.disponible
+            ? `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} SÍ está disponible para el rango ${check_in} → ${check_out}. Confírmaselo al turista con naturalidad. NO uses ningún marcador (##COTIZAR##, ##LISTAR_PRECIOS##, ##RESERVA_LISTA##, ##VERIFICAR_DISPONIBILIDAD##, etc.) en esta respuesta bajo ninguna circunstancia, aunque otra instrucción diga lo contrario — responde solo en texto natural, y si te faltan datos para cotizar o completar la reserva, pídeselos en este mismo mensaje. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
+            : `IMPORTANTE — ANULA LA INSTRUCCIÓN 5 PARA ESTE TURNO: ya verificaste de forma determinista (consulta real a la base de datos, no una lectura del bloque de contexto) que ${unit_code} NO está disponible para el rango ${check_in} → ${check_out}: hay un conflicto real en el sistema. NO confirmes disponibilidad para esa unidad y esas fechas bajo ninguna circunstancia, aunque el bloque DISPONIBILIDAD ACTUAL te haya parecido ambiguo. Informa al turista con calidez que esas fechas específicas ya están ocupadas para esa unidad, y ofrécele alternativas (otra unidad disponible para esas fechas, u otras fechas para la misma unidad) usando el bloque DISPONIBILIDAD ACTUAL que ya tienes en tu contexto. NO uses ningún marcador en esta respuesta bajo ninguna circunstancia — responde solo en texto natural. Si corresponde según la instrucción 5d, agrega el marcador <!--FECHA_MENCIONADA:YYYY-MM-DD--> al final.`
+        ) + libresSuffix
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), CLAUDE_RETRY_TIMEOUT_MS)
+
+        try {
+            const secondResp = await fetch(CLAUDE_API_URL, {
+                method: 'POST',
+                headers: {
+                    'x-api-key': anthropicKey,
+                    'anthropic-version': '2023-06-01',
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    model: CLAUDE_MODEL,
+                    max_tokens: 1024,
+                    system: `${systemPrompt}\n\n${availNote}`,
+                    messages: sanitizedMessages,
+                }),
+                signal: controller.signal,
+            })
+
+            if (!secondResp.ok) {
+                throw new Error(`HTTP ${secondResp.status}`)
+            }
+
+            const secondData = await secondResp.json()
+            const secondText: string = secondData?.content?.[0]?.text ?? ''
+
+            if (!secondText.trim()) {
+                throw new Error('respuesta vacía')
+            }
+
+            console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda_respuesta: ${secondText.slice(0, 600).replace(/\s+/g, ' ')}`)
+            return { text: secondText, usedFallback: false }
+        } catch (e) {
+            const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
+            console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda llamada falló (${reason})`)
+            return { text: genericFallbackText, usedFallback: true }
+        } finally {
+            clearTimeout(timeoutId)
+        }
+    }
+
+    const verificarDispoResult = parseVerificarDisponibilidad(assistantText)
+
+    if (verificarDispoResult.success) {
+        const verificarStart = Date.now()
+        const { text: verificarText, usedFallback: verificarUsedFallback } = await processVerificarDisponibilidadMarker(verificarDispoResult.data)
+        assistantText = verificarText
+
+        console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## disparado: unit_code=${verificarDispoResult.data.unit_code} check_in=${verificarDispoResult.data.check_in} check_out=${verificarDispoResult.data.check_out} elapsed_ms=${Date.now() - verificarStart} fallback=${verificarUsedFallback}`)
     }
 
     // ── 10. Detectar y procesar ##RESERVA_LISTA## ─────────────────────────────
@@ -2559,12 +2592,22 @@ Deno.serve(async (req: Request) => {
     // Última línea de defensa, independiente de la causa: si por cualquier motivo
     // (prompt, parseo, nueva llamada a Claude, etc.) queda un marcador ##ALGO## crudo
     // en el texto final, no debe llegar nunca al huésped.
+    //
+    // Plan B: antes de aplicar el fallback genérico, se intenta reprocesar el marcador
+    // crudo con el mismo parser y la misma función que ya lo procesan en la primera
+    // llamada (processCotizarMarker / processListarPreciosMarker / processEnviarFotosMarker /
+    // processVerificarDisponibilidadMarker definidas en los pasos 9/9b/9c/9d) — así una
+    // respuesta bien formada pero mal entregada no deriva a humano innecesariamente.
+    // ##DERIVAR## y ##RESERVA_LISTA## NUNCA se reprocesan (siempre implican intervención
+    // humana o un paso de pago). Freno anti-loop: si el resultado del reprocesamiento
+    // también trae un marcador crudo, no se reintenta de nuevo — se aplica el fallback.
     const rawMarkerMatch = assistantText.match(/##[A-ZÁÉÍÓÚÑ_]+##/)
-    if (rawMarkerMatch) {
-        console.error(`[whatsapp-bot] Marcador interno sin procesar detectado antes de enviar (${rawMarkerMatch[0]}), se reemplaza por fallback seguro. Texto original: ${assistantText}`)
+
+    const applyGuard12bFallback = async (rawMarker: string, originalText: string) => {
+        console.error(`[whatsapp-bot] Marcador interno sin procesar detectado antes de enviar (${rawMarker}), se reemplaza por fallback seguro. Texto original: ${originalText}`)
         assistantText = 'Dame un momento para confirmarte esa información 🙂 Ya te contacto directamente.'
 
-        enviarAlertaTecnicaAJose('Fallo: marcador crudo sin procesar llegó al guard 12b', `marcador sin procesar: ${rawMarkerMatch[0]}`, phone, conversation.id)
+        enviarAlertaTecnicaAJose('Fallo: marcador crudo sin procesar llegó al guard 12b', `marcador sin procesar: ${rawMarker}`, phone, conversation.id)
 
         await supabase
             .from('core_chat_conversations')
@@ -2579,6 +2622,83 @@ Deno.serve(async (req: Request) => {
                 `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
                 true
             )
+        }
+    }
+
+    if (rawMarkerMatch) {
+        const markerName = rawMarkerMatch[0].slice(2, -2)
+        const guard12bDateRegex = /^\d{4}-\d{2}-\d{2}$/
+        const originalRawText = assistantText
+        const rawMarkerRegex = /##[A-ZÁÉÍÓÚÑ_]+##/
+        let reprocessed = false
+
+        if (markerName === 'COTIZAR') {
+            const retry = parseCotizar(originalRawText)
+            const unit = retry.success ? activeUnits.find(u => u.code === retry.data.unit_code) : undefined
+
+            if (retry.success && unit && guard12bDateRegex.test(retry.data.check_in) && guard12bDateRegex.test(retry.data.check_out)) {
+                const { text } = await processCotizarMarker(retry.data)
+
+                if (rawMarkerRegex.test(text)) {
+                    console.error(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado (tipo=COTIZAR) volvió a devolver un marcador crudo, no se reintenta de nuevo`)
+                } else {
+                    assistantText = text
+                    reprocessed = true
+                    console.log(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado con éxito (tipo=COTIZAR, unit_code=${retry.data.unit_code})`)
+                }
+            }
+        } else if (markerName === 'LISTAR_PRECIOS') {
+            const retry = parseListarPrecios(originalRawText)
+            const allKnown = retry.success && retry.data.unit_codes.every(code => activeUnits.some(u => u.code === code))
+
+            if (retry.success && allKnown && guard12bDateRegex.test(retry.data.check_in) && guard12bDateRegex.test(retry.data.check_out)) {
+                const { text } = await processListarPreciosMarker(retry.data)
+
+                if (rawMarkerRegex.test(text)) {
+                    console.error(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado (tipo=LISTAR_PRECIOS) volvió a devolver un marcador crudo, no se reintenta de nuevo`)
+                } else {
+                    assistantText = text
+                    reprocessed = true
+                    console.log(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado con éxito (tipo=LISTAR_PRECIOS, unit_codes=${retry.data.unit_codes.join(',')})`)
+                }
+            }
+        } else if (markerName === 'VERIFICAR_DISPONIBILIDAD') {
+            const retry = parseVerificarDisponibilidad(originalRawText)
+            const unit = retry.success ? activeUnits.find(u => u.code === retry.data.unit_code) : undefined
+
+            if (retry.success && unit && guard12bDateRegex.test(retry.data.check_in) && guard12bDateRegex.test(retry.data.check_out)) {
+                const { text } = await processVerificarDisponibilidadMarker(retry.data)
+
+                if (rawMarkerRegex.test(text)) {
+                    console.error(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado (tipo=VERIFICAR_DISPONIBILIDAD) volvió a devolver un marcador crudo, no se reintenta de nuevo`)
+                } else {
+                    assistantText = text
+                    reprocessed = true
+                    console.log(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado con éxito (tipo=VERIFICAR_DISPONIBILIDAD, unit_code=${retry.data.unit_code})`)
+                }
+            }
+        } else if (markerName === 'ENVIAR_FOTOS') {
+            const retry = parseEnviarFotos(originalRawText)
+
+            if (retry.success) {
+                const { text, mediaAlreadySent: fotosSent } = await processEnviarFotosMarker(retry.data)
+
+                if (rawMarkerRegex.test(text)) {
+                    console.error(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado (tipo=ENVIAR_FOTOS) volvió a devolver un marcador crudo, no se reintenta de nuevo`)
+                } else {
+                    assistantText = text
+                    mediaAlreadySent = fotosSent
+                    reprocessed = true
+                    console.log(`[whatsapp-bot] Guard 12b: marcador crudo reprocesado con éxito (tipo=ENVIAR_FOTOS, unit_code=${retry.data.unit_code})`)
+                }
+            }
+        } else if (markerName === 'DERIVAR' || markerName === 'RESERVA_LISTA') {
+            console.log(`[whatsapp-bot] Guard 12b: marcador crudo tipo=${markerName} no se reprocesa (requiere intervención humana por diseño)`)
+        }
+
+        if (!reprocessed) {
+            console.error(`[whatsapp-bot] Guard 12b: marcador crudo no procesable, aplicando fallback (marcador=${rawMarkerMatch[0]})`)
+            await applyGuard12bFallback(rawMarkerMatch[0], originalRawText)
         }
     }
 
