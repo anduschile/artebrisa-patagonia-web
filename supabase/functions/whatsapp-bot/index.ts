@@ -26,6 +26,11 @@ const CLAUDE_MODEL    = 'claude-sonnet-4-5'
 const CLAUDE_API_URL  = 'https://api.anthropic.com/v1/messages'
 const CLAUDE_RETRY_TIMEOUT_MS = 15000
 const TWILIO_WEBHOOK_URL = 'https://khryuvmashcqwsuhhsdd.supabase.co/functions/v1/whatsapp-bot'
+// Lock pesimista por conversación (ver migración 20261027_chat_conversation_lock.sql):
+// evita que mensajes casi simultáneos del mismo huésped disparen invocaciones paralelas
+// que arman cada una su propio system prompt y responden sin saber de la otra.
+const CONVERSATION_LOCK_SECONDS = 45
+const CONVERSATION_LOCK_RETRY_DELAY_MS = 2000
 
 // ContentSid de la plantilla de WhatsApp 'derivacion_humano_v1' (aprobada por Meta),
 // requerida para notificar a Karina fuera de la ventana de 24h (mismo patrón que
@@ -1690,6 +1695,40 @@ Deno.serve(async (req: Request) => {
     // TEMPORAL DIAGNÓSTICO — REMOVER
     console.log('[BOT-FLOW] Mensaje guardado, id:', insertedMsg?.id)
 
+    // ── 4b. Lock pesimista de la conversación ─────────────────────────────
+    // El mensaje de este huésped YA quedó guardado arriba (paso 4) pase lo que
+    // pase con el lock — eso nunca se salta. A partir de aquí, si otra
+    // invocación paralela ya está procesando un turno para esta misma
+    // conversación (mensajes casi simultáneos del huésped), esta invocación no
+    // debe armar su propio system prompt ni llamar a Claude por su cuenta: el
+    // mensaje que ya guardamos será recogido por quien tenga el lock (paso 5)
+    // o, en el peor caso, por el siguiente turno.
+    async function tryAcquireConversationLock(): Promise<boolean> {
+        const { data, error } = await supabase.rpc('acquire_chat_conversation_lock', {
+            p_conversation_id: conversation.id,
+            p_lock_seconds: CONVERSATION_LOCK_SECONDS,
+        })
+        if (error) {
+            console.error(`[whatsapp-bot] Error adquiriendo lock de conversación: ${error.message} conversation_id=${conversation.id}`)
+            return false
+        }
+        return data === true
+    }
+
+    let conversationLockAcquired = await tryAcquireConversationLock()
+
+    if (!conversationLockAcquired) {
+        await new Promise(resolve => setTimeout(resolve, CONVERSATION_LOCK_RETRY_DELAY_MS))
+        conversationLockAcquired = await tryAcquireConversationLock()
+    }
+
+    if (!conversationLockAcquired) {
+        console.log(`[whatsapp-bot] Lock ocupado, mensaje encolado sin respuesta inmediata — conversation_id=${conversation.id}`)
+        return twimlEmpty()
+    }
+
+    try {
+
     // ── 5. Cargar historial (últimos 10 mensajes, con corte por gap de 2h) ──
     const { data: history } = await supabase
         .from('core_chat_messages')
@@ -1744,6 +1783,11 @@ Deno.serve(async (req: Request) => {
             new Date(r.created_at).getTime() < Date.now() - inquiryExpiryMs(r.notes)
         return !isExpiredInquiry
     })
+
+    // Punto de referencia para el chequeo de carrera residual del paso 15 (lock
+    // pesimista, 4b): cualquier mensaje role='user' que llegue DESPUÉS de este
+    // instante no alcanzó a incluirse en el turno que estamos a punto de armar.
+    const promptBuildStartedAt = new Date().toISOString()
 
     // Ambos bloques de contexto ahora usan el mismo identificador (code)
     const availabilityCtx = formatAvailabilityContext(availability ?? [], unitCodeMap)
@@ -2740,6 +2784,23 @@ Deno.serve(async (req: Request) => {
         .update({ last_message_at: new Date().toISOString() })
         .eq('id', conversation.id)
 
+    // ── 14b. Chequeo de carrera residual (lock pesimista, 4b) ─────────────
+    // Mientras construíamos este turno, pudo haber llegado otro mensaje del
+    // huésped que no alcanzamos a incluir. No reprocesamos todo el flujo en
+    // esta misma invocación (Twilio espera respuesta en ~15s) — solo dejamos
+    // la advertencia trazable; ese mensaje ya está guardado (paso 4 lo
+    // garantiza) y lo recogerá la siguiente invocación que adquiera el lock.
+    const { data: lateUserMessages } = await supabase
+        .from('core_chat_messages')
+        .select('id, content, created_at')
+        .eq('conversation_id', conversation.id)
+        .eq('role', 'user')
+        .gt('created_at', promptBuildStartedAt)
+
+    if (lateUserMessages && lateUserMessages.length > 0) {
+        console.warn(`[whatsapp-bot] Carrera residual: ${lateUserMessages.length} mensaje(s) nuevo(s) del huésped llegaron mientras se armaba este turno y quedan para la siguiente invocación — conversation_id=${conversation.id} mensajes=${JSON.stringify(lateUserMessages.map(m => ({ id: m.id, content: m.content })))}`)
+    }
+
     // ── 15. Enviar respuesta vía Twilio REST API ───────────────────────────
     // Si ##ENVIAR_FOTOS## ya envió el mensaje con las fotos (paso 9c), no reenviar
     // el mismo texto en un segundo mensaje separado.
@@ -2773,4 +2834,19 @@ Deno.serve(async (req: Request) => {
     }
 
     return twimlEmpty()
+
+    } finally {
+        // ── 16. Liberar lock de conversación ──────────────────────────────
+        // Corre pase lo que pase dentro del try (incluidos returns tempranos
+        // y excepciones no capturadas) para que la conversación nunca quede
+        // trabada más allá del timeout de seguridad de 30s.
+        const { error: releaseLockErr } = await supabase
+            .from('core_chat_conversations')
+            .update({ processing_lock_until: null })
+            .eq('id', conversation.id)
+
+        if (releaseLockErr) {
+            console.error(`[whatsapp-bot] Error liberando lock de conversación (se autolibera por timeout en ${CONVERSATION_LOCK_SECONDS}s): ${releaseLockErr.message} conversation_id=${conversation.id}`)
+        }
+    }
 })
