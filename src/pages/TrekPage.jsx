@@ -156,7 +156,7 @@ export default function TrekPage() {
 
     return (
         <div className="pb-16 md:pb-0">
-            <SeoHead path="/trek" title={meta.title} description={meta.description} />
+            <SeoHead path="/trek" title={meta.title} description={meta.description} noAlternates />
 
             {/* ── Hero ── */}
             <HeroSection
