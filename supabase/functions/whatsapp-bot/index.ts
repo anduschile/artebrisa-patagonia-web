@@ -872,7 +872,7 @@ async function buildUnitsContext(supabase: any, units: Unit[]): Promise<string> 
     return lines.join('\n')
 }
 
-const SYSTEM_PROMPT_STATIC_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagonia, un complejo de alojamiento en Puerto Natales, Chile. Te llamas Arte Brisa Patagonia y hablas de forma cálida y familiar con los turistas.
+const SYSTEM_PROMPT_TEMPLATE = `Eres el asistente virtual de Arte Brisa Patagonia, un complejo de alojamiento en Puerto Natales, Chile. Te llamas Arte Brisa Patagonia y hablas de forma cálida y familiar con los turistas.
 
 La fecha de hoy es {fecha_actual}. Cuando el huésped mencione una fecha sin especificar el año (ej: "4 de octubre", "del 20 al 25 de diciembre"), asume el año más próximo que sea igual o posterior a hoy. Si la fecha mencionada ya pasó este año, asume el año siguiente. Nunca asumas un año más de 18 meses hacia el futuro sin que el huésped lo especifique explícitamente. Cuando asumas un año no mencionado por el huésped, SIEMPRE inclúyelo en tu respuesta de forma natural (ej. "para el 15 de junio de 2027" en vez de solo "15 de junio"), para que el huésped pueda corregirte si te equivocaste de año.
 
@@ -921,6 +921,9 @@ INCLUIDO EN TODAS LAS UNIDADES:
 
 FOTOS:
 - Pueden verse en nuestro sitio web: https://artebrisapatagonia.com
+
+DISPONIBILIDAD ACTUAL:
+{context_disponibilidad}
 
 INSTRUCCIONES:
 1. Responde en el idioma en que te escribe el turista (español, inglés o portugués)
@@ -1789,26 +1792,10 @@ Deno.serve(async (req: Request) => {
     // Ambos bloques de contexto ahora usan el mismo identificador (code)
     const availabilityCtx = formatAvailabilityContext(availability ?? [], unitCodeMap)
     const unitsCtx = await buildUnitsContext(supabase, activeUnits)
-    const staticSystemPrompt = SYSTEM_PROMPT_STATIC_TEMPLATE
+    const systemPrompt = SYSTEM_PROMPT_TEMPLATE
         .replace('{context_tarifas}', unitsCtx)
+        .replace('{context_disponibilidad}', availabilityCtx)
         .replace('{fecha_actual}', getTodayInChile())
-    const dynamicAvailabilityBlock = `DISPONIBILIDAD ACTUAL:\n${availabilityCtx}`
-    const systemPrompt = `${staticSystemPrompt}\n\n${dynamicAvailabilityBlock}`
-
-    // Prompt caching (Anthropic): el bloque estático (identidad, tarifas, políticas,
-    // instrucciones 1-12) va con cache_control ephemeral ttl 1h porque es idéntico entre
-    // las hasta 5 llamadas a Claude de un mismo turno y entre turnos distintos mientras no
-    // cambien tarifas ni la fecha del día. El bloque DISPONIBILIDAD ACTUAL va aparte, SIN
-    // cache_control, porque cambia con cada reserva nueva — si llevara cache_control, el
-    // hash del breakpoint incluiría contenido variable y el cache nunca pegaría.
-    function buildSystemBlocks(
-        extraNote?: string
-    ): Array<{ type: 'text'; text: string; cache_control?: { type: 'ephemeral'; ttl: '1h' } }> {
-        return [
-            { type: 'text', text: staticSystemPrompt, cache_control: { type: 'ephemeral', ttl: '1h' } },
-            { type: 'text', text: extraNote ? `${dynamicAvailabilityBlock}\n\n${extraNote}` : dynamicAvailabilityBlock },
-        ]
-    }
 
     console.log(`[whatsapp-bot] prompt_stats: prompt_chars=${systemPrompt.length} disponibilidad_chars=${availabilityCtx.length} disponibilidad_lineas=${availabilityCtx.split('\n').length}`)
 
@@ -1830,7 +1817,7 @@ Deno.serve(async (req: Request) => {
         body: JSON.stringify({
             model: CLAUDE_MODEL,
             max_tokens: 1024,
-            system: buildSystemBlocks(),
+            system: systemPrompt,
             messages: sanitizedMessages,
         }),
     })
@@ -1875,7 +1862,7 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: 1024,
-                    system: buildSystemBlocks(promiseNote),
+                    system: `${systemPrompt}\n\n${promiseNote}`,
                     messages: sanitizedMessages,
                 }),
                 signal: promiseController.signal,
@@ -1993,7 +1980,7 @@ Deno.serve(async (req: Request) => {
                     body: JSON.stringify({
                         model: CLAUDE_MODEL,
                         max_tokens: 1024,
-                        system: buildSystemBlocks(priceNote),
+                        system: `${systemPrompt}\n\n${priceNote}`,
                         messages: sanitizedMessages,
                     }),
                     signal: controller.signal,
@@ -2147,7 +2134,7 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: 1024,
-                    system: buildSystemBlocks(priceNote),
+                    system: `${systemPrompt}\n\n${priceNote}`,
                     messages: sanitizedMessages,
                 }),
                 signal: controller.signal,
@@ -2389,7 +2376,7 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: 1024,
-                    system: buildSystemBlocks(availNote),
+                    system: `${systemPrompt}\n\n${availNote}`,
                     messages: sanitizedMessages,
                 }),
                 signal: controller.signal,
