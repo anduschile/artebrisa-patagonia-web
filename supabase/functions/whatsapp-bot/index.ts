@@ -1149,7 +1149,11 @@ INSTRUCCIONES:
    - Fecha de check-out (YYYY-MM-DD)
    - Número de personas que ocupan plaza: adultos + niños mayores de 2 años (ver instrucción
      6b para el criterio de niños y capacidad)
-   - Código de unidad — usa EXACTAMENTE uno de estos códigos: CAB-CHILCO, CAB-CIRUELILLO, CAB-FLOR-DE-NOTRO, CAB-LUPINO, DEP-1, DEP-2, DEP-3, DEP-4, TINY-CALAFATE, TINY-MARGARITA, TINY-NIRRE, TINY-VIOLETA
+   - Código de unidad — usa EXACTAMENTE el código que aparece entre corchetes junto a esa
+     unidad en la sección TARIFAS BASE POR NOCHE (más arriba en este mismo mensaje), por
+     ejemplo [código: CAB-CHILCO] → usa CAB-CHILCO. Esa sección es la única fuente válida de
+     códigos: refleja siempre las unidades activas reales del sistema, nunca inventes ni
+     asumas un código que no aparezca ahí
 
    Y si NO detectas problemas de disponibilidad, capacidad o fechas inválidas,
    incluye al final de tu respuesta (en una línea nueva separada) el marcador:
