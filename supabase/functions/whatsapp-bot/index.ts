@@ -183,7 +183,10 @@ async function calculateReservationPrice(
     unitId: string,
     checkIn: string,
     checkOut: string,
-    unitBasePrice: number
+    unitBasePrice: number,
+    // Opcional: los llamadores existentes no lo pasan y el resultado no cambia. Permite
+    // saber si el total es real o el respaldo base_price × noches por error de BD.
+    meta?: { usedBasePriceFallback: boolean }
 ): Promise<number> {
     const checkInDate = new Date(checkIn)
     const checkOutDate = new Date(checkOut)
@@ -199,6 +202,7 @@ async function calculateReservationPrice(
 
     if (err) {
         console.error('[whatsapp-bot] calculateReservationPrice: error fetching rates:', err)
+        if (meta) meta.usedBasePriceFallback = true
         return unitBasePrice * nights
     }
 
@@ -219,6 +223,103 @@ async function calculateReservationPrice(
     }
 
     return totalPrice
+}
+
+// ── Respuestas determinísticas (fallback de las segundas llamadas) ─────────
+// Si la segunda llamada a Claude falla pero el servidor ya tiene los datos verificados,
+// la respuesta se arma con estas plantillas en vez de un texto genérico que prometa un
+// contacto que nunca ocurre.
+
+const DERIVACION_HONESTA_TEXT = 'Te va a responder directamente alguien del equipo de Arte Brisa en breve 😊'
+
+// Fechas inválidas vienen casi siempre de un año mal inferido por el modelo: se le pide al
+// huésped que las confirme en vez de derivar.
+const PEDIR_FECHAS_TEXT = '¿Me confirmas las fechas exactas de llegada y salida, con el año? Así reviso la disponibilidad al tiro 😊'
+
+const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+
+function parseYmd(ymd: string): { y: number; m: number; d: number } {
+    const [y, m, d] = ymd.split('-').map(Number)
+    return { y, m, d }
+}
+
+function formatFechaNatural(ymd: string): string {
+    const { y, m, d } = parseYmd(ymd)
+    return `${d} de ${MESES_ES[m - 1]} de ${y}`
+}
+
+function formatRangoNatural(checkIn: string, checkOut: string): string {
+    const a = parseYmd(checkIn)
+    const b = parseYmd(checkOut)
+    if (a.y === b.y && a.m === b.m) return `${a.d} al ${b.d} de ${MESES_ES[b.m - 1]} de ${b.y}`
+    if (a.y === b.y) return `${a.d} de ${MESES_ES[a.m - 1]} al ${b.d} de ${MESES_ES[b.m - 1]} de ${b.y}`
+    return `${formatFechaNatural(checkIn)} al ${formatFechaNatural(checkOut)}`
+}
+
+function formatCLP(amount: number): string {
+    return '$' + String(Math.round(amount)).replace(/\B(?=(\d{3})+(?!\d))/g, '.')
+}
+
+function countNights(checkIn: string, checkOut: string): number {
+    const a = parseYmd(checkIn)
+    const b = parseYmd(checkOut)
+    return Math.round((Date.UTC(b.y, b.m - 1, b.d) - Date.UTC(a.y, a.m - 1, a.d)) / (24 * 60 * 60 * 1000))
+}
+
+// "Departamento 2" es masculino; cabañas y Tiny Houses (unit_type 'cabana') son femeninas.
+function unidadConArticulo(unit: Pick<Unit, 'name' | 'unit_type'>): string {
+    return `${unit.unit_type === 'departamento' ? 'El' : 'La'} ${unit.name}`
+}
+
+type DeterministicReplyInput =
+    | { tipo: 'cotizacion'; unit: Pick<Unit, 'name' | 'unit_type'>; checkIn: string; checkOut: string; total: number }
+    | { tipo: 'disponible_sin_precio'; unit: Pick<Unit, 'name' | 'unit_type'>; checkIn: string; checkOut: string }
+    | { tipo: 'listado'; checkIn: string; checkOut: string; libres: Array<{ unit: Pick<Unit, 'name' | 'capacity_total' | 'unit_type'>; total: number }>; ocupadas: Array<Pick<Unit, 'name' | 'unit_type'>> }
+    | { tipo: 'no_disponible'; unit: Pick<Unit, 'name' | 'unit_type'>; checkIn: string; checkOut: string; libres: Array<Pick<Unit, 'name' | 'capacity_total'>> | null }
+
+function buildDeterministicReply(input: DeterministicReplyInput): string {
+    const rango = formatRangoNatural(input.checkIn, input.checkOut)
+
+    switch (input.tipo) {
+        case 'cotizacion': {
+            const n = countNights(input.checkIn, input.checkOut)
+            const reservarla = input.unit.unit_type === 'departamento' ? 'reservarlo' : 'reservarla'
+            return `${unidadConArticulo(input.unit)} está disponible del ${rango} (${n} ${n === 1 ? 'noche' : 'noches'}). El valor total es ${formatCLP(input.total)} (impuestos incluidos). Para ${reservarla} necesito tu nombre completo 😊`
+        }
+        case 'disponible_sin_precio':
+            return `${unidadConArticulo(input.unit)} está disponible del ${rango}. ¿Me confirmas cuántas personas son para darte el valor exacto?`
+        case 'listado': {
+            const lineas = input.libres
+                .map(l => `- ${l.unit.name} (hasta ${l.unit.capacity_total} personas): ${formatCLP(l.total)} en total`)
+                .join('\n')
+            const encabezado = input.libres.length === 1 ? 'tengo disponible' : 'tengo disponibles'
+            const pregunta = input.libres.length === 1 ? '¿Te acomoda?' : '¿Cuál te acomoda más?'
+            let ocupadasNota = ''
+            if (input.ocupadas.length === 1) {
+                ocupadasNota = `\n\n${unidadConArticulo(input.ocupadas[0])} no está disponible en esas fechas.`
+            } else if (input.ocupadas.length > 1) {
+                ocupadasNota = `\n\n${input.ocupadas.map(u => u.name).join(', ')} no están disponibles en esas fechas.`
+            }
+            return `Para el ${rango} ${encabezado}:\n${lineas}${ocupadasNota}\n\n${pregunta}`
+        }
+        case 'no_disponible': {
+            const base = `${unidadConArticulo(input.unit)} no está disponible del ${rango}.`
+            if (input.libres === null) {
+                return `${base} ¿Te sirve que revisemos otras fechas u otra unidad?`
+            }
+            if (input.libres.length === 0) {
+                return 'No tenemos disponibilidad para esas fechas. ¿Te sirve que revisemos otras fechas?'
+            }
+            const lineas = input.libres.map(u => `- ${u.name} (hasta ${u.capacity_total} personas)`).join('\n')
+            return `${base} Para esas fechas tengo libres:\n${lineas}\n\n¿Te interesa alguna?`
+        }
+    }
+}
+
+function fallbackReasonFromError(e: unknown): 'segunda_llamada_vacia' | 'timeout' | 'error' {
+    if ((e as Error)?.name === 'AbortError') return 'timeout'
+    if ((e as Error)?.message === 'respuesta vacía') return 'segunda_llamada_vacia'
+    return 'error'
 }
 
 /**
@@ -1906,6 +2007,44 @@ Deno.serve(async (req: Request) => {
         }
     }
 
+    // ── 8c. Helpers de fallback determinístico para las segundas llamadas (pasos 9/9b/9d) ──
+    // Derivación real: cambia el estado a 'human' y notifica a Karina con la misma función
+    // que ya usan Guard 12b y los casos de unit_code inválido. El texto al huésped no
+    // promete nada que no esté respaldado por esa notificación.
+    async function derivarAHumanoDeterministico(
+        tipo: string,
+        motivo: string
+    ): Promise<{ text: string; usedFallback: boolean }> {
+        console.error(`[whatsapp-bot] derivación determinística a humano (tipo=${tipo}, motivo=${motivo}) — phone=${phone} conversation_id=${conversation.id}`)
+
+        await supabase
+            .from('core_chat_conversations')
+            .update({ status: 'human' })
+            .eq('id', conversation.id)
+
+        await notificarDerivacionAKarina(
+            profileName || phone,
+            phone,
+            conversation.id,
+            `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
+            true
+        )
+
+        return { text: DERIVACION_HONESTA_TEXT, usedFallback: true }
+    }
+
+    // Precio total solo si es real: null si el cálculo lanzó o si usó el respaldo base_price.
+    async function getVerifiedPrice(unit: Unit, checkIn: string, checkOut: string): Promise<number | null> {
+        try {
+            const meta = { usedBasePriceFallback: false }
+            const total = await calculateReservationPrice(supabase, unit.id, checkIn, checkOut, Number(unit.base_price), meta)
+            return meta.usedBasePriceFallback ? null : total
+        } catch (e) {
+            console.error(`[whatsapp-bot] getVerifiedPrice: excepción calculando precio unit_code=${unit.code}:`, e)
+            return null
+        }
+    }
+
     // ── 9. Detectar y procesar ##COTIZAR## (cotización con precio real, 2da llamada) ────
     // processCotizarMarker se reutiliza también desde Guard 12b (paso 12b) para reprocesar
     // un marcador ##COTIZAR## crudo que se filtró en la segunda llamada, sin duplicar lógica.
@@ -1916,43 +2055,30 @@ Deno.serve(async (req: Request) => {
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
         const unit = activeUnits.find(u => u.code === unit_code)
 
-        const priceFallbackText = (basePrice: number) =>
-            `Dame un momento para confirmarte el precio exacto para esas fechas 🙂 Mientras tanto, el precio de referencia de ${unit_code} es desde ${basePrice.toLocaleString('es-CL')} por noche.`
-
         if (!unit) {
             // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
             console.error(`[whatsapp-bot] ##COTIZAR## unit_code no encontrado: ${unit_code}`)
 
             enviarAlertaTecnicaAJose('Fallo: unit_code inválido en COTIZAR', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
-            await supabase
-                .from('core_chat_conversations')
-                .update({ status: 'human' })
-                .eq('id', conversation.id)
-
-            await notificarDerivacionAKarina(
-                profileName || phone,
-                phone,
-                conversation.id,
-                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
-                true
-            )
-
-            return { text: `Dame un momento para confirmarte disponibilidad y precio para esas fechas 🙂 Ya te contacto con la información.`, usedFallback: true }
+            return await derivarAHumanoDeterministico('COTIZAR', 'unit_code_invalido')
         }
 
         if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             console.error(`[whatsapp-bot] ##COTIZAR## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            return { text: priceFallbackText(Number(unit.base_price)), usedFallback: true }
+            console.log(`[whatsapp-bot] fechas inválidas, se pide confirmación al huésped (tipo=COTIZAR, check_in=${check_in}, check_out=${check_out})`)
+            return { text: PEDIR_FECHAS_TEXT, usedFallback: true }
         }
 
         let unitOccupied = false
+        let availabilityVerified = false
         try {
             const availCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
             if (availCheck.error) {
                 // Fail-open: no se pudo verificar antes de cotizar, se sigue como si no hubiera conflicto
             } else {
                 unitOccupied = !availCheck.disponible
+                availabilityVerified = true
             }
         } catch (availErr) {
             console.error('[whatsapp-bot] ##COTIZAR## error verificando disponibilidad previa al cálculo:', availErr)
@@ -1960,7 +2086,9 @@ Deno.serve(async (req: Request) => {
 
         if (unitOccupied) {
             console.error(`[whatsapp-bot] ##COTIZAR## unidad ocupada, no se cotiza: ${unit_code} ${check_in} ${check_out}`)
-            return { text: `Lamentablemente ${unit.name} no está disponible del ${check_in} al ${check_out}. Si quieres, dime otras fechas u otra unidad y te cuento qué tenemos libre 🙂`, usedFallback: false }
+            // El artículo va en minúscula porque queda a mitad de oración, después de "Lamentablemente".
+            const unidadMinuscula = unidadConArticulo(unit).replace(/^./, c => c.toLowerCase())
+            return { text: `Lamentablemente ${unidadMinuscula} no está disponible del ${formatRangoNatural(check_in, check_out)}. Si quieres, dime otras fechas u otra unidad y te cuento qué tenemos libre 🙂`, usedFallback: false }
         }
 
         try {
@@ -2014,7 +2142,21 @@ Deno.serve(async (req: Request) => {
         } catch (e) {
             const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
             console.error(`[whatsapp-bot] ##COTIZAR## segunda llamada falló (${reason})`)
-            return { text: priceFallbackText(Number(unit.base_price)), usedFallback: true }
+
+            const motivo = fallbackReasonFromError(e)
+            if (!availabilityVerified) {
+                return await derivarAHumanoDeterministico('COTIZAR', `disponibilidad_no_verificada_${motivo}`)
+            }
+            const total = await getVerifiedPrice(unit, check_in, check_out)
+            if (total === null) {
+                return await derivarAHumanoDeterministico('COTIZAR', `precio_no_verificado_${motivo}`)
+            }
+
+            console.log(`[whatsapp-bot] respuesta determinística usada (tipo=COTIZAR, motivo=${motivo})`)
+            return {
+                text: buildDeterministicReply({ tipo: 'cotizacion', unit, checkIn: check_in, checkOut: check_out, total }),
+                usedFallback: true,
+            }
         }
     }
 
@@ -2042,34 +2184,19 @@ Deno.serve(async (req: Request) => {
         const unknownCodes = resolved.filter(r => r.unit === null).map(r => r.code)
         const knownUnits = resolved.map(r => r.unit).filter((u): u is Unit => u !== null)
 
-        const genericFallbackText =
-            `Dame un momento para confirmarte los precios exactos para esas fechas 🙂 Ya te contacto con la información.`
-
         if (unknownCodes.length > 0) {
             // unit_code(s) inválidos generados por el LLM: señal de que algo no cuadra, amerita revisión humana
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## unit_codes no encontrados: ${unknownCodes.join(', ')}`)
 
             enviarAlertaTecnicaAJose('Fallo: unit_codes inválidos en LISTAR_PRECIOS', `unit_codes no encontrados: ${unknownCodes.join(', ')}`, phone, conversation.id)
 
-            await supabase
-                .from('core_chat_conversations')
-                .update({ status: 'human' })
-                .eq('id', conversation.id)
-
-            await notificarDerivacionAKarina(
-                profileName || phone,
-                phone,
-                conversation.id,
-                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
-                true
-            )
-
-            return { text: genericFallbackText, usedFallback: true }
+            return await derivarAHumanoDeterministico('LISTAR_PRECIOS', 'unit_code_invalido')
         }
 
         if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            return { text: genericFallbackText, usedFallback: true }
+            console.log(`[whatsapp-bot] fechas inválidas, se pide confirmación al huésped (tipo=LISTAR_PRECIOS, check_in=${check_in}, check_out=${check_out})`)
+            return { text: PEDIR_FECHAS_TEXT, usedFallback: true }
         }
 
         const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
@@ -2077,10 +2204,12 @@ Deno.serve(async (req: Request) => {
         // Fail-open: si getOccupiedUnitIds falla, se cotiza sin filtrar (comportamiento previo)
         let unitsToPrice = knownUnits
         let removedOccupiedCodes: string[] = []
+        let availabilityVerified = false
 
         if (occupiedResult.error) {
             // Fail-open: no se pudo verificar disponibilidad, se cotiza sin filtrar
         } else {
+            availabilityVerified = true
             const occupied = occupiedResult.occupied
             unitsToPrice = knownUnits.filter(u => !occupied.has(u.id))
             removedOccupiedCodes = knownUnits.filter(u => occupied.has(u.id)).map(u => u.code)
@@ -2113,7 +2242,7 @@ Deno.serve(async (req: Request) => {
             if (unitsToPrice.length === 0) {
                 return { text: 'Lamentablemente no tenemos disponibilidad en esas fechas en las unidades que consultaste. Si quieres, dime otras fechas y te cuento qué tenemos libre 🙂', usedFallback: false }
             }
-            return { text: genericFallbackText, usedFallback: true }
+            return await derivarAHumanoDeterministico('LISTAR_PRECIOS', 'precio_no_verificado')
         }
 
         const priceLines = priced
@@ -2171,7 +2300,26 @@ Deno.serve(async (req: Request) => {
         } catch (e) {
             const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
             console.error(`[whatsapp-bot] ##LISTAR_PRECIOS## segunda llamada falló (${reason})`)
-            return { text: genericFallbackText, usedFallback: true }
+
+            const motivo = fallbackReasonFromError(e)
+            if (!availabilityVerified) {
+                return await derivarAHumanoDeterministico('LISTAR_PRECIOS', `disponibilidad_no_verificada_${motivo}`)
+            }
+
+            const verified = await Promise.all(
+                unitsToPrice.map(async unit => ({ unit, total: await getVerifiedPrice(unit, check_in, check_out) }))
+            )
+            const libres = verified.filter((v): v is { unit: Unit; total: number } => v.total !== null)
+            if (libres.length === 0) {
+                return await derivarAHumanoDeterministico('LISTAR_PRECIOS', `precio_no_verificado_${motivo}`)
+            }
+
+            const ocupadas = knownUnits.filter(u => removedOccupiedCodes.includes(u.code))
+            console.log(`[whatsapp-bot] respuesta determinística usada (tipo=LISTAR_PRECIOS, motivo=${motivo})`)
+            return {
+                text: buildDeterministicReply({ tipo: 'listado', checkIn: check_in, checkOut: check_out, libres, ocupadas }),
+                usedFallback: true,
+            }
         } finally {
             clearTimeout(timeoutId)
         }
@@ -2195,7 +2343,7 @@ Deno.serve(async (req: Request) => {
         data: { unit_code: string }
     ): Promise<{ text: string; mediaAlreadySent: boolean }> {
         const { unit_code } = data
-        const fotosFallbackText = 'Dame un momento, te comparto las fotos directamente 🙂'
+        const fotosFallbackText = 'Por ahora no puedo enviarte las fotos por aquí, pero puedes verlas en nuestro sitio web: https://artebrisapatagonia.com 😊'
 
         const { data: photoRow, error: photoErr } = await supabase
             .from('unit_photos')
@@ -2316,51 +2464,38 @@ Deno.serve(async (req: Request) => {
         const dateRegex = /^\d{4}-\d{2}-\d{2}$/
         const unit = activeUnits.find(u => u.code === unit_code)
 
-        const genericFallbackText =
-            `Dame un momento para confirmarte la disponibilidad exacta para esas fechas 🙂 Ya te contacto con la información.`
-
         if (!unit) {
             // unit_code inválido generado por el LLM: señal de que algo no cuadra, amerita revisión humana
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## unit_code no encontrado: ${unit_code}`)
 
             enviarAlertaTecnicaAJose('Fallo: unit_code inválido en VERIFICAR_DISPONIBILIDAD', `unit_code no encontrado: ${unit_code}`, phone, conversation.id)
 
-            await supabase
-                .from('core_chat_conversations')
-                .update({ status: 'human' })
-                .eq('id', conversation.id)
-
-            await notificarDerivacionAKarina(
-                profileName || phone,
-                phone,
-                conversation.id,
-                `Consulta que el bot no pudo resolver por sí solo. Último mensaje del huésped: "${body}"`,
-                true
-            )
-
-            return { text: genericFallbackText, usedFallback: true }
+            return await derivarAHumanoDeterministico('VERIFICAR_DISPONIBILIDAD', 'unit_code_invalido')
         }
 
         if (!dateRegex.test(check_in) || !dateRegex.test(check_out) || check_in >= check_out || check_in < getTodayInChile()) {
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## fechas inválidas: check_in=${check_in} check_out=${check_out}`)
-            return { text: genericFallbackText, usedFallback: true }
+            console.log(`[whatsapp-bot] fechas inválidas, se pide confirmación al huésped (tipo=VERIFICAR_DISPONIBILIDAD, check_in=${check_in}, check_out=${check_out})`)
+            return { text: PEDIR_FECHAS_TEXT, usedFallback: true }
         }
 
         const availabilityCheck = await checkUnitAvailability(supabase, unit.id, check_in, check_out)
 
         if (availabilityCheck.error) {
-            return { text: genericFallbackText, usedFallback: true }
+            return await derivarAHumanoDeterministico('VERIFICAR_DISPONIBILIDAD', 'error_bd_disponibilidad')
         }
 
         console.log(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## resultado: unit_code=${unit_code} check_in=${check_in} check_out=${check_out} disponible=${availabilityCheck.disponible}`)
 
         const occupiedResult = await getOccupiedUnitIds(supabase, check_in, check_out)
         let libresSuffix = ''
+        let freeUnitsVerified: Unit[] | null = null
         if (occupiedResult.error) {
             // Fail-open: no se pudo verificar unidades libres, no se agrega sufijo
         } else {
             const occupied = occupiedResult.occupied
             const freeUnits = activeUnits.filter(u => !occupied.has(u.id))
+            freeUnitsVerified = freeUnits
             const libresList = freeUnits.map(u => `${u.name} [${u.code}] (máx ${u.capacity_total} personas)`).join('; ')
 
             libresSuffix = libresList
@@ -2420,7 +2555,20 @@ Deno.serve(async (req: Request) => {
         } catch (e) {
             const reason = (e as Error).name === 'AbortError' ? `timeout_${CLAUDE_RETRY_TIMEOUT_MS / 1000}s` : (e as Error).message
             console.error(`[whatsapp-bot] ##VERIFICAR_DISPONIBILIDAD## segunda llamada falló (${reason})`)
-            return { text: genericFallbackText, usedFallback: true }
+
+            const motivo = fallbackReasonFromError(e)
+            let text: string
+            if (availabilityCheck.disponible) {
+                const total = await getVerifiedPrice(unit, check_in, check_out)
+                text = total !== null
+                    ? buildDeterministicReply({ tipo: 'cotizacion', unit, checkIn: check_in, checkOut: check_out, total })
+                    : buildDeterministicReply({ tipo: 'disponible_sin_precio', unit, checkIn: check_in, checkOut: check_out })
+            } else {
+                text = buildDeterministicReply({ tipo: 'no_disponible', unit, checkIn: check_in, checkOut: check_out, libres: freeUnitsVerified })
+            }
+
+            console.log(`[whatsapp-bot] respuesta determinística usada (tipo=VERIFICAR_DISPONIBILIDAD, motivo=${motivo})`)
+            return { text, usedFallback: true }
         } finally {
             clearTimeout(timeoutId)
         }
@@ -2790,7 +2938,12 @@ Deno.serve(async (req: Request) => {
     // marcadores (ej. ##DERIVAR## sin texto conversacional previo) deja assistantText
     // vacío, Twilio rechaza el envío (error 21619) y el huésped no recibe nada.
     if (!assistantText || !assistantText.trim()) {
-        assistantText = 'Dame un momento, ya te contacto con la información 🙂'
+        if (shouldDerive) {
+            // ##DERIVAR## sin texto: el paso 11 ya cambió el estado y notificó a Karina.
+            assistantText = DERIVACION_HONESTA_TEXT
+        } else {
+            assistantText = (await derivarAHumanoDeterministico('VACIO_FINAL', 'texto_vacio')).text
+        }
     }
 
     // ── 13. Guardar respuesta del asistente ───────────────────────────────
