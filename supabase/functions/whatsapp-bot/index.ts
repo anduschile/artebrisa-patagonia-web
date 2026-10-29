@@ -1984,6 +1984,12 @@ Deno.serve(async (req: Request) => {
                     body: JSON.stringify({
                         model: CLAUDE_MODEL,
                         max_tokens: 1024,
+                        // Esta "segunda llamada limpia" tiene prohibido devolver cualquier
+                        // marcador (ver priceNote arriba) — "##" nunca debería aparecer en una
+                        // respuesta legítima. stop_sequences corta la generación ahí si el
+                        // modelo igual intenta escribir uno, en vez de dejarlo pasar completo
+                        // y depender solo de Guard 12b (paso 12b) para filtrarlo después.
+                        stop_sequences: ['##'],
                         system: `${systemPrompt}\n\n${priceNote}`,
                         messages: sanitizedMessages,
                     }),
@@ -2138,6 +2144,12 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: 1024,
+                    // Esta "segunda llamada limpia" tiene prohibido devolver cualquier
+                    // marcador (ver priceNote arriba) — "##" nunca debería aparecer en una
+                    // respuesta legítima. stop_sequences corta la generación ahí si el
+                    // modelo igual intenta escribir uno, en vez de dejarlo pasar completo
+                    // y depender solo de Guard 12b (paso 12b) para filtrarlo después.
+                    stop_sequences: ['##'],
                     system: `${systemPrompt}\n\n${priceNote}`,
                     messages: sanitizedMessages,
                 }),
@@ -2380,6 +2392,12 @@ Deno.serve(async (req: Request) => {
                 body: JSON.stringify({
                     model: CLAUDE_MODEL,
                     max_tokens: 1024,
+                    // Esta "segunda llamada limpia" tiene prohibido devolver cualquier
+                    // marcador (ver availNote arriba) — "##" nunca debería aparecer en una
+                    // respuesta legítima. stop_sequences corta la generación ahí si el
+                    // modelo igual intenta escribir uno, en vez de dejarlo pasar completo
+                    // y depender solo de Guard 12b (paso 12b) para filtrarlo después.
+                    stop_sequences: ['##'],
                     system: `${systemPrompt}\n\n${availNote}`,
                     messages: sanitizedMessages,
                 }),
