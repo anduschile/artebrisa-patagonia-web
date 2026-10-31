@@ -193,7 +193,7 @@ export default function TrekPage() {
             </HeroSection>
 
             {/* ── Availability / SearchWidget ── */}
-            <section id="availability" className="py-10 px-4 sm:px-6 max-w-6xl mx-auto">
+            <section id="availability" data-cta-target="search" className="scroll-mt-20 py-10 px-4 sm:px-6 max-w-6xl mx-auto">
                 <h2 className="text-xl sm:text-2xl font-black text-slate-900 text-center mb-4">
                     Check Availability for Your Trek Dates
                 </h2>

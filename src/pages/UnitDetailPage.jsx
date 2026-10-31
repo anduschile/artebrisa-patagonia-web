@@ -342,7 +342,7 @@ export default function UnitDetailPage() {
                         </div>
 
                         {/* Mobile widget */}
-                        <div className="lg:hidden mb-6">
+                        <div data-cta-target="reservation" className="lg:hidden mb-6 scroll-mt-20">
                             <ReservationWidget unit={unit} />
                         </div>
 

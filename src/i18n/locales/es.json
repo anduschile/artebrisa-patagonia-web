@@ -398,6 +398,8 @@
         "close": "Cerrar"
     },
     "stickyCta": {
+        "checkAvailability": "Ver disponibilidad",
+        "checkDates": "Ver fechas",
         "label": "Consultar por WhatsApp"
     },
     "whatsapp": {

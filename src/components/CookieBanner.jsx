@@ -32,7 +32,7 @@ export default function CookieBanner() {
         <div
             role="dialog"
             aria-label={t('cookieBanner.text')}
-            className="fixed z-40 bottom-[92px] left-3 right-3 sm:left-4 sm:right-auto sm:bottom-4 sm:max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5"
+            className="fixed z-[60] bottom-[92px] left-3 right-3 sm:left-4 sm:right-auto sm:bottom-4 sm:max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 sm:p-5"
         >
             <p className="text-sm text-slate-600 mb-3 leading-relaxed">{t('cookieBanner.text')}</p>
             <div className="flex gap-2">

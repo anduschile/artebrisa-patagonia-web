@@ -370,7 +370,7 @@ function CustomChatWidget() {
             {/* ── Bubble button ── */}
             <button
                 onClick={() => setOpen(v => !v)}
-                className="fixed bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
+                className="fixed bottom-[92px] md:bottom-5 right-5 z-50 w-14 h-14 rounded-full bg-emerald-600 hover:bg-emerald-500 shadow-2xl flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                 aria-label="Abrir chat"
             >
                 {open ? (
@@ -391,7 +391,7 @@ function CustomChatWidget() {
 
             {/* ── Chat window ── */}
             {open && (
-                <div className="fixed bottom-24 right-5 z-50 w-80 max-h-[540px] flex flex-col rounded-2xl shadow-2xl border border-slate-700 bg-slate-800 overflow-hidden">
+                <div className="fixed bottom-[168px] md:bottom-24 right-5 z-50 w-80 max-h-[min(540px,calc(100dvh-240px))] md:max-h-[540px] flex flex-col rounded-2xl shadow-2xl border border-slate-700 bg-slate-800 overflow-hidden">
 
                     {/* Header */}
                     <div className="bg-gradient-to-r from-emerald-700 to-teal-700 px-4 py-3 flex items-center gap-3 shrink-0">

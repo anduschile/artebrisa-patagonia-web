@@ -398,6 +398,8 @@
         "close": "Schließen"
     },
     "stickyCta": {
+        "checkAvailability": "Verfügbarkeit prüfen",
+        "checkDates": "Daten prüfen",
         "label": "Per WhatsApp anfragen"
     },
     "whatsapp": {

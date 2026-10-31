@@ -105,7 +105,9 @@ export default function HomePage() {
             <TrustBar />
 
             {/* Buscador de disponibilidad */}
-            <SearchWidget />
+            <div data-cta-target="search" className="scroll-mt-20">
+                <SearchWidget />
+            </div>
 
             {/* Category section */}
             <section className="py-14 px-4 sm:px-6 max-w-6xl mx-auto">
