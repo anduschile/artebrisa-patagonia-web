@@ -246,7 +246,7 @@ export default function Navbar() {
                         límite por el ancho disponible; "WhatsApp" era el ítem más ancho
                         después de "Departamentos" y no aporta a la jerarquía de navegación. */}
                     <a
-                        href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
+                        href={buildWaUrl(t('whatsapp.prefill'))}
                         target="_blank" rel="noopener noreferrer"
                         aria-label={t('nav.whatsapp')}
                         onClick={() => trackWhatsappClick('header')}
@@ -307,7 +307,7 @@ export default function Navbar() {
                                 </div>
                             )}
 
-                            <a href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
+                            <a href={buildWaUrl(t('whatsapp.prefill'))}
                                 target="_blank" rel="noopener noreferrer"
                                 onClick={() => trackWhatsappClick('header_mobile')}
                                 className="mt-2 px-4 py-3 bg-green-500 text-white text-sm font-bold rounded-lg text-center">

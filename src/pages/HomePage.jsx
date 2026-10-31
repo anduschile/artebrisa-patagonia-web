@@ -177,7 +177,7 @@ export default function HomePage() {
                         {t('home.whatsappText')}
                     </p>
                     <a
-                        href={buildWaUrl('Hola! Quisiera consultar disponibilidad y valores. 😊')}
+                        href={buildWaUrl(t('whatsapp.prefill'))}
                         onClick={() => trackWhatsappClick('home_cta')}
                         target="_blank"
                         rel="noopener noreferrer"

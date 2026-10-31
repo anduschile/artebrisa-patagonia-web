@@ -398,6 +398,10 @@
         "close": "Fechar"
     },
     "stickyCta": {
-        "label": "Consultar disponibilidade"
+        "label": "Perguntar pelo WhatsApp"
+    },
+    "whatsapp": {
+        "prefill": "Olá! Gostaria de consultar a disponibilidade e as tarifas da Arte Brisa Patagonia em Puerto Natales, Chile. Obrigado!",
+        "prefillTrek": "Olá! Estou organizando o W Trek e procuro hospedagem em Puerto Natales para antes ou depois da trilha. Gostaria de consultar a disponibilidade e as tarifas da Arte Brisa Patagonia. Obrigado!"
     }
 }

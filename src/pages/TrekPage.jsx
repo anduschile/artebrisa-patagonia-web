@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import HeroSection from '../components/HeroSection'
 import SearchWidget from '../components/SearchWidget'
 import SeoHead from '../components/SeoHead'
@@ -56,9 +57,10 @@ const FAQS = [
 ]
 
 function WaButton({ location, className, children }) {
+    const { t } = useTranslation()
     return (
         <a
-            href={buildWaUrl('Hola! Vengo de la página del trek W, quiero consultar disponibilidad y valores. 😊')}
+            href={buildWaUrl(t('whatsapp.prefillTrek'))}
             target="_blank"
             rel="noopener noreferrer"
             onClick={() => trackWhatsappClick(location)}

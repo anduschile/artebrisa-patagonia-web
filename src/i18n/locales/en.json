@@ -398,6 +398,10 @@
         "close": "Close"
     },
     "stickyCta": {
-        "label": "Check availability"
+        "label": "Ask on WhatsApp"
+    },
+    "whatsapp": {
+        "prefill": "Hello! I'd like to ask about availability and rates at Arte Brisa Patagonia in Puerto Natales, Chile. Thank you!",
+        "prefillTrek": "Hello! I'm planning the W Trek and I'm looking for accommodation in Puerto Natales before or after the hike. I'd like to ask about availability and rates at Arte Brisa Patagonia. Thank you!"
     }
 }

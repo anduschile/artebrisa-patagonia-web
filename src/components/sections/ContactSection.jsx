@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import { useTranslation } from 'react-i18next'
 import { CONTACT, LOCATIONS } from '../../data/subsiteSections'
-import { DEFAULT_WA_MESSAGE } from '../../config/contact'
+import { buildWaUrl } from '../../config/contact'
 import { trackWhatsappClick } from '../../lib/analytics'
 
 export default function ContactSection({ variant = 'cabana' }) {
     const { t } = useTranslation()
     const label = variant === 'cabana' ? t('contact.unitTypeCabana') : t('contact.unitTypeDepto')
     const loc = LOCATIONS[variant] ?? LOCATIONS.cabana
-    const waUrl = `https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(DEFAULT_WA_MESSAGE)}`
+    const waUrl = buildWaUrl(t('whatsapp.prefill'))
 
     const [form, setForm] = useState({ name: '', email: '', phone: '', checkIn: '', checkOut: '', guests: '', message: '' })
     const [sent, setSent] = useState(false)
@@ -28,7 +28,7 @@ export default function ContactSection({ variant = 'cabana' }) {
             form.message ? `\n${form.message}` : null,
         ].filter(Boolean).join('\n')
         trackWhatsappClick('contact_section_form')
-        window.open(`https://wa.me/${CONTACT.whatsapp}?text=${encodeURIComponent(msg)}`, '_blank')
+        window.open(buildWaUrl(msg), '_blank')
         setSent(true)
     }
 

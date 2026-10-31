@@ -13,7 +13,7 @@ export const WHATSAPP_NUMBER =
     import.meta.env.VITE_WHATSAPP || '56950921745'
 
 export const DEFAULT_WA_MESSAGE =
-    'Hola! Quisiera consultar disponibilidad y valores. 😊'
+    'Hola! Quisiera consultar disponibilidad y valores.'
 
 /**
  * Construye una URL wa.me segura.
