@@ -175,7 +175,7 @@ export default function TrekPage() {
                     <strong>9.4/10</strong> average rating
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 mt-6">
+                <div className="hidden md:flex flex-col sm:flex-row gap-3 mt-6">
                     <a
                         href="#availability"
                         className="inline-flex items-center justify-center px-6 py-3.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-colors text-sm"
