@@ -5,10 +5,14 @@
 // POST /functions/v1/confirm-payment (IPN webhook)
 //
 // Maneja dos flujos:
-// 1. Redirect GET desde back_urls de Mercado Pago después del checkout
+// 1. Redirect GET desde back_urls de Mercado Pago después del checkout.
+//    SOLO redirige al frontend: NO lee ni modifica core_reservations y NO afirma
+//    que hubo un pago aprobado (ningún parámetro de la URL se puede verificar
+//    aquí). Nada que venga en la URL puede confirmar, cancelar ni devolver a
+//    'inquiry' una reserva.
 // 2. IPN/webhook POST cuando Mercado Pago notifica cambios en pagos
 //
-// Valida el pago, actualiza core_reservations y redirige (GET) o responde 200 (POST).
+// Valida el pago, actualiza core_reservations (POST) y responde 200.
 //
 // Variables de entorno requeridas:
 //   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY — auto-inyectadas
@@ -19,6 +23,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const MP_API_ENDPOINT = 'https://api.mercadopago.com/v1/payments'
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function redirect(url: string, status: number = 302): Response {
   return new Response(null, {
@@ -57,6 +62,11 @@ Deno.serve(async (req: Request) => {
   const mpAccessToken = Deno.env.get('MP_ACCESS_TOKEN')
   const mpReturnUrl = Deno.env.get('MP_RETURN_URL') ?? 'https://artebrisapatagonia.com'
 
+  // ── Handle GET (redirect desde back_urls): solo redirige, sin tocar la base ─
+  if (req.method === 'GET') {
+    return handleRedirect(req, mpReturnUrl)
+  }
+
   if (!mpAccessToken) {
     console.error('[CONFIRM-PAYMENT] Missing MP_ACCESS_TOKEN')
     return redirect(`${mpReturnUrl}/reserva/confirmar?status=error`)
@@ -68,90 +78,35 @@ Deno.serve(async (req: Request) => {
     { auth: { persistSession: false } },
   )
 
-  // ── Handle GET (redirect desde back_urls) ──────────────────────────────
-  if (req.method === 'GET') {
-    return handleRedirect(req, supabase, mpReturnUrl)
-  }
-
   // ── Handle POST (IPN webhook) ──────────────────────────────────────────
   return handleWebhook(req, supabase, mpAccessToken)
 })
 
-async function handleRedirect(req: Request, supabase: any, mpReturnUrl: string): Promise<Response> {
+/**
+ * GET (redirect desde back_urls de Mercado Pago): SOLO informativo y NEUTRAL.
+ * No lee ni escribe en la base de datos. Como aquí no hay forma de verificar el
+ * pago, la URL nunca puede producir un "pagado": collection_status=approved se
+ * muestra como "pago en proceso" (status=pending). La confirmación real la hace
+ * el webhook POST, que consulta el pago a la API de Mercado Pago.
+ */
+function handleRedirect(req: Request, mpReturnUrl: string): Response {
   try {
     const url = new URL(req.url)
     const collectionStatus = url.searchParams.get('collection_status')
     const externalReference = url.searchParams.get('external_reference')
 
-    console.log(`[CONFIRM-PAYMENT] GET redirect: status=${collectionStatus}, ref=${externalReference}`)
+    console.log(`[CONFIRM-PAYMENT] GET redirect (solo informativo): status=${collectionStatus}`)
 
-    // ── Validar external_reference ──────────────────────────────────────
-    if (!externalReference) {
-      console.warn('[CONFIRM-PAYMENT] Missing external_reference in GET')
+    // external_reference debe ser un UUID: no se refleja nada más en la redirección
+    if (!externalReference || !UUID_RE.test(externalReference)) {
       return redirect(`${mpReturnUrl}/reserva/confirmar?status=error`)
     }
 
-    // ── Caso: usuario canceló en el checkout ─────────────────────────────
-    if (!collectionStatus || collectionStatus === 'null') {
-      console.log(`[CONFIRM-PAYMENT] User cancelled payment: ${externalReference}`)
-
-      const { error: updateErr } = await supabase
-        .from('core_reservations')
-        .update({
-          status: 'inquiry',
-          payment_status: 'cancelled_by_user',
-          payment_url: null,
-        })
-        .eq('id', externalReference)
-
-      if (updateErr) {
-        console.error(`[CONFIRM-PAYMENT] Failed to update reservation ${externalReference}: ${updateErr}`)
-      }
-
-      return redirect(`${mpReturnUrl}/reserva/confirmar?status=cancelled&reservation_id=${externalReference}`)
-    }
-
-    // ── Determinar status según collection_status ───────────────────────
-    let dbStatus: string
-    let paymentStatus: string
     let finalStatus: string
-
-    if (collectionStatus === 'approved') {
-      dbStatus = 'confirmed'
-      paymentStatus = 'paid'
-      finalStatus = 'paid'
-    } else if (collectionStatus === 'rejected') {
-      dbStatus = 'inquiry'
-      paymentStatus = 'failed'
-      finalStatus = 'failed'
-    } else if (collectionStatus === 'pending') {
-      dbStatus = 'inquiry'
-      paymentStatus = 'pending'
-      finalStatus = 'pending'
-    } else {
-      dbStatus = 'inquiry'
-      paymentStatus = 'unknown'
-      finalStatus = 'unknown'
-    }
-
-    console.log(`[CONFIRM-PAYMENT] Processing redirect: ref=${externalReference}, status=${dbStatus}`)
-
-    // ── Actualizar reserva ──────────────────────────────────────────────
-    const updatePayload: any = {
-      status: dbStatus,
-      payment_status: paymentStatus,
-      payment_url: null,
-      payment_method: 'mercadopago',
-    }
-
-    const { error: updateErr } = await supabase
-      .from('core_reservations')
-      .update(updatePayload)
-      .eq('id', externalReference)
-
-    if (updateErr) {
-      console.error(`[CONFIRM-PAYMENT] Failed to update reservation ${externalReference}: ${updateErr}`)
-    }
+    if (!collectionStatus || collectionStatus === 'null') finalStatus = 'cancelled'
+    else if (collectionStatus === 'approved' || collectionStatus === 'pending') finalStatus = 'pending'
+    else if (collectionStatus === 'rejected') finalStatus = 'failed'
+    else finalStatus = 'unknown'
 
     return redirect(`${mpReturnUrl}/reserva/confirmar?status=${finalStatus}&reservation_id=${externalReference}`)
   } catch (e) {

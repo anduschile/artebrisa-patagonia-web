@@ -359,10 +359,16 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[PROCESS-PAYMENT] Iniciando pago: reservation_id=${reservation_id}, amount=${quotedTotal}`)
 
-  // DIAGNÓSTICO: payload completo enviado a Mercado Pago. No incluye datos
-  // crudos de tarjeta — 'token' es el token de un solo uso generado por el
-  // Card Payment Brick en el cliente, nunca el número de tarjeta/CVV/vencimiento.
-  console.log('[PROCESS-PAYMENT] Payload MP:', JSON.stringify(paymentPayload))
+  // Log mínimo del intento: NUNCA se loguea el token de tarjeta, el correo ni la
+  // identificación del pagador (el payload completo ya no se imprime).
+  console.log('[PROCESS-PAYMENT] Intento de pago:', JSON.stringify({
+    reservation_id,
+    amount: quotedTotal,
+    installments,
+    payment_method_id,
+    has_issuer: paymentPayload.issuer_id !== undefined,
+    has_identification: Boolean(paymentPayload.payer?.identification),
+  }))
 
   // ── 4. Call Mercado Pago API ───────────────────────────────────────────
   let mpResponse: Response
@@ -384,17 +390,11 @@ Deno.serve(async (req: Request) => {
   // ── 5. Handle Mercado Pago response ────────────────────────────────────
   const statusCode = mpResponse.status
 
-  // DIAGNÓSTICO TEMPORAL: leemos el body como texto crudo ANTES de intentar
-  // parsearlo, y logueamos también los headers — así no perdemos nada si el
-  // body no es JSON válido, o si trae campos que nuestro código no lee hoy.
-  // statusCode de arriba YA es el status HTTP real que devolvió Mercado Pago
-  // (mpResponse.status), no un 500 inventado por nosotros — pero antes nunca
-  // lo estábamos viendo por separado del texto que armamos para el cliente.
+  // Leemos el body como texto crudo ANTES de intentar parsearlo. Solo se loguea
+  // el http_status real que devolvió Mercado Pago: ni el body ni los headers se
+  // imprimen (traen correo, identificación y datos parciales de la tarjeta).
   const rawBodyText = await mpResponse.text()
-  const rawHeaders = Object.fromEntries(mpResponse.headers.entries())
   console.log(`[PROCESS-PAYMENT][DIAG] MP http_status real=${statusCode}`)
-  console.log('[PROCESS-PAYMENT][DIAG] MP headers:', JSON.stringify(rawHeaders))
-  console.log('[PROCESS-PAYMENT][DIAG] MP body crudo (sin parsear):', rawBodyText)
 
   let responseData: any
 
@@ -406,7 +406,11 @@ Deno.serve(async (req: Request) => {
   }
 
   if (!mpResponse.ok) {
-    console.error(`Mercado Pago error (status=${statusCode}):`, JSON.stringify(responseData))
+    console.error(`Mercado Pago error (status=${statusCode}):`, JSON.stringify({
+      message: responseData?.message,
+      error: responseData?.error,
+      cause: Array.isArray(responseData?.cause) ? responseData.cause.map((c: any) => ({ code: c?.code, description: c?.description })) : undefined,
+    }))
     const detail = responseData?.message || responseData?.cause?.[0]?.description || 'Unknown error'
     return jsonError(`Payment provider error: ${detail}`, 502)
   }
@@ -415,7 +419,7 @@ Deno.serve(async (req: Request) => {
   const mpStatus = responseData.status
 
   if (!paymentId || !mpStatus) {
-    console.error('Mercado Pago response missing id or status:', JSON.stringify(responseData))
+    console.error('Mercado Pago response missing id or status; campos recibidos:', Object.keys(responseData ?? {}).join(','))
     return jsonError('Invalid payment provider response', 502)
   }
 
