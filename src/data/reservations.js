@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { assertWritable } from '../lib/previewGuard'
 
 /**
  * Check for overlapping reservations using the half-open interval [check_in, check_out).
@@ -64,6 +65,7 @@ export async function createInquiryReservation({
     quoted_currency = 'CLP',
     quoted_nights = null,
 }) {
+    assertWritable()
     const payload = {
         property_id: unit.property_id,
         unit_id: unit.id,

@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { assertWritable } from '../lib/previewGuard'
 
 /** In-memory cache so we only query once per session */
 let cachedChannelId = null
@@ -25,6 +26,7 @@ export async function getWebChannelId() {
     }
 
     // Channel doesn't exist — insert it
+    assertWritable()
     const { data: inserted, error: insertError } = await supabase
         .from('core_channels')
         .insert({ code: 'WEB', name: 'Web Directa' })
