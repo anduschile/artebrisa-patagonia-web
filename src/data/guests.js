@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabaseClient'
+import { assertWritable } from '../lib/previewGuard'
 
 /**
  * Find or create a guest via the `find_or_create_guest` Supabase RPC.
@@ -8,6 +9,7 @@ import { supabase } from '../lib/supabaseClient'
  * @returns {Promise<string>} guest id (uuid)
  */
 export async function findOrCreateGuest({ full_name, email, phone }) {
+    assertWritable()
     if (!full_name || full_name.trim() === '') {
         throw new Error('full_name es obligatorio para crear un huésped')
     }
