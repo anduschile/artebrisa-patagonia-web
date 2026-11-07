@@ -402,6 +402,12 @@
         "checkDates": "Ver datas",
         "label": "Perguntar pelo WhatsApp"
     },
+    "price": {
+        "usdApprox": "Aprox. US$ {{amount}}",
+        "clpCharge": "Cobrado em pesos chilenos (CLP)",
+        "usdEstimate": "Equivalente estimado em dólares americanos",
+        "usdNote": "Apenas referência: US$ 1 ≈ {{rate}} CLP (taxa de {{date}}; fonte: {{source}}). O preço e a cobrança são em pesos chilenos (CLP); o seu banco pode aplicar outra taxa e tarifas."
+    },
     "whatsapp": {
         "prefill": "Olá! Gostaria de consultar a disponibilidade e as tarifas da Arte Brisa Patagonia em Puerto Natales, Chile. Obrigado!",
         "prefillTrek": "Olá! Estou organizando o W Trek e procuro hospedagem em Puerto Natales para antes ou depois da trilha. Gostaria de consultar a disponibilidade e as tarifas da Arte Brisa Patagonia. Obrigado!"

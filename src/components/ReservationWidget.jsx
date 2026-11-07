@@ -8,6 +8,8 @@ import { getConflicts, createInquiryReservation } from '../data/reservations'
 import { getDailyRatesForRange } from '../data/units'
 import { formatCLP } from '../data/unitDefaults'
 import { WHATSAPP_NUMBER } from '../config/contact'
+import { UsdEstimate } from './PriceTag'
+import { assertWritable } from '../lib/previewGuard'
 import { trackBeginCheckout, trackPurchaseOnce, trackWhatsappClick, trackCheckAvailability } from '../lib/analytics'
 import { useLang } from '../i18n/LangContext'
 
@@ -156,6 +158,7 @@ function CardPaymentForm({
                     onSubmit: async (cardFormData) => {
                         setProcessing(true)
                         try {
+                            assertWritable() // vista previa: nunca llegar a process-payment
                             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
                             const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
@@ -232,6 +235,7 @@ function CardPaymentForm({
                     <span className="text-slate-500">{t('booking.payment.totalToPay')}</span>
                     <span className="text-2xl font-black text-primary-700">{formatCLP(quotedTotal, lang)}</span>
                 </div>
+                <UsdEstimate clp={quotedTotal} className="text-right" />
                 <p className="text-xs text-slate-500 leading-snug">{t('booking.payment.currencyNote')}</p>
             </div>
 
@@ -661,6 +665,7 @@ export default function ReservationWidget({ unit }) {
                                     <span className="text-xs font-bold text-primary-600">{t('booking.consult')}</span>
                                 )}
                             </div>
+                            {!quote.loading && quote.total > 0 && <UsdEstimate clp={quote.total} showCharge />}
                         </div>
                     )}
 
@@ -712,6 +717,11 @@ export default function ReservationWidget({ unit }) {
                             <div className="flex justify-between pt-1 border-t border-slate-200 mt-1">
                                 <span className="font-bold text-slate-500 uppercase text-[10px]">{t('booking.estimatedTotal')}</span>
                                 <span className="font-black text-slate-900 text-sm">{formatCLP(quote.total, lang)}</span>
+                            </div>
+                        )}
+                        {quote.total > 0 && (
+                            <div className="flex justify-end">
+                                <UsdEstimate clp={quote.total} />
                             </div>
                         )}
                     </div>

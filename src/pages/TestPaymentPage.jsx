@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
+import { assertWritable } from '../lib/previewGuard'
 
 // ─── Página de prueba AISLADA del Card Payment Brick ──────────────────────
 //
@@ -70,6 +71,7 @@ export default function TestPaymentPage() {
 
     async function initializeBrick() {
         try {
+            assertWritable()
             const mpPublicKey = import.meta.env.VITE_MP_PUBLIC_KEY
             if (!mpPublicKey) {
                 setError('Mercado Pago no está configurado (falta VITE_MP_PUBLIC_KEY).')
@@ -101,6 +103,7 @@ export default function TestPaymentPage() {
                         setProcessing(true)
                         setError(null)
                         try {
+                            assertWritable() // vista previa: esta página cobra dinero real
                             const supabaseUrl = import.meta.env.VITE_SUPABASE_URL
                             const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 
