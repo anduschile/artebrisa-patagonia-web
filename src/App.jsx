@@ -7,19 +7,19 @@ import { useAdminPwaTags } from './lib/useAdminPwaTags'
 import HomePage from './pages/HomePage'
 import CabanasPage from './pages/CabanasPage'
 import DepartamentosPage from './pages/DepartamentosPage'
-import UnitDetailPage from './pages/UnitDetailPage'
-import PaymentConfirmPage from './pages/PaymentConfirmPage'
-import NotFoundPage from './pages/NotFoundPage'
 import TrekPage from './pages/TrekPage'
 
 // Página de prueba de pago y panel /admin: code-split aparte del sitio
 // público (ver INCIDENTES.md/auditoría de rendimiento) — no las visita el
 // 80% del tráfico y no deberían pesar en el bundle de las rutas públicas.
+const UnitDetailPage = lazy(() => import('./pages/UnitDetailPage'))
+const PaymentConfirmPage = lazy(() => import('./pages/PaymentConfirmPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const TestPaymentPage = lazy(() => import('./pages/TestPaymentPage'))
 
 // Admin
-import AdminGuard from './components/admin/AdminGuard'
-import AdminLayout from './components/admin/AdminLayout'
+const AdminGuard = lazy(() => import('./components/admin/AdminGuard'))
+const AdminLayout = lazy(() => import('./components/admin/AdminLayout'))
 const AdminLoginPage = lazy(() => import('./pages/admin/AdminLoginPage'))
 const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage'))
 const AdminReservationsPage = lazy(() => import('./pages/admin/AdminReservationsPage'))
@@ -42,8 +42,8 @@ export default function App() {
                     <Route path="/" element={<HomePage />} />
                     <Route path="/cabanas" element={<CabanasPage />} />
                     <Route path="/departamentos" element={<DepartamentosPage />} />
-                    <Route path="/unidad/:slug" element={<UnitDetailPage />} />
-                    <Route path="/reserva/confirmar" element={<PaymentConfirmPage />} />
+                    <Route path="/unidad/:slug" element={<Suspense fallback={LAZY_FALLBACK}><UnitDetailPage /></Suspense>} />
+                    <Route path="/reserva/confirmar" element={<Suspense fallback={LAZY_FALLBACK}><PaymentConfirmPage /></Suspense>} />
 
                     {/* ── Mismas páginas en inglés/alemán (/en/*, /de/*) ──
                         Textos en src/i18n/locales, meta en src/seo/pageMeta.js */}
@@ -51,7 +51,7 @@ export default function App() {
                         <Route index element={<HomePage />} />
                         <Route path="cabanas" element={<CabanasPage />} />
                         <Route path="departamentos" element={<DepartamentosPage />} />
-                        <Route path="unidad/:slug" element={<UnitDetailPage />} />
+                        <Route path="unidad/:slug" element={<Suspense fallback={LAZY_FALLBACK}><UnitDetailPage /></Suspense>} />
                     </Route>
 
                     {/* ── Landing exclusiva en inglés para Google Ads (grupo
@@ -61,7 +61,7 @@ export default function App() {
                         anidarla ahí. */}
                     <Route path="en/trek" element={<TrekPage />} />
 
-                    <Route path="*" element={<NotFoundPage />} />
+                    <Route path="*" element={<Suspense fallback={LAZY_FALLBACK}><NotFoundPage /></Suspense>} />
                 </Route>
 
                 {/* ── Página de prueba de pago, aislada y sin layout — NO enlazar
@@ -71,8 +71,8 @@ export default function App() {
 
                 {/* ── Admin ── */}
                 <Route path="/admin" element={<Suspense fallback={LAZY_FALLBACK}><AdminLoginPage /></Suspense>} />
-                <Route element={<AdminGuard />}>
-                    <Route element={<AdminLayout />}>
+                <Route element={<Suspense fallback={LAZY_FALLBACK}><AdminGuard /></Suspense>}>
+                    <Route element={<Suspense fallback={LAZY_FALLBACK}><AdminLayout /></Suspense>}>
                         <Route path="/admin/dashboard" element={<Suspense fallback={LAZY_FALLBACK}><AdminDashboardPage /></Suspense>} />
                         <Route path="/admin/reservas" element={<Suspense fallback={LAZY_FALLBACK}><AdminReservationsPage /></Suspense>} />
                         <Route path="/admin/tarifas" element={<Suspense fallback={LAZY_FALLBACK}><AdminRatesPage /></Suspense>} />

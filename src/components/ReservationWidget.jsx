@@ -10,6 +10,7 @@ import { formatCLP } from '../data/unitDefaults'
 import { WHATSAPP_NUMBER } from '../config/contact'
 import { UsdEstimate } from './PriceTag'
 import { assertWritable } from '../lib/previewGuard'
+import { loadMercadoPago } from '../lib/loadMercadoPago'
 import { trackBeginCheckout, trackPurchaseOnce, trackWhatsappClick, trackCheckAvailability } from '../lib/analytics'
 import { useLang } from '../i18n/LangContext'
 
@@ -139,6 +140,7 @@ function CardPaymentForm({
                 return
             }
 
+            await loadMercadoPago()
             window.mp = new window.MercadoPago(mpPublicKey, { locale: MP_LOCALES[lang] || 'es-CL' })
 
             const bricksBuilder = window.mp.bricks()
