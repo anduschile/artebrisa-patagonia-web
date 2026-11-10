@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { loadMercadoPago } from '../lib/loadMercadoPago'
 import { Helmet } from 'react-helmet-async'
 import { assertWritable } from '../lib/previewGuard'
 
@@ -78,6 +79,7 @@ export default function TestPaymentPage() {
                 return
             }
 
+            try { await loadMercadoPago() } catch { /* se informa abajo */ }
             if (!window.MercadoPago) {
                 setError('No se pudo cargar el SDK de Mercado Pago.')
                 return

@@ -1,14 +1,31 @@
-import { useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from './Navbar'
 import Footer from './Footer'
 import StickyCTA from './StickyCTA'
-import ChatWidget from './ChatWidget'
 import CookieBanner from './CookieBanner'
 import { LangContext } from '../i18n/LangContext'
 import { useLangFromPath } from '../i18n/useLangFromPath'
 import i18n from '../i18n/i18n'
 import { initAnalytics, trackPageView } from '../lib/analytics'
+
+// El chat no es necesario para pintar el hero: su código se descarga aparte y
+// se monta cuando el navegador está ocioso (o a los 2,5 s como máximo).
+const ChatWidget = lazy(() => import('./ChatWidget'))
+
+function DeferredChat() {
+    const [ready, setReady] = useState(false)
+    useEffect(() => {
+        const go = () => setReady(true)
+        if ('requestIdleCallback' in window) {
+            const id = window.requestIdleCallback(go, { timeout: 2500 })
+            return () => window.cancelIdleCallback(id)
+        }
+        const id = setTimeout(go, 1500)
+        return () => clearTimeout(id)
+    }, [])
+    return ready ? <Suspense fallback={null}><DeferredChat /></Suspense> : null
+}
 
 export default function Layout() {
     const location = useLocation()
@@ -41,7 +58,7 @@ export default function Layout() {
                 </main>
                 <Footer />
                 <StickyCTA />
-                <ChatWidget />
+                <DeferredChat />
                 <CookieBanner />
             </div>
         </LangContext.Provider>
