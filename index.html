@@ -9,7 +9,20 @@
     <!-- Preload del hero de cabañas (home y /cabanas), única variante 1600px
          (misma imagen que usa el CSS en todos los anchos).
          No se precarga el hero de departamentos: no es LCP en esas rutas. -->
-    <link rel="preload" as="image" type="image/webp" fetchpriority="high" href="/images/common/hero_cabanasa_artebrisa-1600.webp" />
+    <!-- /en/trek tiene su propio hero (CSS background, no descubrible en el HTML): se
+         precarga ese en vez del de cabañas, que ahí no se usa y competía por ancho de banda.
+         Script inline mínimo porque este HTML es el mismo para todas las rutas (SPA). -->
+    <script>
+      (function () {
+        var trek = location.pathname.replace(/\/+$/, '') === '/en/trek';
+        var l = document.createElement('link');
+        l.rel = 'preload'; l.as = 'image'; l.type = 'image/webp';
+        l.setAttribute('fetchpriority', 'high');
+        l.href = trek ? '/images/common/torres-del-paine-trek-hero-1920.webp'
+                      : '/images/common/hero_cabanasa_artebrisa-1600.webp';
+        document.head.appendChild(l);
+      })();
+    </script>
 
     <title>Arte Brisa Patagonia — Cabañas y Departamentos en Puerto Natales</title>
     <!-- Los tags marcados data-rh son el fallback estático (crawlers sin JS); react-helmet-async
